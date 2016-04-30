@@ -11,7 +11,7 @@ namespace LoadingScreenMod
     {
         internal static readonly Stopwatch stopWatch = new Stopwatch();
         static FastList<LoadingProfiler.Event> customAssetEvents;
-        internal const string NOT_FOUND = " (not found)", FAILED = " (failed)";
+        internal const string FAILED = " (failed)", DUPLICATE = " (duplicate)", NOT_FOUND = " (not found)";
 
         internal static void Init()
         {
@@ -30,6 +30,7 @@ namespace LoadingScreenMod
         internal static int Millis => (int) stopWatch.ElapsedMilliseconds;
         internal static long Ticks => stopWatch.ElapsedTicks;
         internal static void CustomAssetFailed(string name) => ModifyEvent(customAssetEvents, name, FAILED);
+        internal static void CustomAssetDuplicate(string name) => ModifyEvent(customAssetEvents, name, DUPLICATE);
         internal static void CustomAssetNotFound(string name) => ModifyEvent(customAssetEvents, name, NOT_FOUND);
 
         static void ModifyEvent(FastList<LoadingProfiler.Event> events, string eventName, string postfix)
@@ -79,7 +80,7 @@ namespace LoadingScreenMod
         string NameIdle => string.Concat(GRAY, name, OFF);
         string NameFailed => string.Concat(RED, name, Profiling.FAILED, OFF);
 
-        internal const string YELLOW = "<color #f0e000>", RED = "<color #f80000>", GRAY = "<color #c0c0c0>", OFF = "</color>";
+        internal const string YELLOW = "<color #f0e000>", RED = "<color #f04040>", GRAY = "<color #c0c0c0>", OFF = "</color>";
         internal static readonly StringBuilder builder = new StringBuilder();
 
         internal Sink(string name, int len)
@@ -106,7 +107,7 @@ namespace LoadingScreenMod
                     queue.Enqueue(last);
                 }
 
-                if (s[s.Length - 1] == ')' && (s.EndsWith(Profiling.NOT_FOUND) || s.EndsWith(Profiling.FAILED)))
+                if (s[s.Length - 1] == ')' && (s.EndsWith(Profiling.NOT_FOUND) || s.EndsWith(Profiling.DUPLICATE) || s.EndsWith(Profiling.FAILED)))
                     s = string.Concat(RED, s, OFF);
 
                 last = s;
@@ -267,7 +268,7 @@ namespace LoadingScreenMod
         readonly Sink sink;
         readonly string name;
         int state = 0;
-        int failed, notFound;
+        int failed, duplicate, notFound;
 
         internal DualProfilerSource(string name, int len) : base()
         {
@@ -290,13 +291,15 @@ namespace LoadingScreenMod
         }
 
         internal void SomeFailed() { failed++; AdjustName(); }
+        internal void SomeDuplicate() { duplicate++; AdjustName(); }
         internal void SomeNotFound() { notFound++; AdjustName(); }
 
         void AdjustName()
         {
             string s1 = failed == 0 ? String.Empty : string.Concat(failed.ToString(), " failed ");
-            string s2 = notFound == 0 ? String.Empty : string.Concat(notFound.ToString(), " not found");
-            sink.Name = name + " (" + s1 + s2 + ")";
+            string s2 = duplicate == 0 ? String.Empty : string.Concat(duplicate.ToString(), " duplicates ");
+            string s3 = notFound == 0 ? String.Empty : string.Concat(notFound.ToString(), " not found");
+            sink.Name = name + " (" + s1 + s2 + s3 + ")";
         }
     }
 

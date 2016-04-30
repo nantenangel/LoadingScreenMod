@@ -9,6 +9,7 @@ namespace LoadingScreenMod
     {
         internal static AssetReport instance;
         List<string> failed = new List<string>();
+        Dictionary<string, List<string>> duplicate = new Dictionary<string, List<string>>();
         Dictionary<string, HashSet<Package.Asset>> notFound = new Dictionary<string, HashSet<Package.Asset>>();
         StreamWriter w;
         const string steamid = @"<a href=""https://steamcommunity.com/sharedfiles/filedetails/?id=";
@@ -20,11 +21,25 @@ namespace LoadingScreenMod
 
         internal void Dispose()
         {
-            failed.Clear(); notFound.Clear();
-            instance = null; failed = null; notFound = null;
+            failed.Clear(); duplicate.Clear(); notFound.Clear();
+            instance = null; failed = null; duplicate = null; notFound = null;
         }
 
         internal void Failed(string name) => failed.Add(name);
+
+        internal void Duplicate(string name, string path)
+        {
+            List<string> list;
+
+            if (duplicate.TryGetValue(name, out list) && list != null)
+                list.Add(path);
+            else
+            {
+                list = new List<string>(1);
+                list.Add(path);
+                duplicate[name] = list;
+            }
+        }
 
         internal void NotFound(string name)
         {
@@ -61,18 +76,17 @@ namespace LoadingScreenMod
                 Para("To stop saving these files, disable the option \"Save assets report\" in Loading Screen Mod.");
                 Para("You can safely delete this file. No-one reads it except you.");
 
-                Save("Assets that failed to load", failed);
-                Save("Assets that were not found", notFound);
+                Save("Assets that failed to load", failed, "No failed assets.");
+                SaveDuplicates("Duplicate assets", duplicate);
+                SaveNotFound("Assets that were not found", notFound);
 
                 if (Settings.settings.loadUsed)
                 {
                     H1("The following custom assets were used in this city when it was saved");
-
-                    UsedAssets refs = AssetLoader.instance.refs;
-                    Save("Buildings", new List<string>(refs.Buildings));
-                    Save("Props", new List<string>(refs.Props));
-                    Save("Trees", new List<string>(refs.Trees));
-                    Save("Vehicles", new List<string>(refs.Vehicles));
+                    Save("Buildings", new List<string>(UsedAssets.instance.Buildings));
+                    Save("Props", new List<string>(UsedAssets.instance.Props));
+                    Save("Trees", new List<string>(UsedAssets.instance.Trees));
+                    Save("Vehicles", new List<string>(UsedAssets.instance.Vehicles));
                 }
                 else
                 {
@@ -94,18 +108,58 @@ namespace LoadingScreenMod
             }
         }
 
-        void Save(string heading, List<string> lines)
+        void Save(string heading, List<string> lines, string emptyMsg = "")
         {
             H2(heading);
-            lines.Sort();
 
-            foreach (var s in lines)
-                Para(Ref(s));
+            if (lines.Count == 0)
+            {
+                if (!string.IsNullOrEmpty(emptyMsg))
+                    Para(emptyMsg);
+            }
+            else
+            {
+                lines.Sort();
+
+                foreach (var s in lines)
+                    Para(Ref(s));
+            }
         }
 
-        void Save(string heading, Dictionary<string, HashSet<Package.Asset>> lines)
+        void SaveDuplicates(string heading, Dictionary<string, List<string>> lines)
         {
             H2(heading);
+
+            if (lines.Count == 0)
+            {
+                Para("No duplicates were found (in Cities Skylines, each 'PackageName.AssetName' must be unique).");
+                return;
+            }
+
+            List<string> keys = new List<string>(lines.Keys);
+            keys.Sort();
+
+            foreach (var key in keys)
+            {
+                string s = string.Concat(Ref(key), "</div><div>Duplicate found:");
+
+                foreach (string path in lines[key])
+                    s = string.Concat(s, " ", path);
+
+                Para(s);
+            }
+        }
+
+        void SaveNotFound(string heading, Dictionary<string, HashSet<Package.Asset>> lines)
+        {
+            H2(heading);
+
+            if (lines.Count == 0)
+            {
+                Para("No missing assets.");
+                return;
+            }
+
             List<string> keys = new List<string>(lines.Keys);
             keys.Sort();
 

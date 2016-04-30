@@ -14,11 +14,11 @@ namespace LoadingScreenMod
     public sealed class AssetLoader
     {
         public static AssetLoader instance;
-        internal UsedAssets refs;
-        HashSet<string> failedAssets = new HashSet<string>();
+        HashSet<string> failedAssets = new HashSet<string>(), loadedProps = new HashSet<string>(), loadedTrees = new HashSet<string>(), loadedTrailers = new HashSet<string>(),
+            loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>();
         Package.Asset loadedAsset;
         SteamHelper.DLC_BitMask notMask;
-        int propsCount, treeCount, buildingsCount, vehicleCount, lastMillis;
+        int propCount, treeCount, buildingCount, vehicleCount, lastMillis;
         readonly bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, reportAssets = Settings.settings.reportAssets;
         public bool hasStarted, hasFinished;
         internal const int yieldInterval = 200;
@@ -29,7 +29,7 @@ namespace LoadingScreenMod
             hasStarted = hasFinished = false;
         }
 
-        internal void Setup()
+        public void Setup()
         {
             if (reportAssets)
                 new AssetReport();
@@ -37,10 +37,10 @@ namespace LoadingScreenMod
 
         public void Dispose()
         {
-            refs?.Dispose();
+            UsedAssets.instance?.Dispose();
             AssetReport.instance?.Dispose();
-            failedAssets.Clear();
-            instance = null; refs = null; failedAssets = null;
+            failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedTrailers.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear();
+            instance = null; failedAssets = null; loadedProps = null; loadedTrees = null; loadedTrailers = null; loadedBuildings = null; loadedVehicles = null;
         }
 
         public IEnumerator LoadCustomContent()
@@ -102,17 +102,17 @@ namespace LoadingScreenMod
                 //while (!Profiling.SimulationPaused())
                 //    yield return null;
 
-                refs = new UsedAssets();
-                refs.Setup();
+                new UsedAssets().Setup();
             }
 
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Loading Assets First Pass");
             notMask = ~SteamHelper.GetOwnedDLCMask();
             lastMillis = Profiling.Millis;
+            Package.Asset[] assets = FilterAssets(UserAssetType.CustomAssetMetaData);
 
             // Load custom assets: props, trees, trailers
-            foreach (Package.Asset asset in PackageManager.FilterAssets(UserAssetType.CustomAssetMetaData))
-                if (asset != null && PropTreeTrailer(asset) && Profiling.Millis - lastMillis > yieldInterval)
+            for(i = 0; i < assets.Length; i++)
+                if (PropTreeTrailer(assets[i]) && Profiling.Millis - lastMillis > yieldInterval)
                 {
                     lastMillis = Profiling.Millis;
                     yield return null;
@@ -122,15 +122,17 @@ namespace LoadingScreenMod
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Loading Assets Second Pass");
 
             // Load custom assets: buildings and vehicles
-            foreach (Package.Asset asset in PackageManager.FilterAssets(UserAssetType.CustomAssetMetaData))
-                if (asset != null && BuildingVehicle(asset, styleBuildings.Contains(asset.fullName)) && Profiling.Millis - lastMillis > yieldInterval)
+            for (i = 0; i < assets.Length; i++)
+                if (BuildingVehicle(assets[i], styleBuildings.Contains(assets[i].fullName)) && Profiling.Millis - lastMillis > yieldInterval)
                 {
                     lastMillis = Profiling.Millis;
                     yield return null;
                 }
 
+            assets = null;
+
             if (loadUsed)
-                refs.ReportMissingAssets();
+                UsedAssets.instance.ReportMissingAssets();
 
             if (reportAssets)
                 AssetReport.instance.Save();
@@ -184,7 +186,7 @@ namespace LoadingScreenMod
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
 
             if (Singleton<TelemetryManager>.exists)
-                Singleton<TelemetryManager>.instance.CustomContentInfo(buildingsCount, propsCount, treeCount, vehicleCount);
+                Singleton<TelemetryManager>.instance.CustomContentInfo(buildingCount, propCount, treeCount, vehicleCount);
 
             LoadingManager.instance.m_loadingProfilerMain.EndLoading();
             hasFinished = true;
@@ -198,7 +200,7 @@ namespace LoadingScreenMod
             {
                 bool wantBecauseEnabled = loadEnabled && IsEnabled(asset);
 
-                if (!wantBecauseEnabled && !(loadUsed && refs.GotPropTreeTrailerPackage(asset.package.packageName)))
+                if (!wantBecauseEnabled && !(loadUsed && UsedAssets.instance.GotPropTreeTrailerPackage(asset.package.packageName)))
                     return false;
 
                 assetMetaData = asset.Instantiate<CustomAssetMetaData>();
@@ -207,9 +209,12 @@ namespace LoadingScreenMod
                     assetMetaData.type == CustomAssetMetaData.Type.Unknown || (AssetImporterAssetTemplate.GetAssetDLCMask(assetMetaData) & notMask) != 0)
                     return false;
 
-                if (wantBecauseEnabled || loadUsed && refs.GotPropTreeAsset(assetMetaData.assetRef.fullName) ||
-                    loadUsed && assetMetaData.type == CustomAssetMetaData.Type.Trailer && refs.GotTrailerAsset(assetMetaData.assetRef.fullName))
-                    PropTreeTrailerImpl(asset.package.packageName, assetMetaData.assetRef);
+                // Always remember: assetRef may point to another package because the deserialization method accepts any asset with a matching checksum.
+                string fullName = asset.package.packageName + "." + assetMetaData.assetRef.name;
+
+                if (wantBecauseEnabled || loadUsed && UsedAssets.instance.GotPropTreeAsset(fullName) ||
+                    loadUsed && assetMetaData.type == CustomAssetMetaData.Type.Trailer && UsedAssets.instance.GotTrailerAsset(fullName))
+                    PropTreeTrailerImpl(asset.package, assetMetaData.assetRef);
             }
             catch (Exception ex)
             {
@@ -220,16 +225,16 @@ namespace LoadingScreenMod
             return true;
         }
 
-        internal void PropTreeTrailerImpl(string packageName, Package.Asset data)
+        internal void PropTreeTrailerImpl(Package package, Package.Asset data)
         {
             try
             {
-                string name = AssetName(data.name);
-                LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(name);
+                LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(data.name));
                 // CODebugBase<LogChannel>.Log(LogChannel.Modding, string.Concat("Loading custom asset ", assetMetaData.name, " from ", asset));
 
                 GameObject go = data.Instantiate<GameObject>();
-                go.name = packageName + "." + go.name;
+                string fullName = package.packageName + "." + go.name;
+                go.name = fullName;
                 go.SetActive(false);
                 PrefabInfo info = go.GetComponent<PrefabInfo>();
                 info.m_isCustomContent = true;
@@ -244,16 +249,26 @@ namespace LoadingScreenMod
                     if (pi.m_lodObject != null)
                         pi.m_lodObject.SetActive(false);
 
-                    PrefabCollection<PropInfo>.InitializePrefabs("Custom Assets", pi, null);
-                    propsCount++;
+                    if (loadedProps.Add(fullName))
+                    {
+                        PrefabCollection<PropInfo>.InitializePrefabs("Custom Assets", pi, null);
+                        propCount++;
+                    }
+                    else
+                        Duplicate(fullName, package);
                 }
 
                 TreeInfo ti = go.GetComponent<TreeInfo>();
 
                 if (ti != null)
                 {
-                    PrefabCollection<TreeInfo>.InitializePrefabs("Custom Assets", ti, null);
-                    treeCount++;
+                    if (loadedTrees.Add(fullName))
+                    {
+                        PrefabCollection<TreeInfo>.InitializePrefabs("Custom Assets", ti, null);
+                        treeCount++;
+                    }
+                    else
+                        Duplicate(fullName, package);
                 }
 
                 // Trailers, this way.
@@ -261,7 +276,10 @@ namespace LoadingScreenMod
 
                 if (vi != null)
                 {
-                    PrefabCollection<VehicleInfo>.InitializePrefabs("Custom Assets", vi, null);
+                    if (loadedTrailers.Add(fullName))
+                        PrefabCollection<VehicleInfo>.InitializePrefabs("Custom Assets", vi, null);
+                    else
+                        Duplicate(fullName, package);
 
                     if (vi.m_lodObject != null)
                         vi.m_lodObject.SetActive(false);
@@ -281,7 +299,7 @@ namespace LoadingScreenMod
             {
                 bool wantBecauseEnabled = loadEnabled && IsEnabled(asset);
 
-                if (!includedInStyle && !wantBecauseEnabled && !(loadUsed && refs.GotBuildingVehiclePackage(asset.package.packageName)))
+                if (!includedInStyle && !wantBecauseEnabled && !(loadUsed && UsedAssets.instance.GotBuildingVehiclePackage(asset.package.packageName)))
                     return false;
 
                 assetMetaData = asset.Instantiate<CustomAssetMetaData>();
@@ -290,10 +308,10 @@ namespace LoadingScreenMod
                     assetMetaData.type != CustomAssetMetaData.Type.Unknown || (AssetImporterAssetTemplate.GetAssetDLCMask(assetMetaData) & notMask) != 0)
                     return false;
 
-                bool wanted = wantBecauseEnabled || loadUsed && refs.GotBuildingVehicleAsset(assetMetaData.assetRef.fullName);
+                bool wanted = wantBecauseEnabled || loadUsed && UsedAssets.instance.GotBuildingVehicleAsset(asset.package.packageName + "." + assetMetaData.assetRef.name);
 
                 if (includedInStyle || wanted)
-                    BuildingVehicleImpl(asset.package.packageName, assetMetaData.assetRef, wanted);
+                    BuildingVehicleImpl(asset.package, assetMetaData.assetRef, wanted);
             }
             catch (Exception ex)
             {
@@ -304,17 +322,17 @@ namespace LoadingScreenMod
             return true;
         }
 
-        void BuildingVehicleImpl(string packageName, Package.Asset data, bool wanted)
+        void BuildingVehicleImpl(Package package, Package.Asset data, bool wanted)
         {
             try
             {
-                string name = AssetName(data.name);
-                LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(name);
+                LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(data.name));
                 // CODebugBase<LogChannel>.Log(LogChannel.Modding, string.Concat("Loading custom asset ", assetMetaData.name, " from ", asset));
 
                 loadedAsset = data;
                 GameObject go = data.Instantiate<GameObject>();
-                go.name = packageName + "." + go.name;
+                string fullName = package.packageName + "." + go.name;
+                go.name = fullName;
                 go.SetActive(false);
                 PrefabInfo info = go.GetComponent<PrefabInfo>();
                 info.m_isCustomContent = true;
@@ -329,21 +347,30 @@ namespace LoadingScreenMod
                     if (bi.m_lodObject != null)
                         bi.m_lodObject.SetActive(false);
 
-                    PrefabCollection<BuildingInfo>.InitializePrefabs("Custom Assets", bi, null);
-                    bi.m_dontSpawnNormally = !wanted;
-                    buildingsCount++;
+                    if (loadedBuildings.Add(fullName))
+                    {
+                        PrefabCollection<BuildingInfo>.InitializePrefabs("Custom Assets", bi, null);
+                        bi.m_dontSpawnNormally = !wanted;
+                        buildingCount++;
+                    }
+                    else
+                        Duplicate(fullName, package);
                 }
 
                 VehicleInfo vi = go.GetComponent<VehicleInfo>();
 
                 if (vi != null)
                 {
-                    PrefabCollection<VehicleInfo>.InitializePrefabs("Custom Assets", vi, null);
+                    if (loadedVehicles.Add(fullName))
+                    {
+                        PrefabCollection<VehicleInfo>.InitializePrefabs("Custom Assets", vi, null);
+                        vehicleCount++;
+                    }
+                    else
+                        Duplicate(fullName, package);
 
                     if (vi.m_lodObject != null)
                         vi.m_lodObject.SetActive(false);
-
-                    vehicleCount++;
                 }
             }
             finally
@@ -353,9 +380,28 @@ namespace LoadingScreenMod
             }
         }
 
+        internal static Package.Asset[] FilterAssets(Package.AssetType assetType)
+        {
+            List<Package.Asset> enabled = new List<Package.Asset>(32), notEnabled = new List<Package.Asset>(32);
+
+            foreach (Package.Asset asset in PackageManager.FilterAssets(assetType))
+                if (asset != null)
+                    if (IsEnabled(asset))
+                        enabled.Add(asset);
+                    else
+                        notEnabled.Add(asset);
+
+            // Why enabled assets first? Because in duplicate prefab name situations, I want the enabled one to get through.
+            Package.Asset[] ret = new Package.Asset[enabled.Count + notEnabled.Count];
+            enabled.CopyTo(ret);
+            notEnabled.CopyTo(ret, enabled.Count);
+            enabled.Clear(); notEnabled.Clear();
+            return ret;
+        }
+
         // There is an interesting bug in the package manager: secondary CustomAssetMetaDatas in a crp are considered always enabled.
         // As a result, the game loads all vehicle trailers, no matter if they are enabled or not. This is the fix.
-        bool IsEnabled(Package.Asset asset)
+        static bool IsEnabled(Package.Asset asset)
         {
             if (asset.isMainAsset)
                 return asset.isEnabled;
@@ -365,6 +411,16 @@ namespace LoadingScreenMod
         }
 
         internal static string AssetName(string name_Data) => name_Data.Length > 5 && name_Data.EndsWith("_Data") ? name_Data.Substring(0, name_Data.Length - 5) : name_Data;
+
+        static string ShortenAssetName(string fullName_Data)
+        {
+            int j = fullName_Data.IndexOf('.');
+
+            if (j >= 0 && j < fullName_Data.Length - 1)
+                fullName_Data = fullName_Data.Substring(j + 1);
+
+            return AssetName(fullName_Data);
+        }
 
         internal void Failed(Package.Asset data, Exception e)
         {
@@ -386,6 +442,20 @@ namespace LoadingScreenMod
                 UnityEngine.Debug.LogException(e);
         }
 
+        internal void Duplicate(string name, Package package)
+        {
+            string path = package.packagePath ?? "Path unknown";
+
+            if (reportAssets)
+                AssetReport.instance.Duplicate(name, path);
+
+            Util.DebugPrint("Duplicate asset", name, "in", path);
+            name = ShortenAssetName(name);
+            Profiling.CustomAssetDuplicate(name);
+            DualProfilerSource profiler = LoadingScreen.instance.DualSource;
+            profiler?.SomeDuplicate();
+        }
+
         internal void NotFound(string name)
         {
             if (name != null)
@@ -401,12 +471,7 @@ namespace LoadingScreenMod
                 if (failedAssets.Add(name))
                 {
                     Util.DebugPrint("Asset not found:", name);
-                    int j = name.IndexOf('.');
-
-                    if (j >= 0 && j < name.Length - 1)
-                        name = name.Substring(j + 1);
-
-                    name = AssetName(name);
+                    name = ShortenAssetName(name);
                     LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(name);
                     Profiling.CustomAssetNotFound(name);
                     LoadingManager.instance.m_loadingProfilerCustomAsset.EndLoading();
@@ -439,12 +504,12 @@ namespace LoadingScreenMod
         {
             ulong id;
 
-            // Private: a local asset created by the player (not published on the workshop).
+            // Private: a local asset created by the player (not from the workshop).
             // My rationale is the following:
             // 43453453.Name -> Workshop
             // Name.Name     -> Private
             // Name          -> Either an old-format (early 2015) reference, or something from DLC/Deluxe/Pre-order packs.
-            //                  If loading is not successful then cannot tell for sure, assumed DLC/Deluxe/Pre-order.
+            //                  If loading is not successful then cannot tell for sure, assumed DLC/Deluxe/Pre-order when reported as not found.
 
             if (IsWorkshopPackage(fullName, out id))
                 return false;

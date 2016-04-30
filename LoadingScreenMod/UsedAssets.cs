@@ -8,13 +8,20 @@ namespace LoadingScreenMod
 {
     internal sealed class UsedAssets
     {
-        static readonly PackageDeserializer.CustomDeserializeHandler defaultHandler = PackageDeserializer.customDeserializer;
+        internal static UsedAssets instance;
+        readonly static PackageDeserializer.CustomDeserializeHandler defaultHandler = PackageDeserializer.customDeserializer;
         HashSet<string> buildingPackages = new HashSet<string>(), propPackages = new HashSet<string>(), treePackages = new HashSet<string>(), vehiclePackages = new HashSet<string>();
         HashSet<string> buildingAssets = new HashSet<string>(), propAssets = new HashSet<string>(), treeAssets = new HashSet<string>(), vehicleAssets = new HashSet<string>();
+        Package.Asset[] assets;
         internal HashSet<string> Buildings => buildingAssets;
         internal HashSet<string> Props => propAssets;
         internal HashSet<string> Trees => treeAssets;
         internal HashSet<string> Vehicles => vehicleAssets;
+
+        internal UsedAssets()
+        {
+            instance = this;
+        }
 
         internal void Setup()
         {
@@ -28,6 +35,7 @@ namespace LoadingScreenMod
         internal void Dispose()
         {
             PackageDeserializer.SetCustomDeserializer(defaultHandler);
+            instance = null; assets = null;
         }
 
         internal bool GotPropTreeTrailerPackage(string packageName)
@@ -193,10 +201,15 @@ namespace LoadingScreenMod
                             return asset;
                 }
 
+                Package.Asset[] a = UsedAssets.instance.assets;
+
+                if (a == null)
+                    a = UsedAssets.instance.assets = AssetLoader.FilterAssets(Package.AssetType.Object);
+
                 // We also try the old (early 2015) naming that does not contain the package name. FindLoaded does it, too.
-                foreach (Package.Asset asset in PackageManager.FilterAssets(Package.AssetType.Object))
-                    if (name == asset.fullName || name == asset.name)
-                        return asset;
+                for (int i = 0; i < a.Length; i++)
+                    if (name == a[i].fullName || name == a[i].name)
+                        return a[i];
             }
             catch (Exception e)
             {
@@ -214,7 +227,7 @@ namespace LoadingScreenMod
             if (data != null)
                 try
                 {
-                    AssetLoader.instance.PropTreeTrailerImpl(data.package.packageName, data);
+                    AssetLoader.instance.PropTreeTrailerImpl(data.package, data);
                     fullName = data.fullName;
                     return true;
                 }
@@ -235,7 +248,7 @@ namespace LoadingScreenMod
             if (data != null)
                 try
                 {
-                    AssetLoader.instance.PropTreeTrailerImpl(package.packageName, data);
+                    AssetLoader.instance.PropTreeTrailerImpl(package, data);
                     return true;
                 }
                 catch (Exception e)
