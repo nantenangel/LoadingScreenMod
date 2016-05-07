@@ -103,7 +103,6 @@ namespace LoadingScreenMod
             imageMesh = null; imageMaterial = null; animationMesh = null; animationMaterial = null; barBGMaterial = null; barFGMaterial = null; textMaterial = null; bgMesh = null; bgMaterial = null;
             imageLoaded = animationLoaded = fontLoaded = bgLoaded = false;
             AssetLoader.instance?.Dispose();
-            Sharing.instance?.Dispose();
             Profiling.Stop();
         }
 

@@ -10,7 +10,8 @@ namespace LoadingScreenMod
         internal static AssetReport instance;
         List<string> failed = new List<string>();
         Dictionary<string, List<string>> duplicate = new Dictionary<string, List<string>>();
-        Dictionary<string, HashSet<Package.Asset>> notFound = new Dictionary<string, HashSet<Package.Asset>>();
+        List<string> notFound = new List<string>();
+        Dictionary<string, HashSet<Package.Asset>> notFoundIndirect = new Dictionary<string, HashSet<Package.Asset>>();
         StreamWriter w;
         const string steamid = @"<a href=""https://steamcommunity.com/sharedfiles/filedetails/?id=";
 
@@ -21,8 +22,8 @@ namespace LoadingScreenMod
 
         internal void Dispose()
         {
-            failed.Clear(); duplicate.Clear(); notFound.Clear();
-            instance = null; failed = null; duplicate = null; notFound = null;
+            failed.Clear(); duplicate.Clear(); notFoundIndirect.Clear();
+            instance = null; failed = null; duplicate = null; notFoundIndirect = null;
         }
 
         internal void Failed(string name) => failed.Add(name);
@@ -41,23 +42,19 @@ namespace LoadingScreenMod
             }
         }
 
-        internal void NotFound(string name)
-        {
-            if (!notFound.ContainsKey(name))
-                notFound[name] = null;
-        }
+        internal void NotFound(string name) => notFound.Add(name);
 
         internal void NotFound(string name, Package.Asset referencedBy)
         {
             HashSet<Package.Asset> set;
 
-            if (notFound.TryGetValue(name, out set) && set != null)
+            if (notFoundIndirect.TryGetValue(name, out set) && set != null)
                 set.Add(referencedBy);
             else
             {
                 set = new HashSet<Package.Asset>();
                 set.Add(referencedBy);
-                notFound[name] = set;
+                notFoundIndirect[name] = set;
             }
         }
 
@@ -76,17 +73,17 @@ namespace LoadingScreenMod
                 Para("To stop saving these files, disable the option \"Save assets report\" in Loading Screen Mod.");
                 Para("You can safely delete this file. No-one reads it except you.");
 
-                Save("Assets that failed to load", failed, "No failed assets.");
-                SaveDuplicates("Duplicate assets", duplicate);
-                SaveNotFound("Assets that were not found", notFound);
+                Save(failed, "Assets that failed to load", "No failed assets.");
+                SaveDuplicates("Duplicate assets");
+                SaveNotFound("Assets that were not found");
 
                 if (Settings.settings.loadUsed)
                 {
                     H1("The following custom assets were used in this city when it was saved");
-                    Save("Buildings", new List<string>(UsedAssets.instance.Buildings));
-                    Save("Props", new List<string>(UsedAssets.instance.Props));
-                    Save("Trees", new List<string>(UsedAssets.instance.Trees));
-                    Save("Vehicles", new List<string>(UsedAssets.instance.Vehicles));
+                    Save(new List<string>(UsedAssets.instance.Buildings), "Buildings");
+                    Save(new List<string>(UsedAssets.instance.Props), "Props");
+                    Save(new List<string>(UsedAssets.instance.Trees), "Trees");
+                    Save(new List<string>(UsedAssets.instance.Vehicles), "Vehicles");
                 }
                 else
                 {
@@ -108,9 +105,10 @@ namespace LoadingScreenMod
             }
         }
 
-        void Save(string heading, List<string> lines, string emptyMsg = "")
+        void Save(List<string> lines, string heading = "", string emptyMsg = "")
         {
-            H2(heading);
+            if (!string.IsNullOrEmpty(heading))
+                H2(heading);
 
             if (lines.Count == 0)
             {
@@ -126,71 +124,83 @@ namespace LoadingScreenMod
             }
         }
 
-        void SaveDuplicates(string heading, Dictionary<string, List<string>> lines)
+        void SaveDuplicates(string heading)
         {
             H2(heading);
 
-            if (lines.Count == 0)
+            if (duplicate.Count == 0)
             {
                 Para("No duplicates were found (in Cities Skylines, each 'PackageName.AssetName' must be unique).");
                 return;
             }
 
-            List<string> keys = new List<string>(lines.Keys);
+            List<string> keys = new List<string>(duplicate.Keys);
             keys.Sort();
 
             foreach (var key in keys)
             {
                 string s = string.Concat(Ref(key), "</div><div>Duplicate found:");
 
-                foreach (string path in lines[key])
+                foreach (string path in duplicate[key])
                     s = string.Concat(s, " ", path);
 
                 Para(s);
             }
         }
 
-        void SaveNotFound(string heading, Dictionary<string, HashSet<Package.Asset>> lines)
+        void SaveNotFound(string heading)
         {
             H2(heading);
 
-            if (lines.Count == 0)
+            if (notFound.Count == 0 && notFoundIndirect.Count == 0)
             {
                 Para("No missing assets.");
                 return;
             }
 
-            List<string> keys = new List<string>(lines.Keys);
-            keys.Sort();
-
-            foreach (var key in keys)
+            if (notFound.Count > 0)
             {
-                HashSet<Package.Asset> set = lines[key];
-                string refkey = Ref(key);
+                Para("Note: the following assets are used in your city but could not be found. You should get the assets if possible. These cases can break savegames.");
+                Save(notFound);
+            }
 
-                if (set == null)
-                    Para(refkey);
-                else
+            if (notFoundIndirect.Count > 0)
+            {
+                Para("Note: the following missing assets are used in buildings and parks. These cases should <b>not</b> break savegames.");
+                List<string> keys = new List<string>(notFoundIndirect.Keys);
+                keys.Sort();
+
+                foreach (var key in keys)
                 {
-                    string s = string.Concat(refkey, "</div><div>Required in:");
-                    ulong id;
-                    bool fromWorkshop = false;
+                    HashSet<Package.Asset> set = notFoundIndirect[key];
+                    string refkey = Ref(key);
 
-                    foreach(Package.Asset asset in set)
+                    if (set == null)
+                        Para(refkey);
+                    else
                     {
-                        s = string.Concat(s, " ", Ref(asset));
-                        fromWorkshop = fromWorkshop || AssetLoader.IsWorkshopPackage(asset.package, out id);
-                    }
+                        string s = string.Concat(refkey, "</div><div>Required in:");
+                        ulong id;
+                        bool fromWorkshop = false;
 
-                    if (fromWorkshop && !AssetLoader.IsWorkshopPackage(key, out id))
-                    {
-                        if (AssetLoader.IsPrivatePackage(key))
-                            s = string.Concat(s, " <b>Workshop asset requires private content, seems like asset bug?</b>");
-                        else
-                            s = string.Concat(s, " <b>Workshop asset requires DLC/Deluxe/Pre-order content?</b>");
-                    }
+                        foreach (Package.Asset asset in set)
+                        {
+                            s = string.Concat(s, " ", Ref(asset));
+                            fromWorkshop = fromWorkshop || AssetLoader.IsWorkshopPackage(asset.package, out id);
+                        }
 
-                    Para(s);
+                        if (fromWorkshop && !AssetLoader.IsWorkshopPackage(key, out id))
+                        {
+                            if (AssetLoader.IsPrivatePackage(key))
+                                s = string.Concat(s, " <b>Workshop asset requires private content, seems like asset bug?</b>");
+                            else if (key.EndsWith("_Data"))
+                                s = string.Concat(s, " <b>Probably a Workshop prop or tree but no link is available</b>");
+                            else
+                                s = string.Concat(s, " <b>Workshop asset requires DLC/Deluxe/Pre-order content?</b>");
+                        }
+
+                        Para(s);
+                    }
                 }
             }
         }

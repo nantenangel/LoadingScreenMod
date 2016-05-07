@@ -37,10 +37,25 @@ namespace LoadingScreenMod
 
         public void Dispose()
         {
-            UsedAssets.instance?.Dispose();
-            AssetReport.instance?.Dispose();
             failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedTrailers.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear();
             instance = null; failedAssets = null; loadedProps = null; loadedTrees = null; loadedTrailers = null; loadedBuildings = null; loadedVehicles = null;
+        }
+
+        void ReportAndDispose()
+        {
+            if (loadUsed)
+                UsedAssets.instance.ReportMissingAssets();
+
+            if (reportAssets)
+            {
+                AssetReport.instance.Save();
+                AssetReport.instance?.Dispose();
+            }
+
+            if (loadUsed)
+                UsedAssets.instance?.Dispose();
+
+            Sharing.instance?.Dispose();
         }
 
         public IEnumerator LoadCustomContent()
@@ -109,9 +124,10 @@ namespace LoadingScreenMod
             notMask = ~SteamHelper.GetOwnedDLCMask();
             lastMillis = Profiling.Millis;
             Package.Asset[] assets = FilterAssets(UserAssetType.CustomAssetMetaData);
+            Sharing.instance?.Start();
 
             // Load custom assets: props, trees, trailers
-            for(i = 0; i < assets.Length; i++)
+            for (i = 0; i < assets.Length; i++)
                 if (PropTreeTrailer(assets[i]) && Profiling.Millis - lastMillis > yieldInterval)
                 {
                     lastMillis = Profiling.Millis;
@@ -130,12 +146,7 @@ namespace LoadingScreenMod
                 }
 
             assets = null;
-
-            if (loadUsed)
-                UsedAssets.instance.ReportMissingAssets();
-
-            if (reportAssets)
-                AssetReport.instance.Save();
+            ReportAndDispose();
 
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Finalizing District Styles");

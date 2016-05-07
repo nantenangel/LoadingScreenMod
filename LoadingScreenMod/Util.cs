@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using ColossalFramework.IO;
 using System.IO;
+using System.Text;
 
 namespace LoadingScreenMod
 {
@@ -65,6 +66,14 @@ namespace LoadingScreenMod
             instance.GetType().GetField(field, BindingFlags.NonPublic | BindingFlags.Instance).SetValue(instance, value);
         }
 
+        internal static void SaveFile(string fileBody, string extension, StringBuilder content)
+        {
+            using (StreamWriter writer = new StreamWriter(GetFileName(fileBody, extension)))
+            {
+                writer.Write(content.ToString());
+            }
+        }
+
         internal static string GetFileName(string fileBody, string extension)
         {
             string name = fileBody + string.Format("-{0:yyyy-MM-dd_HH-mm-ss}." + extension, DateTime.Now);
@@ -88,6 +97,15 @@ namespace LoadingScreenMod
                 UnityEngine.Debug.LogException(e);
                 return String.Empty;
             }
+        }
+
+        /// <summary>
+        /// Creates a delegate for a non-public static void method in class T that takes parameters of types P, Q, and R.
+        /// </summary>
+        public static Action<P, Q, R> CreateStaticAction<P, Q, R>(Type type, string methodName)
+        {
+            MethodInfo m = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
+            return (Action<P, Q, R>) Delegate.CreateDelegate(typeof(Action<P, Q, R>), m);
         }
     }
 }
