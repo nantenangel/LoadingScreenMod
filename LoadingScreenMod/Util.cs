@@ -66,14 +66,6 @@ namespace LoadingScreenMod
             instance.GetType().GetField(field, BindingFlags.NonPublic | BindingFlags.Instance).SetValue(instance, value);
         }
 
-        internal static void SaveFile(string fileBody, string extension, StringBuilder content)
-        {
-            using (StreamWriter writer = new StreamWriter(GetFileName(fileBody, extension)))
-            {
-                writer.Write(content.ToString());
-            }
-        }
-
         internal static string GetFileName(string fileBody, string extension)
         {
             string name = fileBody + string.Format("-{0:yyyy-MM-dd_HH-mm-ss}." + extension, DateTime.Now);

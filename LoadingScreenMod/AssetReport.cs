@@ -166,6 +166,9 @@ namespace LoadingScreenMod
 
             if (notFoundIndirect.Count > 0)
             {
+                if (notFound.Count > 0)
+                    w.WriteLine("<br>");
+
                 Para("Note: the following missing assets are used in buildings and parks. These cases should <b>not</b> break savegames.");
                 List<string> keys = new List<string>(notFoundIndirect.Keys);
                 keys.Sort();

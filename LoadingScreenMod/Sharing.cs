@@ -21,20 +21,16 @@ namespace LoadingScreenMod
         Dictionary<string, MaterialData> materials = new Dictionary<string, MaterialData>();
         Dictionary<string, Mesh> meshes = new Dictionary<string, Mesh>();
         bool shareTextures, shareMaterials, shareMeshes, isMain;
-        static string indent = string.Empty;
-        static StreamWriter w;
 
         internal Sharing()
         {
             instance = this;
-            init(typeof(PackageDeserializer), "DeserializeGameObject");
-            init(typeof(PackageDeserializer), "DeserializeMonoBehaviour");
 
             // Be quick, or the JIT Compiler will inline calls to this one. It is a small method, less than 32 IL bytes.
             init(typeof(PackageDeserializer), "DeserializeMeshFilter");
             init(typeof(PackageDeserializer), "DeserializeMaterial");
             init(typeof(PackageDeserializer), "DeserializeMeshRenderer");
-            w = new StreamWriter(Util.GetFileName("Objects", "txt"));
+            init(typeof(PackageDeserializer), "DeserializeGameObject");
         }
 
         internal override void Dispose()
@@ -44,7 +40,6 @@ namespace LoadingScreenMod
             base.Dispose();
             textures.Clear(); materials.Clear(); meshes.Clear();
             instance = null; textures = null; materials = null; meshes = null;
-            w.Dispose();
         }
 
         internal void Start()
@@ -65,56 +60,10 @@ namespace LoadingScreenMod
             int num = reader.ReadInt32();
             Sharing.instance.isMain = num > 3;
 
-            string ind = Sharing.indent;
-            Sharing.w.WriteLine(ind + "GO: " + gameObject.name + ", " + num + (Sharing.instance.isMain ? "\t\tMAIN" : String.Empty));
-            Sharing.indent += "  ";
-
             for (int i = 0; i < num; i++)
                 Sharing.instance.DeserializeComponent(package, gameObject, reader);
 
-            Sharing.indent = ind;
             return gameObject;
-        }
-
-        internal static void DeserializeMonoBehaviour(Package package, MonoBehaviour behaviour, PackageReader reader)
-        {
-            int num = reader.ReadInt32();
-            string ind = Sharing.indent;
-            Sharing.w.WriteLine(ind + behaviour.GetType().Name + ": " + num);
-            Sharing.indent += "  ";
-
-            for (int i = 0; i < num; i++)
-            {
-                Type type;
-                string name;
-
-                if (DeserializeHeader(out type, out name, reader))
-                {
-                    FieldInfo field = behaviour.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                    Type expectedType = (field != null) ? field.FieldType : null;
-
-                    if (type.IsArray)
-                    {
-                        int num2 = reader.ReadInt32();
-                        Array array = Array.CreateInstance(type.GetElementType(), num2);
-
-                        for (int j = 0; j < num2; j++)
-                            array.SetValue(Util.InvokeStatic(typeof(PackageDeserializer), "DeserializeSingleObject", package, type.GetElementType(), reader, expectedType), j);
-
-                        if (field != null)
-                            field.SetValue(behaviour, array);
-                    }
-                    else
-                    {
-                        object value = Util.InvokeStatic(typeof(PackageDeserializer), "DeserializeSingleObject", package, type, reader, expectedType);
-
-                        if (field != null)
-                            field.SetValue(behaviour, value);
-                    }
-                }
-            }
-
-            Sharing.indent = ind;
         }
 
         internal static UnityEngine.Object DeserializeMaterial(Package package, PackageReader reader)
@@ -124,10 +73,6 @@ namespace LoadingScreenMod
             Material material = new Material(Shader.Find(shaderName));
             material.name = materialName;
             int numProperties = reader.ReadInt32();
-
-            string ind = Sharing.indent;
-            Sharing.w.WriteLine(ind + "Material: " + material.name + ", " + material.shader.name);
-            Sharing.indent += "  ";
             bool share = Sharing.instance.shareTextures && Sharing.instance.isMain;
 
             for (int i = 0; i < numProperties; i++)
@@ -138,20 +83,16 @@ namespace LoadingScreenMod
                 {
                     string s = reader.ReadString();
                     material.SetColor(s, reader.ReadColor());
-                    Sharing.w.WriteLine(Sharing.indent + "Color " + s);
                 }
                 else if (kind == 1)
                 {
                     string s = reader.ReadString();
                     material.SetVector(s, reader.ReadVector4());
-                    Sharing.w.WriteLine(Sharing.indent + "Vector " + s);
                 }
                 else if (kind == 2)
                 {
                     string s = reader.ReadString();
-                    float f = reader.ReadSingle();
-                    material.SetFloat(s, f);
-                    Sharing.w.WriteLine(Sharing.indent + "Float " + s + ": " + f);
+                    material.SetFloat(s, reader.ReadSingle());
                 }
                 else if (kind == 3)
                 {
@@ -173,19 +114,14 @@ namespace LoadingScreenMod
                                 Sharing.instance.textures[checksum] = texture;
                         }
 
-                        Sharing.w.WriteLine(Sharing.indent + texture.GetType().Name + " " + propertyName + ": " + texture.name + " " + texture.width + " x " + texture.height);
                         material.SetTexture(propertyName, texture);
                         Sharing.instance.textureCount++;
                     }
                     else
-                    {
-                        Sharing.w.WriteLine(Sharing.indent + "Texture " + propertyName + ": null");
                         material.SetTexture(propertyName, null);
-                    }
                 }
             }
 
-            Sharing.indent = ind;
             return material;
         }
 
@@ -193,10 +129,6 @@ namespace LoadingScreenMod
         {
             int count = reader.ReadInt32();
             Material[] materials = new Material[count];
-
-            string ind = Sharing.indent;
-            Sharing.w.WriteLine(ind + "Shared materials:");
-            Sharing.indent += "  ";
             bool share = Sharing.instance.shareMaterials && Sharing.instance.isMain;
 
             for (int i = 0; i < count; i++)
@@ -225,9 +157,6 @@ namespace LoadingScreenMod
             }
 
             renderer.sharedMaterials = materials;
-
-            Sharing.w.WriteLine(ind + "Materials count was " + materials.Length);
-            Sharing.indent = ind;
         }
 
         internal static void DeserializeMeshFilter(Package package, MeshFilter meshFilter, PackageReader reader)
@@ -235,9 +164,6 @@ namespace LoadingScreenMod
             bool share = Sharing.instance.shareMeshes;
             string checksum = reader.ReadString();
             Mesh mesh;
-
-            string ind = Sharing.indent;
-            Sharing.indent += "  ";
 
             if (share && Sharing.instance.meshes.TryGetValue(checksum, out mesh))
                 Sharing.instance.meshit++;
@@ -251,50 +177,6 @@ namespace LoadingScreenMod
             }
 
             meshFilter.sharedMesh = mesh;
-
-            Sharing.w.WriteLine(ind + "Mesh: " + mesh.name + ", " + mesh.vertexCount + ", " + mesh.subMeshCount);
-            Sharing.indent = ind;
-        }
-
-        static bool DeserializeHeader(out Type type, out string name, PackageReader reader)
-        {
-            type = null;
-            name = null;
-
-            if (reader.ReadBoolean())
-                return false;
-
-            string text = reader.ReadString();
-            type = Type.GetType(text);
-            name = reader.ReadString();
-
-            if (type == null)
-            {
-                type = Type.GetType((string) Util.InvokeStatic(typeof(PackageDeserializer), "ResolveLegacyType", text));
-
-                if (type == null)
-                {
-                    if (HandleUnknownType(text, reader) < 0)
-                        throw new InvalidDataException("Unknown type to deserialize " + text);
-
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        static int HandleUnknownType(string type, PackageReader reader)
-        {
-            int num = (int) Util.InvokeStatic(typeof(PackageDeserializer), "HandleUnknownType", type);
-
-            if (num > 0)
-            {
-                reader.ReadBytes(num);
-                return num;
-            }
-
-            return -1;
         }
     }
 
