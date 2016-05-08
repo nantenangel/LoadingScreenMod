@@ -70,10 +70,10 @@ namespace LoadingScreenMod
                 w.WriteLine(@"</style></head><body>");
 
                 H1(AssetLoader.AssetName(LevelLoader.instance.cityName));
-                Para("To stop saving these files, disable the option \"Save assets report\" in Loading Screen Mod.");
-                Para("You can safely delete this file. No-one reads it except you.");
+                Para("<i>To stop saving these files, disable the option \"Save assets report\" in Loading Screen Mod.</i>");
+                Para("<i>You can safely delete this file. No-one reads it except you.</i>");
 
-                Save(failed, "Assets that failed to load", "No failed assets.");
+                Save(failed, "Assets that failed to load", "<i>No failed assets.</i>");
                 SaveDuplicates("Duplicate assets");
                 SaveNotFound("Assets that were not found");
 
@@ -87,9 +87,9 @@ namespace LoadingScreenMod
                 }
                 else
                 {
-                    Para("Enable the option \"Load used assets\" to track missing assets.");
+                    Para("<i>Enable the option \"Load used assets\" to track missing assets.</i>");
                     H1("Used assets");
-                    Para("To also list the custom assets used in this city, enable the option \"Load used assets\" in Loading Screen Mod.");
+                    Para("<i>To also list the custom assets used in this city, enable the option \"Load used assets\" in Loading Screen Mod.</i>");
                 }
 
                 w.WriteLine(@"</body></html>");
@@ -130,7 +130,7 @@ namespace LoadingScreenMod
 
             if (duplicate.Count == 0)
             {
-                Para("No duplicates were found (in Cities Skylines, each 'PackageName.AssetName' must be unique).");
+                Para("<i>No duplicates were found (in Cities Skylines, each 'PackageName.AssetName' must be unique).</i>");
                 return;
             }
 
@@ -154,13 +154,13 @@ namespace LoadingScreenMod
 
             if (notFound.Count == 0 && notFoundIndirect.Count == 0)
             {
-                Para("No missing assets.");
+                Para("<i>No missing assets.</i>");
                 return;
             }
 
             if (notFound.Count > 0)
             {
-                Para("Note: the following assets are used in your city but could not be found. You should get the assets if possible. These cases can break savegames.");
+                Para("<i>Note: the following assets are used in your city but could not be found. You should get the assets if possible. These cases can break savegames.</i>");
                 Save(notFound);
             }
 
@@ -169,7 +169,7 @@ namespace LoadingScreenMod
                 if (notFound.Count > 0)
                     w.WriteLine("<br>");
 
-                Para("Note: the following missing assets are used in buildings and parks. These cases should <b>not</b> break savegames.");
+                Para("<i>Note: the following missing assets are used in buildings and parks. These cases should <b>not</b> break savegames.</i>");
                 List<string> keys = new List<string>(notFoundIndirect.Keys);
                 keys.Sort();
 
