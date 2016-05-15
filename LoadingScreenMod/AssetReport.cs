@@ -13,7 +13,7 @@ namespace LoadingScreenMod
         List<string> notFound = new List<string>();
         Dictionary<string, HashSet<Package.Asset>> notFoundIndirect = new Dictionary<string, HashSet<Package.Asset>>();
         StreamWriter w;
-        const string steamid = @"<a href=""https://steamcommunity.com/sharedfiles/filedetails/?id=";
+        const string steamid = @"<a target=""_blank"" href=""https://steamcommunity.com/sharedfiles/filedetails/?id=";
 
         internal AssetReport()
         {

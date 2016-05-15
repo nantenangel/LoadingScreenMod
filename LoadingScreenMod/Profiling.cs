@@ -324,7 +324,13 @@ namespace LoadingScreenMod
                 MemoryAPI.GetUsage(out pagefileUsage, out workingSetSize);
                 int pfMegas = (int) (pagefileUsage >> 20), wsMegas = (int) (workingSetSize >> 20);
                 string gigas = (wsMegas / 1024f).ToString("F2");
-                return pfMegas < systemMegas ? string.Concat(gigas, " GB") : string.Concat(Sink.RED, gigas, Sink.OFF, " GB");
+
+                if (systemMegas / 3 < wsMegas)
+                    return string.Concat(Sink.RED, gigas, Sink.OFF, " GB");
+                else if (systemMegas / 3 < pfMegas)
+                    return string.Concat(Sink.YELLOW, gigas, Sink.OFF, " GB");
+                else
+                    return string.Concat(gigas, " GB");
             }
             catch (Exception)
             {

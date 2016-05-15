@@ -92,7 +92,7 @@ namespace LoadingScreenMod
         }
 
         /// <summary>
-        /// Creates a delegate for a non-public static void method in class T that takes parameters of types P, Q, and R.
+        /// Creates a delegate for a non-public static void method in class 'type' that takes parameters of types P, Q, and R.
         /// </summary>
         public static Action<P, Q, R> CreateStaticAction<P, Q, R>(Type type, string methodName)
         {

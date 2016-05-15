@@ -16,7 +16,8 @@ namespace LoadingScreenMod
     {
         public static LevelLoader instance;
         public string cityName;
-        public bool activated, simulationFailed;
+        readonly HashSet<string> knownToFail = new HashSet<string>(); // assets that failed or are missing
+        public bool activated, simulationFailed, fastLoad;
 
         internal LevelLoader()
         {
@@ -24,10 +25,17 @@ namespace LoadingScreenMod
             init(Singleton<LoadingManager>.instance.GetType(), "LoadLevel", 4, 0, typeof(Package.Asset));
         }
 
+        internal void AddFailedAssets(HashSet<string> assets)
+        {
+            foreach (string fullName in assets)
+                knownToFail.Add(fullName);
+        }
+
         internal override void Dispose()
         {
             Revert();
             base.Dispose();
+            knownToFail.Clear();
             instance = null;
         }
 
@@ -95,35 +103,79 @@ namespace LoadingScreenMod
                 LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
             }
 
-            if (LoadingManager.instance.m_loadedEnvironment != null) // loading from in-game
+            if (LoadingManager.instance.m_loadedEnvironment == null) // loading from main menu
             {
+                Util.DebugPrint("Loading from main menu", Profiling.Millis);
+                knownToFail.Clear();
+                fastLoad = false;
+            }
+            else // loading from in-game
+            {
+                Util.DebugPrint("Loading from in-game", Profiling.Millis);
+
                 while (!LoadingManager.instance.m_metaDataLoaded && !task.completedOrFailed) // IL_158
                     yield return null;
 
-                if (Singleton<SimulationManager>.instance.m_metaData == null)
+                if (SimulationManager.instance.m_metaData == null)
                 {
-                    Singleton<SimulationManager>.instance.m_metaData = new SimulationMetaData();
-                    Singleton<SimulationManager>.instance.m_metaData.m_environment = "Sunny";
-                    Singleton<SimulationManager>.instance.m_metaData.Merge(ngs);
+                    SimulationManager.instance.m_metaData = new SimulationMetaData();
+                    SimulationManager.instance.m_metaData.m_environment = "Sunny";
+                    SimulationManager.instance.m_metaData.Merge(ngs);
                 }
 
-                string mapThemeName = Singleton<SimulationManager>.instance.m_metaData.m_MapThemeMetaData?.name;
+                string mapThemeName = SimulationManager.instance.m_metaData.m_MapThemeMetaData?.name;
+                fastLoad = SimulationManager.instance.m_metaData.m_environment == LoadingManager.instance.m_loadedEnvironment && mapThemeName == LoadingManager.instance.m_loadedMapTheme;
 
-                if (Singleton<SimulationManager>.instance.m_metaData.m_environment == LoadingManager.instance.m_loadedEnvironment && mapThemeName == LoadingManager.instance.m_loadedMapTheme)
+                // The game is nicely optimized when loading from in-game. We must specifically address the following situation:
+                // - loading from in-game
+                // - environment (biome) stays the same
+                // - map theme stays the same
+                // - 'load used assets' is enabled
+                // - not all assets used in the save being loaded are currently in memory.
+
+                if (fastLoad)
                 {
-                    LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "EssentialScenesLoaded"));
-                    LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "RenderDataReady"));
+                    if (Settings.settings.loadUsed)
+                    {
+                        int startMillis = Profiling.Millis;
+
+                        while (Profiling.Millis - startMillis < 3000 && !IsSaveDeserialized())
+                        {
+                            Util.DebugPrint("Waiting for simulation", Profiling.Millis);
+                            yield return null;
+                        }
+
+                        fastLoad = !AnyMissingAssets();
+                    }
+
+                    if (fastLoad) // optimized load
+                    {
+                        Util.DebugPrint("Optimized load", Profiling.Millis);
+                        LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "EssentialScenesLoaded"));
+                        LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "RenderDataReady"));
+                    }
+                    else // fallback to full load
+                    {
+                        Util.DebugPrint("Fallback to full", Profiling.Millis);
+                        DestroyLoadedPrefabs();
+                        LoadingManager.instance.m_loadedEnvironment = null;
+                        LoadingManager.instance.m_loadedMapTheme = null;
+                    }
                 }
-                else
+                else // full load
                 {
+                    // Notice that there is a race condition in the base game at this point: DestroyAllPrefabs ruins the simulation
+                    // if its deserialization has progressed far enough. Typically there is no problem.
                     Util.InvokeVoid(LoadingManager.instance, "DestroyAllPrefabs");
                     LoadingManager.instance.m_loadedEnvironment = null;
                     LoadingManager.instance.m_loadedMapTheme = null;
+                    Util.DebugPrint("DestroyAllPrefabs", Profiling.Millis);
                 }
             }
 
             if (LoadingManager.instance.m_loadedEnvironment == null) // IL_290
             {
+                Util.DebugPrint("Starting full load", Profiling.Millis);
                 AsyncOperation op;
 
                 if (!string.IsNullOrEmpty(playerScene))
@@ -143,20 +195,20 @@ namespace LoadingScreenMod
                 while (!LoadingManager.instance.m_metaDataLoaded && !task.completedOrFailed) // IL_34F
                     yield return null;
 
-                if (Singleton<SimulationManager>.instance.m_metaData == null)
+                if (SimulationManager.instance.m_metaData == null)
                 {
-                    Singleton<SimulationManager>.instance.m_metaData = new SimulationMetaData();
-                    Singleton<SimulationManager>.instance.m_metaData.m_environment = "Sunny";
-                    Singleton<SimulationManager>.instance.m_metaData.Merge(ngs);
+                    SimulationManager.instance.m_metaData = new SimulationMetaData();
+                    SimulationManager.instance.m_metaData.m_environment = "Sunny";
+                    SimulationManager.instance.m_metaData.Merge(ngs);
                 }
 
                 LoadingManager.instance.m_supportsExpansion[0] = (bool) Util.Invoke(LoadingManager.instance, "DLC", 369150u);
                 LoadingManager.instance.m_supportsExpansion[1] = (bool) Util.Invoke(LoadingManager.instance, "DLC", 420610u);
-                bool isWinter = Singleton<SimulationManager>.instance.m_metaData.m_environment == "Winter";
+                bool isWinter = SimulationManager.instance.m_metaData.m_environment == "Winter";
 
                 if (isWinter && !LoadingManager.instance.m_supportsExpansion[1])
                 {
-                    Singleton<SimulationManager>.instance.m_metaData.m_environment = "Sunny";
+                    SimulationManager.instance.m_metaData.m_environment = "Sunny";
                     isWinter = false;
                 }
 
@@ -176,7 +228,7 @@ namespace LoadingScreenMod
                     LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
                 }
 
-                scene = Singleton<SimulationManager>.instance.m_metaData.m_environment + "Prefabs"; // IL_4F0
+                scene = SimulationManager.instance.m_metaData.m_environment + "Prefabs"; // IL_4F0
 
                 if (!string.IsNullOrEmpty(scene))
                 {
@@ -298,7 +350,7 @@ namespace LoadingScreenMod
 
                 if (europeanStyles != null && europeanStyles.isEnabled)
                 {
-                    if (Singleton<SimulationManager>.instance.m_metaData.m_environment.Equals("Europe"))
+                    if (SimulationManager.instance.m_metaData.m_environment.Equals("Europe"))
                         scene = "EuropeNormalPrefabs";
                     else
                         scene = "EuropeStylePrefabs";
@@ -327,7 +379,7 @@ namespace LoadingScreenMod
                 while (!AssetLoader.instance.hasFinished)
                     yield return null;
 
-                scene = Singleton<SimulationManager>.instance.m_metaData.m_environment + "Properties";
+                scene = SimulationManager.instance.m_metaData.m_environment + "Properties";
 
                 if (!string.IsNullOrEmpty(scene))
                 {
@@ -360,8 +412,8 @@ namespace LoadingScreenMod
                     LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
                 }
 
-                LoadingManager.instance.m_loadedEnvironment = Singleton<SimulationManager>.instance.m_metaData.m_environment; // IL_CFE
-                LoadingManager.instance.m_loadedMapTheme = Singleton<SimulationManager>.instance.m_metaData.m_MapThemeMetaData?.name;
+                LoadingManager.instance.m_loadedEnvironment = SimulationManager.instance.m_metaData.m_environment; // IL_CFE
+                LoadingManager.instance.m_loadedMapTheme = SimulationManager.instance.m_metaData.m_MapThemeMetaData?.name;
             }
             else
             {
@@ -394,7 +446,7 @@ namespace LoadingScreenMod
             LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "LoadLevelComplete", mode));
 
             if (Singleton<TelemetryManager>.exists)
-                Singleton<TelemetryManager>.instance.StartSession(asset?.name, playerScene, mode, Singleton<SimulationManager>.instance.m_metaData);
+                Singleton<TelemetryManager>.instance.StartSession(asset?.name, playerScene, mode, SimulationManager.instance.m_metaData);
         }
 
         /// <summary>
@@ -424,5 +476,85 @@ namespace LoadingScreenMod
 
             return false;
         }
+
+        /// <summary>
+        /// Checks if buildings, props, trees, and vehicles have been deserialized from the savegame.
+        /// Note: two threads at play here, old values of m_size might be cached for quite some time.
+        /// </summary>
+        static bool IsSaveDeserialized()
+        {
+            FastList<LoadingProfiler.Event> events = ProfilerSource.GetEvents(LoadingManager.instance.m_loadingProfilerSimulation);
+            return events.m_size > 55;
+        }
+
+        /// <summary>
+        /// Checks if the savegame needs any assets not currently in memory.
+        /// </summary>
+        bool AnyMissingAssets()
+        {
+            try
+            {
+                new UsedAssets().LookupUsed();
+                bool ret = UsedAssets.instance.AnyMissing(knownToFail);
+                UsedAssets.instance.Dispose();
+                return ret;
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
+
+            return true;
+        }
+
+        static void DestroyLoadedPrefabs()
+        {
+            DestroyLoaded<NetInfo>();
+            DestroyLoaded<BuildingInfo>();
+            DestroyLoaded<PropInfo>();
+            DestroyLoaded<TreeInfo>();
+            DestroyLoaded<TransportInfo>();
+            DestroyLoaded<VehicleInfo>();
+            DestroyLoaded<CitizenInfo>();
+            DestroyLoaded<EventInfo>();
+        }
+
+        /// <summary>
+        /// Destroys scene prefabs. Unlike DestroyAll(), simulation prefabs are not affected.
+        /// </summary>
+        static void DestroyLoaded<P>() where P : PrefabInfo
+        {
+            try
+            {
+                int n = PrefabCollection<P>.LoadedCount();
+                List<P> prefabs = new List<P>(n);
+
+                for (int i = 0; i < n; i++)
+                {
+                    P info = PrefabCollection<P>.GetLoaded((uint) i);
+
+                    if (info != null)
+                    {
+                        info.m_prefabDataIndex = -1; // leave simulation prefabs as they are
+                        prefabs.Add(info);
+                    }
+                }
+
+                PrefabCollection<P>.DestroyPrefabs(string.Empty, prefabs.ToArray(), null);
+                Util.DebugPrint("DestroyLoaded", typeof(P).Name, n, prefabs.Count, Profiling.Millis);
+
+                // This has not been necessary yet. However, it is quite fatal if prefabs are left behind so better be sure.
+                if (n != prefabs.Count)
+                {
+                    object fastList = Util.GetStatic(typeof(PrefabCollection<P>), "m_scenePrefabs");
+                    Util.Set(fastList, "m_size", 0);
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
+        }
+
     }
 }

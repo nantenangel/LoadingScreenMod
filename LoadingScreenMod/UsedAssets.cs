@@ -25,16 +25,23 @@ namespace LoadingScreenMod
 
         internal void Setup()
         {
+            LookupUsed();
+            PackageDeserializer.SetCustomDeserializer(new PackageDeserializer.CustomDeserializeHandler(CustomDeserialize));
+        }
+
+        internal void LookupUsed()
+        {
             LookupSimulationBuildings(buildingPackages, buildingAssets);
             LookupSimulationAssets<PropInfo>(propPackages, propAssets);
             LookupSimulationAssets<TreeInfo>(treePackages, treeAssets);
             LookupSimulationAssets<VehicleInfo>(vehiclePackages, vehicleAssets);
-            PackageDeserializer.SetCustomDeserializer(new PackageDeserializer.CustomDeserializeHandler(CustomDeserialize));
         }
 
         internal void Dispose()
         {
             PackageDeserializer.SetCustomDeserializer(defaultHandler);
+            buildingPackages.Clear(); propPackages.Clear(); treePackages.Clear(); vehiclePackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear();
+            buildingPackages = null; propPackages = null; treePackages = null; vehiclePackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null;
             instance = null; assets = null;
         }
 
@@ -74,6 +81,24 @@ namespace LoadingScreenMod
             {
                 UnityEngine.Debug.LogException(e);
             }
+        }
+
+        internal bool AnyMissing(HashSet<string> ignore)
+        {
+            return AnyMissing<BuildingInfo>(buildingAssets, ignore) || AnyMissing<PropInfo>(propAssets, ignore) ||
+                   AnyMissing<TreeInfo>(treeAssets, ignore) || AnyMissing<VehicleInfo>(vehicleAssets, ignore);
+        }
+
+        static bool AnyMissing<P>(HashSet<string> fullNames, HashSet<string> ignore) where P : PrefabInfo
+        {
+            foreach (string name in fullNames)
+                if (!ignore.Contains(name) && PrefabCollection<P>.FindLoaded(name) == null)
+                {
+                    Util.DebugPrint("AnyMissing", name);
+                    return true;
+                }
+
+            return false;
         }
 
         /// <summary>

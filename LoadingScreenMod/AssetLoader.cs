@@ -37,24 +37,23 @@ namespace LoadingScreenMod
 
         public void Dispose()
         {
+            AssetReport.instance?.Dispose();
+            Sharing.instance?.Dispose();
+            LevelLoader.instance.AddFailedAssets(failedAssets);
             failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedTrailers.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear();
             instance = null; failedAssets = null; loadedProps = null; loadedTrees = null; loadedTrailers = null; loadedBuildings = null; loadedVehicles = null;
         }
 
-        void ReportAndDispose()
+        void Report()
         {
             if (loadUsed)
                 UsedAssets.instance.ReportMissingAssets();
 
             if (reportAssets)
-            {
                 AssetReport.instance.Save();
-                AssetReport.instance?.Dispose();
-            }
 
-            if (loadUsed)
-                UsedAssets.instance?.Dispose();
-
+            AssetReport.instance?.Dispose();
+            UsedAssets.instance?.Dispose();
             Sharing.instance?.Dispose();
         }
 
@@ -146,7 +145,7 @@ namespace LoadingScreenMod
                 }
 
             assets = null;
-            ReportAndDispose();
+            Report();
 
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Finalizing District Styles");
