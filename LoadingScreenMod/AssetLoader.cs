@@ -14,7 +14,7 @@ namespace LoadingScreenMod
     public sealed class AssetLoader
     {
         public static AssetLoader instance;
-        HashSet<string> failedAssets = new HashSet<string>(), loadedProps = new HashSet<string>(), loadedTrees = new HashSet<string>(), loadedTrailers = new HashSet<string>(),
+        HashSet<string> failedAssets = new HashSet<string>(), loadedProps = new HashSet<string>(), loadedTrees = new HashSet<string>(),
             loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>();
         Package.Asset loadedAsset;
         SteamHelper.DLC_BitMask notMask;
@@ -40,8 +40,8 @@ namespace LoadingScreenMod
             AssetReport.instance?.Dispose();
             Sharing.instance?.Dispose();
             LevelLoader.instance.AddFailedAssets(failedAssets);
-            failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedTrailers.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear();
-            instance = null; failedAssets = null; loadedProps = null; loadedTrees = null; loadedTrailers = null; loadedBuildings = null; loadedVehicles = null;
+            failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear();
+            instance = null; failedAssets = null; loadedProps = null; loadedTrees = null; loadedBuildings = null; loadedVehicles = null;
         }
 
         void Report()
@@ -112,12 +112,7 @@ namespace LoadingScreenMod
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
 
             if (loadUsed)
-            {
-                //while (!Profiling.SimulationPaused())
-                //    yield return null;
-
                 new UsedAssets().Setup();
-            }
 
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Loading Assets First Pass");
             notMask = ~SteamHelper.GetOwnedDLCMask();
@@ -214,16 +209,39 @@ namespace LoadingScreenMod
                     return false;
 
                 assetMetaData = asset.Instantiate<CustomAssetMetaData>();
+                CustomAssetMetaData.Type type = assetMetaData.type;
 
-                if (assetMetaData.type == CustomAssetMetaData.Type.Building || assetMetaData.type == CustomAssetMetaData.Type.Vehicle ||
-                    assetMetaData.type == CustomAssetMetaData.Type.Unknown || (AssetImporterAssetTemplate.GetAssetDLCMask(assetMetaData) & notMask) != 0)
+                if (type == CustomAssetMetaData.Type.Building || type == CustomAssetMetaData.Type.Vehicle || type == CustomAssetMetaData.Type.Unknown ||
+                    (AssetImporterAssetTemplate.GetAssetDLCMask(assetMetaData) & notMask) != 0)
                     return false;
 
                 // Always remember: assetRef may point to another package because the deserialization method accepts any asset with a matching checksum.
                 string fullName = asset.package.packageName + "." + assetMetaData.assetRef.name;
+                HashSet<string> alreadyLoaded;
+                bool wanted;
 
-                if (wantBecauseEnabled || loadUsed && UsedAssets.instance.GotPropTreeAsset(fullName) ||
-                    loadUsed && assetMetaData.type == CustomAssetMetaData.Type.Trailer && UsedAssets.instance.GotTrailerAsset(fullName))
+                switch (type)
+                {
+                    case CustomAssetMetaData.Type.Prop:
+                        wanted = wantBecauseEnabled || loadUsed && UsedAssets.instance.GotProp(fullName);
+                        alreadyLoaded = loadedProps;
+                        break;
+
+                    case CustomAssetMetaData.Type.Tree:
+                        wanted = wantBecauseEnabled || loadUsed && UsedAssets.instance.GotTree(fullName);
+                        alreadyLoaded = loadedTrees;
+                        break;
+
+                    case CustomAssetMetaData.Type.Trailer:
+                        wanted = wantBecauseEnabled || loadUsed && UsedAssets.instance.GotVehicle(fullName);
+                        alreadyLoaded = loadedVehicles;
+                        break;
+
+                    default:
+                        return false;
+                }
+
+                if (wanted && !IsDuplicate(fullName, alreadyLoaded, asset.package))
                     PropTreeTrailerImpl(asset.package, assetMetaData.assetRef);
             }
             catch (Exception ex)
@@ -264,21 +282,14 @@ namespace LoadingScreenMod
                         PrefabCollection<PropInfo>.InitializePrefabs("Custom Assets", pi, null);
                         propCount++;
                     }
-                    else
-                        Duplicate(fullName, package);
                 }
 
                 TreeInfo ti = go.GetComponent<TreeInfo>();
 
-                if (ti != null)
+                if (ti != null && loadedTrees.Add(fullName))
                 {
-                    if (loadedTrees.Add(fullName))
-                    {
-                        PrefabCollection<TreeInfo>.InitializePrefabs("Custom Assets", ti, null);
-                        treeCount++;
-                    }
-                    else
-                        Duplicate(fullName, package);
+                    PrefabCollection<TreeInfo>.InitializePrefabs("Custom Assets", ti, null);
+                    treeCount++;
                 }
 
                 // Trailers, this way.
@@ -286,10 +297,8 @@ namespace LoadingScreenMod
 
                 if (vi != null)
                 {
-                    if (loadedTrailers.Add(fullName))
+                    if (loadedVehicles.Add(fullName))
                         PrefabCollection<VehicleInfo>.InitializePrefabs("Custom Assets", vi, null);
-                    else
-                        Duplicate(fullName, package);
 
                     if (vi.m_lodObject != null)
                         vi.m_lodObject.SetActive(false);
@@ -313,14 +322,39 @@ namespace LoadingScreenMod
                     return false;
 
                 assetMetaData = asset.Instantiate<CustomAssetMetaData>();
+                CustomAssetMetaData.Type type = assetMetaData.type;
 
-                if (assetMetaData.type != CustomAssetMetaData.Type.Building && assetMetaData.type != CustomAssetMetaData.Type.Vehicle &&
-                    assetMetaData.type != CustomAssetMetaData.Type.Unknown || (AssetImporterAssetTemplate.GetAssetDLCMask(assetMetaData) & notMask) != 0)
+                if (type != CustomAssetMetaData.Type.Building && type != CustomAssetMetaData.Type.Vehicle && type != CustomAssetMetaData.Type.Unknown ||
+                    (AssetImporterAssetTemplate.GetAssetDLCMask(assetMetaData) & notMask) != 0)
                     return false;
 
-                bool wanted = wantBecauseEnabled || loadUsed && UsedAssets.instance.GotBuildingVehicleAsset(asset.package.packageName + "." + assetMetaData.assetRef.name);
+                // Always remember: assetRef may point to another package because the deserialization method accepts any asset with a matching checksum.
+                string fullName = asset.package.packageName + "." + assetMetaData.assetRef.name;
+                HashSet<string> alreadyLoaded;
+                bool wanted;
 
-                if (includedInStyle || wanted)
+                switch (type)
+                {
+                    case CustomAssetMetaData.Type.Building:
+                        wanted = wantBecauseEnabled || loadUsed && UsedAssets.instance.GotBuilding(fullName);
+                        alreadyLoaded = loadedBuildings;
+                        break;
+
+                    case CustomAssetMetaData.Type.Vehicle:
+                        wanted = wantBecauseEnabled || loadUsed && UsedAssets.instance.GotVehicle(fullName);
+                        alreadyLoaded = loadedVehicles;
+                        break;
+
+                    case CustomAssetMetaData.Type.Unknown:
+                        wanted = wantBecauseEnabled;
+                        alreadyLoaded = new HashSet<string>();
+                        break;
+
+                    default:
+                        return false;
+                }
+
+                if ((includedInStyle || wanted) && !IsDuplicate(fullName, alreadyLoaded, asset.package))
                     BuildingVehicleImpl(asset.package, assetMetaData.assetRef, wanted);
             }
             catch (Exception ex)
@@ -363,8 +397,6 @@ namespace LoadingScreenMod
                         bi.m_dontSpawnNormally = !wanted;
                         buildingCount++;
                     }
-                    else
-                        Duplicate(fullName, package);
                 }
 
                 VehicleInfo vi = go.GetComponent<VehicleInfo>();
@@ -376,8 +408,6 @@ namespace LoadingScreenMod
                         PrefabCollection<VehicleInfo>.InitializePrefabs("Custom Assets", vi, null);
                         vehicleCount++;
                     }
-                    else
-                        Duplicate(fullName, package);
 
                     if (vi.m_lodObject != null)
                         vi.m_lodObject.SetActive(false);
@@ -461,7 +491,9 @@ namespace LoadingScreenMod
 
             Util.DebugPrint("Duplicate asset", name, "in", path);
             name = ShortenAssetName(name);
+            LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(name);
             Profiling.CustomAssetDuplicate(name);
+            LoadingManager.instance.m_loadingProfilerCustomAsset.EndLoading();
             DualProfilerSource profiler = LoadingScreen.instance.DualSource;
             profiler?.SomeDuplicate();
         }
@@ -489,6 +521,17 @@ namespace LoadingScreenMod
                     profiler?.SomeNotFound();
                 }
             }
+        }
+
+        bool IsDuplicate(string fullName, HashSet<string> alreadyLoaded, Package package)
+        {
+            if (alreadyLoaded.Contains(fullName))
+            {
+                Duplicate(fullName, package);
+                return true;
+            }
+            else
+                return false;
         }
 
         internal static bool IsWorkshopPackage(Package package, out ulong id)

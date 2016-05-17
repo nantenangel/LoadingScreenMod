@@ -57,9 +57,10 @@ namespace LoadingScreenMod
             return buildingPackages.Contains(packageName) || vehiclePackages.Contains(packageName) || packageName.IndexOf('.') >= 0;
         }
 
-        internal bool GotPropTreeAsset(string name) => propAssets.Contains(name) || treeAssets.Contains(name);
-        internal bool GotTrailerAsset(string name) => vehicleAssets.Contains(name);
-        internal bool GotBuildingVehicleAsset(string name) => buildingAssets.Contains(name) || vehicleAssets.Contains(name);
+        internal bool GotProp(string fullName) => propAssets.Contains(fullName);
+        internal bool GotTree(string fullName) => treeAssets.Contains(fullName);
+        internal bool GotBuilding(string fullName) => buildingAssets.Contains(fullName);
+        internal bool GotVehicle(string fullName) => vehicleAssets.Contains(fullName);
 
         internal void ReportMissingAssets()
         {
@@ -93,10 +94,7 @@ namespace LoadingScreenMod
         {
             foreach (string name in fullNames)
                 if (!ignore.Contains(name) && PrefabCollection<P>.FindLoaded(name) == null)
-                {
-                    Util.DebugPrint("AnyMissing", name);
                     return true;
-                }
 
             return false;
         }
@@ -238,7 +236,6 @@ namespace LoadingScreenMod
             }
             catch (Exception e)
             {
-                Util.DebugPrint("FindAsset");
                 UnityEngine.Debug.LogException(e);
             }
 

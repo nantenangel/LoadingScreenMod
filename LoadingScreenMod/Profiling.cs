@@ -42,31 +42,16 @@ namespace LoadingScreenMod
                 if (!string.IsNullOrEmpty(eventName))
                     for (int i = events.m_size - 1, k = 5; i >= 0 && k >= 0; i--, k--)
                         if (!string.IsNullOrEmpty(buffer[i].m_name) && eventName == buffer[i].m_name)
+                        {
                             buffer[i].m_name = string.Concat(eventName, postfix);
+                            break;
+                        }
             }
             catch (Exception e)
             {
                 UnityEngine.Debug.LogException(e);
             }
         }
-
-        /// <summary>
-        /// Returns true if the simulation thread is now paused (between Deserialize and AfterDeserialize).
-        /// </summary>
-        //internal static bool SimulationPaused()
-        //{
-        //    try
-        //    {
-        //        FastList<LoadingProfiler.Event> events = ProfilerSource.GetEvents(LoadingManager.instance.m_loadingProfilerSimulation);
-        //        int i = events.m_size - 1;
-        //        return i > 4 && events.m_buffer[i].m_type == LoadingProfiler.Type.PauseLoading;
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        UnityEngine.Debug.LogException(e);
-        //        return true;
-        //    }
-        //}
     }
 
     sealed class Sink
@@ -325,9 +310,9 @@ namespace LoadingScreenMod
                 int pfMegas = (int) (pagefileUsage >> 20), wsMegas = (int) (workingSetSize >> 20);
                 string gigas = (wsMegas / 1024f).ToString("F2");
 
-                if (systemMegas / 3 < wsMegas)
+                if (systemMegas < wsMegas)
                     return string.Concat(Sink.RED, gigas, Sink.OFF, " GB");
-                else if (systemMegas / 3 < pfMegas)
+                else if (systemMegas < pfMegas)
                     return string.Concat(Sink.YELLOW, gigas, Sink.OFF, " GB");
                 else
                     return string.Concat(gigas, " GB");

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Threading;
 using ColossalFramework;
 using ColossalFramework.Packaging;
 using ColossalFramework.Steamworks;
@@ -105,14 +107,11 @@ namespace LoadingScreenMod
 
             if (LoadingManager.instance.m_loadedEnvironment == null) // loading from main menu
             {
-                Util.DebugPrint("Loading from main menu", Profiling.Millis);
                 knownToFail.Clear();
                 fastLoad = false;
             }
             else // loading from in-game
             {
-                Util.DebugPrint("Loading from in-game", Profiling.Millis);
-
                 while (!LoadingManager.instance.m_metaDataLoaded && !task.completedOrFailed) // IL_158
                     yield return null;
 
@@ -139,24 +138,19 @@ namespace LoadingScreenMod
                     {
                         int startMillis = Profiling.Millis;
 
-                        while (Profiling.Millis - startMillis < 3000 && !IsSaveDeserialized())
-                        {
-                            Util.DebugPrint("Waiting for simulation", Profiling.Millis);
+                        while (Profiling.Millis - startMillis < 5000 && !IsSaveDeserialized())
                             yield return null;
-                        }
 
                         fastLoad = !AnyMissingAssets();
                     }
 
                     if (fastLoad) // optimized load
                     {
-                        Util.DebugPrint("Optimized load", Profiling.Millis);
                         LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "EssentialScenesLoaded"));
                         LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "RenderDataReady"));
                     }
                     else // fallback to full load
                     {
-                        Util.DebugPrint("Fallback to full", Profiling.Millis);
                         DestroyLoadedPrefabs();
                         LoadingManager.instance.m_loadedEnvironment = null;
                         LoadingManager.instance.m_loadedMapTheme = null;
@@ -169,13 +163,11 @@ namespace LoadingScreenMod
                     Util.InvokeVoid(LoadingManager.instance, "DestroyAllPrefabs");
                     LoadingManager.instance.m_loadedEnvironment = null;
                     LoadingManager.instance.m_loadedMapTheme = null;
-                    Util.DebugPrint("DestroyAllPrefabs", Profiling.Millis);
                 }
             }
 
             if (LoadingManager.instance.m_loadedEnvironment == null) // IL_290
             {
-                Util.DebugPrint("Starting full load", Profiling.Millis);
                 AsyncOperation op;
 
                 if (!string.IsNullOrEmpty(playerScene))
@@ -483,8 +475,18 @@ namespace LoadingScreenMod
         /// </summary>
         static bool IsSaveDeserialized()
         {
-            FastList<LoadingProfiler.Event> events = ProfilerSource.GetEvents(LoadingManager.instance.m_loadingProfilerSimulation);
-            return events.m_size > 55;
+            try
+            {
+                FastList<LoadingProfiler.Event> events = ProfilerSource.GetEvents(LoadingManager.instance.m_loadingProfilerSimulation);
+                int progress = Thread.VolatileRead(ref events.m_size);
+                return progress > 55;
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -541,14 +543,15 @@ namespace LoadingScreenMod
                 }
 
                 PrefabCollection<P>.DestroyPrefabs(string.Empty, prefabs.ToArray(), null);
-                Util.DebugPrint("DestroyLoaded", typeof(P).Name, n, prefabs.Count, Profiling.Millis);
 
                 // This has not been necessary yet. However, it is quite fatal if prefabs are left behind so better be sure.
                 if (n != prefabs.Count)
                 {
                     object fastList = Util.GetStatic(typeof(PrefabCollection<P>), "m_scenePrefabs");
-                    Util.Set(fastList, "m_size", 0);
+                    Util.Set(fastList, "m_size", 0, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 }
+
+                prefabs.Clear(); prefabs.Capacity = 0;
             }
             catch (Exception e)
             {
