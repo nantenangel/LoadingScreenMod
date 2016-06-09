@@ -213,7 +213,7 @@ namespace LoadingScreenMod
 
                     while (!op.isDone) // IL_4D0
                     {
-                        LoadingManager.instance.SetSceneProgress(0.1f + op.progress * 0.03f);
+                        LoadingManager.instance.SetSceneProgress(0.1f + op.progress * 0.01f);
                         yield return null;
                     }
 
@@ -229,7 +229,7 @@ namespace LoadingScreenMod
 
                     while (!op.isDone) // IL_585
                     {
-                        LoadingManager.instance.SetSceneProgress(0.13f + op.progress * 0.5f);
+                        LoadingManager.instance.SetSceneProgress(0.11f + op.progress * 0.5f);
                         yield return null;
                     }
 
@@ -244,27 +244,24 @@ namespace LoadingScreenMod
 
                     while (!op.isDone) // IL_63C
                     {
-                        LoadingManager.instance.SetSceneProgress(0.63f + op.progress * 0.02f);
+                        LoadingManager.instance.SetSceneProgress(0.61f + op.progress * 0.01f);
                         yield return null;
                     }
 
                     LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
                 }
 
-                if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 340160u)) // IL_65C
+                scene = isWinter ? "WinterPreorderPackPrefabs" : "PreorderPackPrefabs";
+                LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
+                op = Application.LoadLevelAdditiveAsync(scene);
+
+                while (!op.isDone) // IL_6F8
                 {
-                    scene = isWinter ? "WinterPreorderPackPrefabs" : "PreorderPackPrefabs";
-                    LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                    op = Application.LoadLevelAdditiveAsync(scene);
-
-                    while (!op.isDone) // IL_6F8
-                    {
-                        LoadingManager.instance.SetSceneProgress(0.65f + op.progress * 0.02f);
-                        yield return null;
-                    }
-
-                    LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
+                    LoadingManager.instance.SetSceneProgress(0.62f + op.progress * 0.01f);
+                    yield return null;
                 }
+
+                LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
 
                 scene = isWinter ? "WinterSignupPackPrefabs" : "SignupPackPrefabs"; // IL_718
                 LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
@@ -272,7 +269,7 @@ namespace LoadingScreenMod
 
                 while (!op.isDone) // IL_79F
                 {
-                    LoadingManager.instance.SetSceneProgress(0.67f + op.progress * 0.01f);
+                    LoadingManager.instance.SetSceneProgress(0.63f + op.progress * 0.01f);
                     yield return null;
                 }
 
@@ -286,7 +283,7 @@ namespace LoadingScreenMod
 
                     while (!op.isDone) // IL_846
                     {
-                        LoadingManager.instance.SetSceneProgress(0.68f + op.progress * 0.02f);
+                        LoadingManager.instance.SetSceneProgress(0.64f + op.progress * 0.01f);
                         yield return null;
                     }
 
@@ -301,7 +298,7 @@ namespace LoadingScreenMod
 
                     while (!op.isDone) // IL_8ED
                     {
-                        LoadingManager.instance.SetSceneProgress(0.7f + op.progress * 0.01f);
+                        LoadingManager.instance.SetSceneProgress(0.65f + op.progress * 0.01f);
                         yield return null;
                     }
 
@@ -316,7 +313,7 @@ namespace LoadingScreenMod
 
                     while (!op.isDone) // IL_9A6
                     {
-                        LoadingManager.instance.SetSceneProgress(0.71f + op.progress * 0.02f);
+                        LoadingManager.instance.SetSceneProgress(0.66f + op.progress * 0.02f);
                         yield return null;
                     }
 
@@ -331,7 +328,22 @@ namespace LoadingScreenMod
 
                     while (!op.isDone) // IL_A4A
                     {
-                        LoadingManager.instance.SetSceneProgress(0.73f + op.progress * 0.02f);
+                        LoadingManager.instance.SetSceneProgress(0.68f + op.progress * 0.01f);
+                        yield return null;
+                    }
+
+                    LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
+                }
+
+                if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 456200u))
+                {
+                    scene = "FootballPrefabs";
+                    LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
+                    op = Application.LoadLevelAdditiveAsync(scene);
+
+                    while (!op.isDone)
+                    {
+                        LoadingManager.instance.SetSceneProgress(0.69f + op.progress * 0.01f);
                         yield return null;
                     }
 
@@ -352,7 +364,7 @@ namespace LoadingScreenMod
 
                     while (!op.isDone) // IL_B45
                     {
-                        LoadingManager.instance.SetSceneProgress(0.75f + op.progress * 0.02f);
+                        LoadingManager.instance.SetSceneProgress(0.70f + op.progress * 0.03f);
                         yield return null;
                     }
 
@@ -380,7 +392,7 @@ namespace LoadingScreenMod
 
                     while (!op.isDone) // IL_C47
                     {
-                        LoadingManager.instance.SetSceneProgress(0.77f + op.progress * 0.11f);
+                        LoadingManager.instance.SetSceneProgress(0.73f + op.progress * 0.06f);
                         yield return null;
                     }
 
@@ -397,7 +409,7 @@ namespace LoadingScreenMod
 
                     while (!op.isDone) // IL_CDE
                     {
-                        LoadingManager.instance.SetSceneProgress(0.88f + op.progress * 0.11f);
+                        LoadingManager.instance.SetSceneProgress(0.79f + op.progress * 0.2f);
                         yield return null;
                     }
 
