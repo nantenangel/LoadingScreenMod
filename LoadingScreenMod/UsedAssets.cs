@@ -44,12 +44,7 @@ namespace LoadingScreenMod
         internal void Dispose()
         {
             if (PackageDeserializer.customDeserializer == CustomDeserialize)
-            {
-                Util.DebugPrint("Setting back");
                 PackageDeserializer.SetCustomDeserializer(defaultHandler);
-            }
-            else
-                Util.DebugPrint("Not Setting back");
 
             buildingPackages.Clear(); propPackages.Clear(); treePackages.Clear(); vehiclePackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear();
             buildingPackages = null; propPackages = null; treePackages = null; vehiclePackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null;

@@ -54,7 +54,6 @@ namespace LoadingScreenMod
         {
             try
             {
-                Util.DebugPrint("Report start", Profiling.Millis);
                 w = new StreamWriter(Util.GetFileName(AssetLoader.AssetName(LevelLoader.instance.cityName) + "-AssetsReport", "htm"));
                 w.WriteLine(@"<!DOCTYPE html><html><head><meta charset=""UTF-8""><title>Assets Report</title><style>");
                 w.WriteLine(@"* {font-family: sans-serif;}");
@@ -72,34 +71,26 @@ namespace LoadingScreenMod
                 H2("Assets that were not found");
 
                 if (Settings.settings.loadUsed)
-                {
-                    Util.DebugPrint("Report not found start", Profiling.Millis);
                     SaveNotFound();
-                    Util.DebugPrint("Report not found end", Profiling.Millis);
-                }
                 else
                     Italics("Enable the option \"Load used assets\" to track missing assets.");
 
                 if (Settings.settings.loadUsed)
                 {
-                    Util.DebugPrint("Report used start", Profiling.Millis);
                     H1("The following custom assets are used in this city");
                     Save(new List<string>(UsedAssets.instance.Buildings), "Buildings and parks");
                     Save(new List<string>(UsedAssets.instance.Props), "Props");
                     Save(new List<string>(UsedAssets.instance.Trees), "Trees");
                     Save(new List<string>(UsedAssets.instance.Vehicles), "Vehicles");
                     Save(new List<string>(UsedAssets.instance.IndirectProps), "Props in buildings and parks");
-                    Save(new List<string>(UsedAssets.instance.IndirectTrees), "Trees in parks");
-                    Util.DebugPrint("Report used end", Profiling.Millis);
+                    Save(new List<string>(UsedAssets.instance.IndirectTrees), "Trees in buildings and parks");
 
-                    Util.DebugPrint("Report unnecessary start", Profiling.Millis);
                     H1("The following loaded assets are currently unnecessary (not used in this city)");
                     Italics("There are three reasons why an asset may appear in this section: (a) The asset is enabled in Content Manager (b) The asset is a prop or tree in an enabled building or park (c) The asset is included in an enabled district style.");
                     Save(AssetLoader.instance.Buildings.Where(s => !AssetLoader.instance.IsIntersection(s) && !UsedAssets.instance.GotBuilding(s)).ToList(), "Buildings and parks");
                     Save(AssetLoader.instance.Props.Where(s => !UsedAssets.instance.GotProp(s) && !UsedAssets.instance.GotIndirectProp(s)).ToList(), "Props");
                     Save(AssetLoader.instance.Trees.Where(s => !UsedAssets.instance.GotTree(s) && !UsedAssets.instance.GotIndirectTree(s)).ToList(), "Trees");
                     Save(AssetLoader.instance.Vehicles.Where(s => !UsedAssets.instance.GotVehicle(s)).ToList(), "Vehicles");
-                    Util.DebugPrint("Report unnecessary end", Profiling.Millis);
                 }
                 else
                 {
@@ -117,7 +108,6 @@ namespace LoadingScreenMod
             {
                 w?.Dispose();
                 w = null;
-                Util.DebugPrint("Report end", Profiling.Millis);
             }
         }
 
