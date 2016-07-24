@@ -15,13 +15,18 @@ namespace LoadingScreenMod
     {
         public static AssetLoader instance;
         HashSet<string> failedAssets = new HashSet<string>(), loadedProps = new HashSet<string>(), loadedTrees = new HashSet<string>(),
-            loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>();
-        Package.Asset loadedAsset;
+            loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>(), loadedIntersections = new HashSet<string>();
+        internal string currentFullName;
         SteamHelper.DLC_BitMask notMask;
         int propCount, treeCount, buildingCount, vehicleCount, lastMillis;
         readonly bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, reportAssets = Settings.settings.reportAssets;
         public bool hasStarted, hasFinished;
         internal const int yieldInterval = 200;
+        internal HashSet<string> Props => loadedProps;
+        internal HashSet<string> Trees => loadedTrees;
+        internal HashSet<string> Buildings => loadedBuildings;
+        internal HashSet<string> Vehicles => loadedVehicles;
+        internal bool IsIntersection(string fullName) => loadedIntersections.Contains(fullName);
 
         public AssetLoader()
         {
@@ -40,8 +45,8 @@ namespace LoadingScreenMod
             AssetReport.instance?.Dispose();
             Sharing.instance?.Dispose();
             LevelLoader.instance.AddFailedAssets(failedAssets);
-            failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear();
-            instance = null; failedAssets = null; loadedProps = null; loadedTrees = null; loadedBuildings = null; loadedVehicles = null;
+            failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear(); loadedIntersections.Clear();
+            instance = null; failedAssets = null; loadedProps = null; loadedTrees = null; loadedBuildings = null; loadedVehicles = null; loadedIntersections = null;
         }
 
         void Report()
@@ -242,7 +247,7 @@ namespace LoadingScreenMod
                 }
 
                 if (wanted && !IsDuplicate(fullName, alreadyLoaded, asset.package))
-                    PropTreeTrailerImpl(asset.package, assetMetaData.assetRef);
+                    PropTreeTrailerImpl(fullName, assetMetaData.assetRef);
             }
             catch (Exception ex)
             {
@@ -253,7 +258,7 @@ namespace LoadingScreenMod
             return true;
         }
 
-        internal void PropTreeTrailerImpl(Package package, Package.Asset data)
+        internal void PropTreeTrailerImpl(string fullName, Package.Asset data)
         {
             try
             {
@@ -261,7 +266,6 @@ namespace LoadingScreenMod
                 // CODebugBase<LogChannel>.Log(LogChannel.Modding, string.Concat("Loading custom asset ", assetMetaData.name, " from ", asset));
 
                 GameObject go = data.Instantiate<GameObject>();
-                string fullName = package.packageName + "." + go.name;
                 go.name = fullName;
                 go.SetActive(false);
                 PrefabInfo info = go.GetComponent<PrefabInfo>();
@@ -355,7 +359,7 @@ namespace LoadingScreenMod
                 }
 
                 if ((includedInStyle || wanted) && !IsDuplicate(fullName, alreadyLoaded, asset.package))
-                    BuildingVehicleImpl(asset.package, assetMetaData.assetRef, wanted);
+                    BuildingVehicleImpl(fullName, assetMetaData.assetRef, wanted);
             }
             catch (Exception ex)
             {
@@ -366,16 +370,15 @@ namespace LoadingScreenMod
             return true;
         }
 
-        void BuildingVehicleImpl(Package package, Package.Asset data, bool wanted)
+        void BuildingVehicleImpl(string fullName, Package.Asset data, bool wanted)
         {
             try
             {
                 LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(data.name));
                 // CODebugBase<LogChannel>.Log(LogChannel.Modding, string.Concat("Loading custom asset ", assetMetaData.name, " from ", asset));
 
-                loadedAsset = data;
+                currentFullName = fullName;
                 GameObject go = data.Instantiate<GameObject>();
-                string fullName = package.packageName + "." + go.name;
                 go.name = fullName;
                 go.SetActive(false);
                 PrefabInfo info = go.GetComponent<PrefabInfo>();
@@ -396,6 +399,9 @@ namespace LoadingScreenMod
                         PrefabCollection<BuildingInfo>.InitializePrefabs("Custom Assets", bi, null);
                         bi.m_dontSpawnNormally = !wanted;
                         buildingCount++;
+
+                        if (bi.GetAI() is IntersectionAI)
+                            loadedIntersections.Add(fullName);
                     }
                 }
 
@@ -415,7 +421,7 @@ namespace LoadingScreenMod
             }
             finally
             {
-                loadedAsset = null;
+                currentFullName = null;
                 LoadingManager.instance.m_loadingProfilerCustomAsset.EndLoading();
             }
         }
@@ -504,8 +510,8 @@ namespace LoadingScreenMod
             {
                 if (reportAssets)
                 {
-                    if (loadedAsset != null)
-                        AssetReport.instance.NotFound(name, loadedAsset);
+                    if (currentFullName != null)
+                        AssetReport.instance.NotFound(name, currentFullName);
                     else
                         AssetReport.instance.NotFound(name);
                 }
@@ -534,11 +540,6 @@ namespace LoadingScreenMod
                 return false;
         }
 
-        internal static bool IsWorkshopPackage(Package package, out ulong id)
-        {
-            return ulong.TryParse(package.packageName, out id) && id > 999999;
-        }
-
         internal static bool IsWorkshopPackage(string fullName, out ulong id)
         {
             int j = fullName.IndexOf('.');
@@ -561,8 +562,8 @@ namespace LoadingScreenMod
             // My rationale is the following:
             // 43453453.Name -> Workshop
             // Name.Name     -> Private
-            // Name          -> Either an old-format (early 2015) reference, or something from DLC/Deluxe/Pre-order packs.
-            //                  If loading is not successful then cannot tell for sure, assumed DLC/Deluxe/Pre-order when reported as not found.
+            // Name          -> Either an old-format (early 2015) reference, or something from DLC/Deluxe packs.
+            //                  If loading is not successful then cannot tell for sure, assumed DLC/Deluxe when reported as not found.
 
             if (IsWorkshopPackage(fullName, out id))
                 return false;

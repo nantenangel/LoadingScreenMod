@@ -570,6 +570,5 @@ namespace LoadingScreenMod
                 UnityEngine.Debug.LogException(e);
             }
         }
-
     }
 }

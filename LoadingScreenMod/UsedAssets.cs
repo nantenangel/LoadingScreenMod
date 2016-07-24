@@ -9,14 +9,17 @@ namespace LoadingScreenMod
     internal sealed class UsedAssets
     {
         internal static UsedAssets instance;
-        readonly static PackageDeserializer.CustomDeserializeHandler defaultHandler = PackageDeserializer.customDeserializer;
+        static PackageDeserializer.CustomDeserializeHandler defaultHandler;
         HashSet<string> buildingPackages = new HashSet<string>(), propPackages = new HashSet<string>(), treePackages = new HashSet<string>(), vehiclePackages = new HashSet<string>();
         HashSet<string> buildingAssets = new HashSet<string>(), propAssets = new HashSet<string>(), treeAssets = new HashSet<string>(), vehicleAssets = new HashSet<string>();
+        HashSet<string> indirectProps = new HashSet<string>(), indirectTrees = new HashSet<string>();
         Package.Asset[] assets;
         internal HashSet<string> Buildings => buildingAssets;
         internal HashSet<string> Props => propAssets;
         internal HashSet<string> Trees => treeAssets;
         internal HashSet<string> Vehicles => vehicleAssets;
+        internal HashSet<string> IndirectProps => indirectProps;
+        internal HashSet<string> IndirectTrees => indirectTrees;
 
         internal UsedAssets()
         {
@@ -26,7 +29,8 @@ namespace LoadingScreenMod
         internal void Setup()
         {
             LookupUsed();
-            PackageDeserializer.SetCustomDeserializer(new PackageDeserializer.CustomDeserializeHandler(CustomDeserialize));
+            defaultHandler = PackageDeserializer.customDeserializer;
+            PackageDeserializer.SetCustomDeserializer(CustomDeserialize);
         }
 
         internal void LookupUsed()
@@ -39,10 +43,17 @@ namespace LoadingScreenMod
 
         internal void Dispose()
         {
-            PackageDeserializer.SetCustomDeserializer(defaultHandler);
-            buildingPackages.Clear(); propPackages.Clear(); treePackages.Clear(); vehiclePackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear();
-            buildingPackages = null; propPackages = null; treePackages = null; vehiclePackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null;
-            instance = null; assets = null;
+            if (PackageDeserializer.customDeserializer == CustomDeserialize)
+            {
+                Util.DebugPrint("Setting back");
+                PackageDeserializer.SetCustomDeserializer(defaultHandler);
+            }
+            else
+                Util.DebugPrint("Not Setting back");
+
+            buildingPackages.Clear(); propPackages.Clear(); treePackages.Clear(); vehiclePackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear();
+            buildingPackages = null; propPackages = null; treePackages = null; vehiclePackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null;
+            instance = null; assets = null; defaultHandler = null;
         }
 
         internal bool GotPropTreeTrailerPackage(string packageName)
@@ -61,6 +72,8 @@ namespace LoadingScreenMod
         internal bool GotTree(string fullName) => treeAssets.Contains(fullName);
         internal bool GotBuilding(string fullName) => buildingAssets.Contains(fullName);
         internal bool GotVehicle(string fullName) => vehicleAssets.Contains(fullName);
+        internal bool GotIndirectProp(string fullName) => indirectProps.Contains(fullName);
+        internal bool GotIndirectTree(string fullName) => indirectTrees.Contains(fullName);
 
         internal void ReportMissingAssets()
         {
@@ -160,16 +173,35 @@ namespace LoadingScreenMod
             // Props and trees in buildings and parks.
             if (t == typeof(BuildingInfo.Prop))
             {
-                string propName = r.ReadString();
-                string treeName = r.ReadString();
+                string propName = r.ReadString(); // old name format (without package name) is possible
+                string treeName = r.ReadString(); // old name format (without package name) is possible
                 PropInfo pi = PrefabCollection<PropInfo>.FindLoaded(propName);
-                TreeInfo ti =  PrefabCollection<TreeInfo>.FindLoaded(treeName);
+                TreeInfo ti = PrefabCollection<TreeInfo>.FindLoaded(treeName);
 
                 if (pi == null && !string.IsNullOrEmpty(propName) && LoadPropTree(ref propName))
                     pi = PrefabCollection<PropInfo>.FindLoaded(propName);
 
                 if (ti == null && !string.IsNullOrEmpty(treeName) && LoadPropTree(ref treeName))
                     ti = PrefabCollection<TreeInfo>.FindLoaded(treeName);
+
+                if (Settings.settings.reportAssets && UsedAssets.instance.GotBuilding(AssetLoader.instance.currentFullName))
+                {
+                    if (pi != null)
+                    {
+                        string n = pi.gameObject.name;
+
+                        if (!string.IsNullOrEmpty(n) && n.Contains("."))
+                            UsedAssets.instance.indirectProps.Add(n);
+                    }
+
+                    if (ti != null)
+                    {
+                        string n = ti.gameObject.name;
+
+                        if (!string.IsNullOrEmpty(n) && n.Contains("."))
+                            UsedAssets.instance.indirectTrees.Add(n);
+                    }
+                }
 
                 return new BuildingInfo.Prop
                 {
@@ -187,11 +219,11 @@ namespace LoadingScreenMod
             if (t == typeof(VehicleInfo.VehicleTrailer))
             {
                 string name = r.ReadString();
-                string trailerName = p.packageName + "." + name;
-                VehicleInfo vi = PrefabCollection<VehicleInfo>.FindLoaded(trailerName);
+                string fullName = p.packageName + "." + name;
+                VehicleInfo vi = PrefabCollection<VehicleInfo>.FindLoaded(fullName);
 
-                if (vi == null && LoadTrailer(p, name))
-                    vi = PrefabCollection<VehicleInfo>.FindLoaded(trailerName);
+                if (vi == null && LoadTrailer(p, fullName, name))
+                    vi = PrefabCollection<VehicleInfo>.FindLoaded(fullName);
 
                 VehicleInfo.VehicleTrailer trailer;
                 trailer.m_info = vi;
@@ -218,7 +250,7 @@ namespace LoadingScreenMod
                     Package package; Package.Asset asset;
                     ulong id;
 
-                    // The fast path: it is a workshop asset.
+                    // The fast path.
                     if (ulong.TryParse(name.Substring(0, j), out id) && (package = PackageManager.FindPackageBy(new PublishedFileId(id))) != null &&
                         (asset = package.Find(name.Substring(j + 1))) != null)
                             return asset;
@@ -249,8 +281,8 @@ namespace LoadingScreenMod
             if (data != null)
                 try
                 {
-                    AssetLoader.instance.PropTreeTrailerImpl(data.package, data);
                     fullName = data.fullName;
+                    AssetLoader.instance.PropTreeTrailerImpl(fullName, data);
                     return true;
                 }
                 catch (Exception e)
@@ -263,14 +295,14 @@ namespace LoadingScreenMod
             return false;
         }
 
-        static bool LoadTrailer(Package package, string name)
+        static bool LoadTrailer(Package package, string fullName, string name)
         {
             Package.Asset data = package.Find(name);
 
             if (data != null)
                 try
                 {
-                    AssetLoader.instance.PropTreeTrailerImpl(package, data);
+                    AssetLoader.instance.PropTreeTrailerImpl(fullName, data);
                     return true;
                 }
                 catch (Exception e)
@@ -278,7 +310,7 @@ namespace LoadingScreenMod
                     AssetLoader.instance.Failed(data, e);
                 }
             else
-                AssetLoader.instance.NotFound(package.packageName + "." + name);
+                AssetLoader.instance.NotFound(fullName);
 
             return false;
         }
