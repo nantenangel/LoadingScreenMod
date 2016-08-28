@@ -4,7 +4,7 @@ using System.Linq;
 using System.Reflection;
 using ColossalFramework.IO;
 using System.IO;
-using System.Text;
+using System.Collections.Generic;
 
 namespace LoadingScreenMod
 {
@@ -16,10 +16,8 @@ namespace LoadingScreenMod
             Debug.Log(s);
         }
 
-        public static string OnJoin(this string delim, params object[] args)
-        {
-            return string.Join(delim, args.Select(o => o?.ToString() ?? "null").ToArray());
-        }
+        public static string OnJoin(this string delim, IEnumerable<object> args) => string.Join(delim, args.Select(o => o?.ToString() ?? "null").ToArray());
+        public static string asString(this Array array) => string.Concat("[", ", ".OnJoin(array.OfType<object>()), "]");
 
         internal static void InvokeVoid(object instance, string method)
         {
@@ -103,6 +101,16 @@ namespace LoadingScreenMod
         {
             MethodInfo m = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
             return (Action<P, Q, R>) Delegate.CreateDelegate(typeof(Action<P, Q, R>), m);
+        }
+
+        public static List<T> ToList<T>(this T[] array, int count)
+        {
+            List<T> ret = new List<T>(count + 5);
+
+            for (int i = 0; i < count; i++)
+                ret.Add(array[i]);
+
+            return ret;
         }
     }
 }

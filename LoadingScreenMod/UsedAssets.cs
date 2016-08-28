@@ -21,19 +21,18 @@ namespace LoadingScreenMod
         internal HashSet<string> IndirectProps => indirectProps;
         internal HashSet<string> IndirectTrees => indirectTrees;
 
-        internal UsedAssets()
+        internal static UsedAssets Create()
         {
-            instance = this;
+            if (instance == null)
+            {
+                instance = new UsedAssets();
+                instance.LookupUsed();
+            }
+
+            return instance;
         }
 
-        internal void Setup()
-        {
-            LookupUsed();
-            defaultHandler = PackageDeserializer.customDeserializer;
-            PackageDeserializer.SetCustomDeserializer(CustomDeserialize);
-        }
-
-        internal void LookupUsed()
+        void LookupUsed()
         {
             LookupSimulationBuildings(buildingPackages, buildingAssets);
             LookupSimulationAssets<PropInfo>(propPackages, propAssets);
@@ -41,11 +40,20 @@ namespace LoadingScreenMod
             LookupSimulationAssets<VehicleInfo>(vehiclePackages, vehicleAssets);
         }
 
-        internal void Dispose()
+        internal void Hook()
+        {
+            defaultHandler = PackageDeserializer.customDeserializer;
+            PackageDeserializer.SetCustomDeserializer(CustomDeserialize);
+        }
+
+        internal void Unhook()
         {
             if (PackageDeserializer.customDeserializer == CustomDeserialize)
                 PackageDeserializer.SetCustomDeserializer(defaultHandler);
+        }
 
+        internal void Dispose()
+        {
             buildingPackages.Clear(); propPackages.Clear(); treePackages.Clear(); vehiclePackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear();
             buildingPackages = null; propPackages = null; treePackages = null; vehiclePackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null;
             instance = null; assets = null; defaultHandler = null;
@@ -110,7 +118,7 @@ namespace LoadingScreenMod
         /// <summary>
         /// Looks up the custom assets placed in the city.
         /// </summary>
-        static void LookupSimulationAssets<P>(HashSet<string> packages, HashSet<string> assets) where P : PrefabInfo
+        void LookupSimulationAssets<P>(HashSet<string> packages, HashSet<string> assets) where P : PrefabInfo
         {
             try
             {
@@ -128,7 +136,7 @@ namespace LoadingScreenMod
         /// <summary>
         /// BuildingInfos require more effort because the NotUsedGuide/UnlockMilestone stuff gets into way.
         /// </summary>
-        static void LookupSimulationBuildings(HashSet<string> packages, HashSet<string> assets)
+        void LookupSimulationBuildings(HashSet<string> packages, HashSet<string> assets)
         {
             try
             {
@@ -147,13 +155,16 @@ namespace LoadingScreenMod
 
         static void Add(string name, HashSet<string> packages, HashSet<string> assets)
         {
-            int j;
-
-            // Recognize custom assets:
-            if (!string.IsNullOrEmpty(name) && (j = name.IndexOf('.')) >= 0 && j < name.Length - 1)
+            if (!string.IsNullOrEmpty(name))
             {
-                packages.Add(name.Substring(0, j)); // packagename (or pac in case the full name is pac.kagename.assetname)
-                assets.Add(name); // packagename.assetname
+                int j = name.IndexOf('.');
+
+                // Recognize custom assets:
+                if (j >= 0 && j < name.Length - 1)
+                {
+                    packages.Add(name.Substring(0, j)); // packagename (or pac in case the full name is pac.kagename.assetname)
+                    assets.Add(name); // packagename.assetname
+                }
             }
         }
 

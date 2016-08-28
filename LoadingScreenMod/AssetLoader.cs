@@ -36,13 +36,15 @@ namespace LoadingScreenMod
 
         public void Setup()
         {
+            new Sharing().Deploy();
+
             if (reportAssets)
                 new AssetReport();
         }
 
         public void Dispose()
         {
-            AssetReport.instance?.Dispose();
+            UsedAssets.instance?.Dispose();
             Sharing.instance?.Dispose();
             LevelLoader.instance.AddFailedAssets(failedAssets);
             failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear(); loadedIntersections.Clear();
@@ -52,13 +54,17 @@ namespace LoadingScreenMod
         void Report()
         {
             if (loadUsed)
+            {
                 UsedAssets.instance.ReportMissingAssets();
+                UsedAssets.instance.Unhook();
+            }
 
             if (reportAssets)
+            {
                 AssetReport.instance.Save();
+                AssetReport.instance.Dispose();
+            }
 
-            AssetReport.instance?.Dispose();
-            UsedAssets.instance?.Dispose();
             Sharing.instance?.Dispose();
         }
 
@@ -117,7 +123,7 @@ namespace LoadingScreenMod
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
 
             if (loadUsed)
-                new UsedAssets().Setup();
+                UsedAssets.Create().Hook();
 
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Loading Assets First Pass");
             notMask = ~SteamHelper.GetOwnedDLCMask();

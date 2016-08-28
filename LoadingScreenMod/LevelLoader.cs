@@ -56,7 +56,6 @@ namespace LoadingScreenMod
                 {
                     instance.cityName = asset?.name ?? "NewGame";
                     Profiling.Init();
-                    new Sharing().Deploy();
                     new AssetLoader().Setup();
                     new LoadingScreen().Setup();
                 }
@@ -110,7 +109,7 @@ namespace LoadingScreenMod
                 knownToFail.Clear();
                 fastLoad = false;
             }
-            else // loading from in-game
+            else // loading from in-game (the pause menu)
             {
                 while (!LoadingManager.instance.m_metaDataLoaded && !task.completedOrFailed) // IL_158
                     yield return null;
@@ -125,12 +124,11 @@ namespace LoadingScreenMod
                 string mapThemeName = SimulationManager.instance.m_metaData.m_MapThemeMetaData?.name;
                 fastLoad = SimulationManager.instance.m_metaData.m_environment == LoadingManager.instance.m_loadedEnvironment && mapThemeName == LoadingManager.instance.m_loadedMapTheme;
 
-                // The game is nicely optimized when loading from in-game. We must specifically address the following situation:
-                // - loading from in-game
+                // The game is nicely optimized when loading from the pause menu. We must specifically address the following situation:
                 // - environment (biome) stays the same
                 // - map theme stays the same
                 // - 'load used assets' is enabled
-                // - not all assets used in the save being loaded are currently in memory.
+                // - not all assets and prefabs used in the save being loaded are currently in memory.
 
                 if (fastLoad)
                 {
@@ -194,181 +192,23 @@ namespace LoadingScreenMod
                     SimulationManager.instance.m_metaData.Merge(ngs);
                 }
 
-                LoadingManager.instance.m_supportsExpansion[0] = (bool) Util.Invoke(LoadingManager.instance, "DLC", 369150u);
-                LoadingManager.instance.m_supportsExpansion[1] = (bool) Util.Invoke(LoadingManager.instance, "DLC", 420610u);
-                bool isWinter = SimulationManager.instance.m_metaData.m_environment == "Winter";
+                KeyValuePair<string, float>[] levels = SetLevels();
+                float currentProgress = 0.10f;
 
-                if (isWinter && !LoadingManager.instance.m_supportsExpansion[1])
+                for (int i = 0; i < levels.Length; i++)
                 {
-                    SimulationManager.instance.m_metaData.m_environment = "Sunny";
-                    isWinter = false;
-                }
-
-                scene = (string) Util.Invoke(LoadingManager.instance, "GetLoadingScene");
-
-                if (!string.IsNullOrEmpty(scene))
-                {
-                    LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                    op = Application.LoadLevelAdditiveAsync(scene);
-
-                    while (!op.isDone) // IL_4D0
-                    {
-                        LoadingManager.instance.SetSceneProgress(0.1f + op.progress * 0.01f);
-                        yield return null;
-                    }
-
-                    LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
-                }
-
-                scene = SimulationManager.instance.m_metaData.m_environment + "Prefabs"; // IL_4F0
-
-                if (!string.IsNullOrEmpty(scene))
-                {
-                    LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                    op = Application.LoadLevelAdditiveAsync(scene);
-
-                    while (!op.isDone) // IL_585
-                    {
-                        LoadingManager.instance.SetSceneProgress(0.11f + op.progress * 0.5f);
-                        yield return null;
-                    }
-
-                    LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
-                }
-
-                if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 1u)) // IL_5A5
-                {
-                    scene = isWinter ? "WinterLoginPackPrefabs" : "LoginPackPrefabs";
-                    LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                    op = Application.LoadLevelAdditiveAsync(scene);
-
-                    while (!op.isDone) // IL_63C
-                    {
-                        LoadingManager.instance.SetSceneProgress(0.61f + op.progress * 0.01f);
-                        yield return null;
-                    }
-
-                    LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
-                }
-
-                scene = isWinter ? "WinterPreorderPackPrefabs" : "PreorderPackPrefabs";
-                LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                op = Application.LoadLevelAdditiveAsync(scene);
-
-                while (!op.isDone) // IL_6F8
-                {
-                    LoadingManager.instance.SetSceneProgress(0.62f + op.progress * 0.01f);
-                    yield return null;
-                }
-
-                LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
-
-                scene = isWinter ? "WinterSignupPackPrefabs" : "SignupPackPrefabs"; // IL_718
-                LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                op = Application.LoadLevelAdditiveAsync(scene);
-
-                while (!op.isDone) // IL_79F
-                {
-                    LoadingManager.instance.SetSceneProgress(0.63f + op.progress * 0.01f);
-                    yield return null;
-                }
-
-                LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
-
-                if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 346791u))
-                {
-                    scene = "DeluxePackPrefabs";
-                    LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                    op = Application.LoadLevelAdditiveAsync(scene);
-
-                    while (!op.isDone) // IL_846
-                    {
-                        LoadingManager.instance.SetSceneProgress(0.64f + op.progress * 0.01f);
-                        yield return null;
-                    }
-
-                    LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
-                }
-
-                if (Steam.IsAppOwned(238370u)) // IL_866
-                {
-                    scene = "MagickaPackPrefabs";
-                    LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                    op = Application.LoadLevelAdditiveAsync(scene);
-
-                    while (!op.isDone) // IL_8ED
-                    {
-                        LoadingManager.instance.SetSceneProgress(0.65f + op.progress * 0.01f);
-                        yield return null;
-                    }
-
-                    LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
-                }
-
-                if (LoadingManager.instance.m_supportsExpansion[0]) // IL_90D
-                {
-                    scene = isWinter ? "WinterExpansion1Prefabs" : "Expansion1Prefabs";
-                    LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                    op = Application.LoadLevelAdditiveAsync(scene);
-
-                    while (!op.isDone) // IL_9A6
-                    {
-                        LoadingManager.instance.SetSceneProgress(0.66f + op.progress * 0.02f);
-                        yield return null;
-                    }
-
-                    LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
-                }
-
-                if (LoadingManager.instance.m_supportsExpansion[1]) // IL_9C6
-                {
-                    scene = "Expansion2Prefabs";
-                    LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                    op = Application.LoadLevelAdditiveAsync(scene);
-
-                    while (!op.isDone) // IL_A4A
-                    {
-                        LoadingManager.instance.SetSceneProgress(0.68f + op.progress * 0.01f);
-                        yield return null;
-                    }
-
-                    LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
-                }
-
-                if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 456200u))
-                {
-                    scene = "FootballPrefabs";
+                    scene = levels[i].Key;
                     LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
                     op = Application.LoadLevelAdditiveAsync(scene);
 
                     while (!op.isDone)
                     {
-                        LoadingManager.instance.SetSceneProgress(0.69f + op.progress * 0.01f);
+                        LoadingManager.instance.SetSceneProgress(currentProgress + op.progress * (levels[i].Value - currentProgress));
                         yield return null;
                     }
 
                     LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
-                }
-
-                Package.Asset europeanStyles = PackageManager.FindAssetByName("System." + DistrictStyle.kEuropeanStyleName); // IL_A6A
-
-                if (europeanStyles != null && europeanStyles.isEnabled)
-                {
-                    if (SimulationManager.instance.m_metaData.m_environment.Equals("Europe"))
-                        scene = "EuropeNormalPrefabs";
-                    else
-                        scene = "EuropeStylePrefabs";
-
-                    LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                    op = Application.LoadLevelAdditiveAsync(scene);
-
-                    while (!op.isDone) // IL_B45
-                    {
-                        LoadingManager.instance.SetSceneProgress(0.70f + op.progress * 0.03f);
-                        yield return null;
-                    }
-
-                    LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
+                    currentProgress = levels[i].Value;
                 }
 
                 // LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "LoadCustomContent")); // IL_B65
@@ -454,6 +294,58 @@ namespace LoadingScreenMod
         }
 
         /// <summary>
+        /// Creates the list of standard prefab levels to load.
+        /// </summary>
+        KeyValuePair<string, float>[] SetLevels()
+        {
+            LoadingManager.instance.m_supportsExpansion[0] = (bool) Util.Invoke(LoadingManager.instance, "DLC", 369150u);
+            LoadingManager.instance.m_supportsExpansion[1] = (bool) Util.Invoke(LoadingManager.instance, "DLC", 420610u);
+            bool isWinter = SimulationManager.instance.m_metaData.m_environment == "Winter";
+
+            if (isWinter && !LoadingManager.instance.m_supportsExpansion[1])
+            {
+                SimulationManager.instance.m_metaData.m_environment = "Sunny";
+                isWinter = false;
+            }
+
+            List<KeyValuePair<string, float>> levels = new List<KeyValuePair<string, float>>(12);
+            string scene = (string) Util.Invoke(LoadingManager.instance, "GetLoadingScene");
+
+            if (!string.IsNullOrEmpty(scene))
+                levels.Add(new KeyValuePair<string, float>(scene, 0.11f));
+
+            levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment + "Prefabs", 0.60f));
+
+            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 1u))
+                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterLoginPackPrefabs" : "LoginPackPrefabs", 0.61f));
+
+            levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterPreorderPackPrefabs" : "PreorderPackPrefabs", 0.62f));
+            levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterSignupPackPrefabs" : "SignupPackPrefabs", 0.63f));
+
+            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 346791u))
+                levels.Add(new KeyValuePair<string, float>("DeluxePackPrefabs", 0.64f));
+
+            if (Steam.IsAppOwned(238370u))
+                levels.Add(new KeyValuePair<string, float>("MagickaPackPrefabs", 0.65f));
+
+            if (LoadingManager.instance.m_supportsExpansion[0])
+                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterExpansion1Prefabs" : "Expansion1Prefabs", 0.68f));
+
+            if (LoadingManager.instance.m_supportsExpansion[1])
+                levels.Add(new KeyValuePair<string, float>("Expansion2Prefabs", 0.69f));
+
+            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 456200u))
+                levels.Add(new KeyValuePair<string, float>("FootballPrefabs", 0.70f));
+
+            Package.Asset europeanStyles = PackageManager.FindAssetByName("System." + DistrictStyle.kEuropeanStyleName);
+
+            if (europeanStyles != null && europeanStyles.isEnabled)
+                levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment.Equals("Europe") ? "EuropeNormalPrefabs" : "EuropeStylePrefabs", 0.73f));
+
+            return levels.ToArray();
+        }
+
+        /// <summary>
         /// Checks (and reports) if the simulation thread has failed.
         /// </summary>
         bool HasFailed(AsyncTask simulationTask)
@@ -472,7 +364,7 @@ namespace LoadingScreenMod
                     profiler?.Failed(msg);
                     return true;
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     UnityEngine.Debug.LogException(e);
                 }
@@ -483,35 +375,34 @@ namespace LoadingScreenMod
 
         /// <summary>
         /// Checks if buildings, props, trees, and vehicles have been deserialized from the savegame.
+        /// </summary>
+        public static bool IsSaveDeserialized() => GetSimProgress() > 55;
+
+        /// <summary>
+        /// Returns the progress of simulation deserialization.
         /// Note: two threads at play here, old values of m_size might be cached for quite some time.
         /// </summary>
-        static bool IsSaveDeserialized()
+        public static int GetSimProgress()
         {
             try
             {
                 FastList<LoadingProfiler.Event> events = ProfilerSource.GetEvents(LoadingManager.instance.m_loadingProfilerSimulation);
-                int progress = Thread.VolatileRead(ref events.m_size);
-                return progress > 55;
+                return Thread.VolatileRead(ref events.m_size);
             }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogException(e);
-            }
+            catch (Exception) { }
 
-            return false;
+            return -1;
         }
 
         /// <summary>
-        /// Checks if the savegame needs any assets not currently in memory.
+        /// Checks if the savegame needs any assets or prefabs not currently in memory.
         /// </summary>
         bool AnyMissingAssets()
         {
             try
             {
-                new UsedAssets().LookupUsed();
-                bool ret = UsedAssets.instance.AnyMissing(knownToFail);
-                UsedAssets.instance.Dispose();
-                return ret;
+                UsedAssets.Create();
+                return UsedAssets.instance.AnyMissing(knownToFail);
             }
             catch (Exception e)
             {
@@ -521,7 +412,7 @@ namespace LoadingScreenMod
             return true;
         }
 
-        static void DestroyLoadedPrefabs()
+        public static void DestroyLoadedPrefabs()
         {
             DestroyLoaded<NetInfo>();
             DestroyLoaded<BuildingInfo>();
@@ -536,7 +427,7 @@ namespace LoadingScreenMod
         /// <summary>
         /// Destroys scene prefabs. Unlike DestroyAll(), simulation prefabs are not affected.
         /// </summary>
-        static void DestroyLoaded<P>() where P : PrefabInfo
+        public static void DestroyLoaded<P>() where P : PrefabInfo
         {
             try
             {
@@ -563,6 +454,8 @@ namespace LoadingScreenMod
                     Util.Set(fastList, "m_size", 0, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 }
 
+                object dict = Util.GetStatic(typeof(PrefabCollection<P>), "m_prefabDict");
+                dict.GetType().GetMethod("Clear", BindingFlags.Instance | BindingFlags.Public).Invoke(dict, null);
                 prefabs.Clear(); prefabs.Capacity = 0;
             }
             catch (Exception e)

@@ -58,7 +58,7 @@ namespace LoadingScreenMod
                 XmlSerializer serializer = new XmlSerializer(typeof(Settings));
 
                 using (StreamWriter writer = new StreamWriter(FILENAME))
-                    serializer.Serialize(writer, this);
+                serializer.Serialize(writer, this);
             }
             catch (Exception e)
             {
@@ -76,14 +76,14 @@ namespace LoadingScreenMod
             Check(group1, "Share materials", "Replace exact duplicates by references", shareMaterials, b => { shareMaterials = b; Save(); });
             Check(group1, "Share meshes", "Replace exact duplicates by references", shareMeshes, b => { shareMeshes = b; Save(); });
 
-            UIHelper group2 = helper.AddGroup("Reports") as UIHelper;
-            Check(group2, "Save assets report", "Save a report of missing, failed and used assets in " + Util.GetSavePath(), reportAssets, b => { reportAssets = b; Save(); });
-
             UIComponent panel = group1?.self as UIComponent;
             UILabel groupLabel = panel?.parent?.Find<UILabel>("Label");
 
             if (groupLabel != null)
                 groupLabel.tooltip = "Custom means workshop assets and assets created by yourself";
+
+            UIHelper group3 = helper.AddGroup("Reports") as UIHelper;
+            Check(group3, "Save assets report", "Save a report of missing, failed and used assets in " + Util.GetSavePath(), reportAssets, b => { reportAssets = b; Save(); });
         }
 
         void Check(UIHelper group, string text, string tooltip, bool enabled, OnCheckChanged action)
@@ -91,7 +91,9 @@ namespace LoadingScreenMod
             try
             {
                 UIComponent check = group.AddCheckbox(text, enabled, action) as UIComponent;
-                check.tooltip = tooltip;
+
+                if (tooltip != null)
+                    check.tooltip = tooltip;
             }
             catch (Exception e)
             {
