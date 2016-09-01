@@ -58,7 +58,7 @@ namespace LoadingScreenMod
                 XmlSerializer serializer = new XmlSerializer(typeof(Settings));
 
                 using (StreamWriter writer = new StreamWriter(FILENAME))
-                serializer.Serialize(writer, this);
+                    serializer.Serialize(writer, this);
             }
             catch (Exception e)
             {

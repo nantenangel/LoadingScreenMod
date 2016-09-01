@@ -314,28 +314,31 @@ namespace LoadingScreenMod
             if (!string.IsNullOrEmpty(scene))
                 levels.Add(new KeyValuePair<string, float>(scene, 0.11f));
 
-            levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment + "Prefabs", 0.60f));
+            levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment + "Prefabs", 0.57f));
 
             if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 1u))
-                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterLoginPackPrefabs" : "LoginPackPrefabs", 0.61f));
+                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterLoginPackPrefabs" : "LoginPackPrefabs", 0.58f));
 
-            levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterPreorderPackPrefabs" : "PreorderPackPrefabs", 0.62f));
-            levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterSignupPackPrefabs" : "SignupPackPrefabs", 0.63f));
+            levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterPreorderPackPrefabs" : "PreorderPackPrefabs", 0.59f));
+            levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterSignupPackPrefabs" : "SignupPackPrefabs", 0.60f));
 
             if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 346791u))
-                levels.Add(new KeyValuePair<string, float>("DeluxePackPrefabs", 0.64f));
+                levels.Add(new KeyValuePair<string, float>("DeluxePackPrefabs", 0.61f));
 
             if (Steam.IsAppOwned(238370u))
-                levels.Add(new KeyValuePair<string, float>("MagickaPackPrefabs", 0.65f));
+                levels.Add(new KeyValuePair<string, float>("MagickaPackPrefabs", 0.62f));
 
             if (LoadingManager.instance.m_supportsExpansion[0])
-                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterExpansion1Prefabs" : "Expansion1Prefabs", 0.68f));
+                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterExpansion1Prefabs" : "Expansion1Prefabs", 0.65f));
 
             if (LoadingManager.instance.m_supportsExpansion[1])
-                levels.Add(new KeyValuePair<string, float>("Expansion2Prefabs", 0.69f));
+                levels.Add(new KeyValuePair<string, float>("Expansion2Prefabs", 0.66f));
 
             if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 456200u))
-                levels.Add(new KeyValuePair<string, float>("FootballPrefabs", 0.70f));
+                levels.Add(new KeyValuePair<string, float>("FootballPrefabs", 0.67f));
+
+            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 515190u))
+                levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.69f));
 
             Package.Asset europeanStyles = PackageManager.FindAssetByName("System." + DistrictStyle.kEuropeanStyleName);
 
