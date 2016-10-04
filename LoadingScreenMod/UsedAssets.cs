@@ -12,7 +12,7 @@ namespace LoadingScreenMod
         static PackageDeserializer.CustomDeserializeHandler defaultHandler;
         HashSet<string> buildingPackages = new HashSet<string>(), propPackages = new HashSet<string>(), treePackages = new HashSet<string>(), vehiclePackages = new HashSet<string>();
         HashSet<string> buildingAssets = new HashSet<string>(), propAssets = new HashSet<string>(), treeAssets = new HashSet<string>(), vehicleAssets = new HashSet<string>();
-        HashSet<string> indirectProps = new HashSet<string>(), indirectTrees = new HashSet<string>();
+        HashSet<string> indirectProps = new HashSet<string>(), indirectTrees = new HashSet<string>(), buildingPrefabs = new HashSet<string>();
         Package.Asset[] assets;
         internal HashSet<string> Buildings => buildingAssets;
         internal HashSet<string> Props => propAssets;
@@ -54,8 +54,8 @@ namespace LoadingScreenMod
 
         internal void Dispose()
         {
-            buildingPackages.Clear(); propPackages.Clear(); treePackages.Clear(); vehiclePackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear();
-            buildingPackages = null; propPackages = null; treePackages = null; vehiclePackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null;
+            buildingPackages.Clear(); propPackages.Clear(); treePackages.Clear(); vehiclePackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear(); buildingPrefabs.Clear();
+            buildingPackages = null; propPackages = null; treePackages = null; vehiclePackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null; buildingPrefabs = null;
             instance = null; assets = null; defaultHandler = null;
         }
 
@@ -77,6 +77,30 @@ namespace LoadingScreenMod
         internal bool GotVehicle(string fullName) => vehicleAssets.Contains(fullName);
         internal bool GotIndirectProp(string fullName) => indirectProps.Contains(fullName);
         internal bool GotIndirectTree(string fullName) => indirectTrees.Contains(fullName);
+
+        internal bool GotPrefab(string fullName, string replace)
+        {
+            if (buildingPrefabs.Contains(fullName))
+                return true;
+
+            replace = replace?.Trim();
+
+            if (string.IsNullOrEmpty(replace))
+                return false;
+
+            if (replace.IndexOf(',') != -1)
+            {
+                string[] array = replace.Split(',');
+
+                for (int i = 0; i < array.Length; i++)
+                    if (buildingPrefabs.Contains(array[i].Trim()))
+                        return true;
+
+                return false;
+            }
+            else
+                return buildingPrefabs.Contains(replace);
+        }
 
         internal void ReportMissingAssets()
         {
@@ -103,14 +127,18 @@ namespace LoadingScreenMod
         internal bool AnyMissing(HashSet<string> ignore)
         {
             return AnyMissing<BuildingInfo>(buildingAssets, ignore) || AnyMissing<PropInfo>(propAssets, ignore) ||
-                   AnyMissing<TreeInfo>(treeAssets, ignore) || AnyMissing<VehicleInfo>(vehicleAssets, ignore);
+                   AnyMissing<TreeInfo>(treeAssets, ignore) || AnyMissing<VehicleInfo>(vehicleAssets, ignore) ||
+                   Settings.settings.SkipAny && AnyMissing<BuildingInfo>(buildingPrefabs, new HashSet<string>());
         }
 
         static bool AnyMissing<P>(HashSet<string> fullNames, HashSet<string> ignore) where P : PrefabInfo
         {
             foreach (string name in fullNames)
                 if (!ignore.Contains(name) && PrefabCollection<P>.FindLoaded(name) == null)
+                {
+                    Util.DebugPrint("AnyMissing", typeof(P).Name, ":", name);
                     return true;
+                }
 
             return false;
         }
@@ -142,10 +170,12 @@ namespace LoadingScreenMod
             {
                 Building[] buffer = BuildingManager.instance.m_buildings.m_buffer;
                 int n = buffer.Length;
+                HashSet<string> prefabs = Settings.settings.SkipAny ? buildingPrefabs : null;
+                Sc("\nUsed prefabs:");
 
                 for (int i = 1; i < n; i++)
                     if (buffer[i].m_flags != Building.Flags.None)
-                        Add(PrefabCollection<BuildingInfo>.PrefabName(buffer[i].m_infoIndex), packages, assets);
+                        Add(PrefabCollection<BuildingInfo>.PrefabName(buffer[i].m_infoIndex), packages, assets, prefabs);
             }
             catch (Exception e)
             {
@@ -153,7 +183,12 @@ namespace LoadingScreenMod
             }
         }
 
-        static void Add(string name, HashSet<string> packages, HashSet<string> assets)
+        static void Sc(string s)
+        {
+            PrefabLoader.w?.WriteLine(s + " \t - " + Profiling.Millis);
+        }
+
+        static void Add(string name, HashSet<string> packages, HashSet<string> assets, HashSet<string> prefabs = null)
         {
             if (!string.IsNullOrEmpty(name))
             {
@@ -165,6 +200,9 @@ namespace LoadingScreenMod
                     packages.Add(name.Substring(0, j)); // packagename (or pac in case the full name is pac.kagename.assetname)
                     assets.Add(name); // packagename.assetname
                 }
+                else if (prefabs != null)
+                    if (prefabs.Add(name))
+                        Sc("  " + name);
             }
         }
 

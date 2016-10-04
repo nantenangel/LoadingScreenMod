@@ -25,6 +25,7 @@ namespace LoadingScreenMod
         {
             instance = this;
             init(Singleton<LoadingManager>.instance.GetType(), "LoadLevel", 4, 0, typeof(Package.Asset));
+            // new TestHook();
         }
 
         internal void AddFailedAssets(HashSet<string> assets)
@@ -106,11 +107,14 @@ namespace LoadingScreenMod
 
             if (LoadingManager.instance.m_loadedEnvironment == null) // loading from main menu
             {
+                Util.DebugPrint("Main", Settings.settings.skip.asString(), Settings.settings.applyToEuropean);
                 knownToFail.Clear();
                 fastLoad = false;
             }
             else // loading from in-game (the pause menu)
             {
+                Util.DebugPrint("Game", Settings.settings.skip.asString(), Settings.settings.applyToEuropean);
+
                 while (!LoadingManager.instance.m_metaDataLoaded && !task.completedOrFailed) // IL_158
                     yield return null;
 
@@ -158,6 +162,7 @@ namespace LoadingScreenMod
                 {
                     // Notice that there is a race condition in the base game at this point: DestroyAllPrefabs ruins the simulation
                     // if its deserialization has progressed far enough. Typically there is no problem.
+                    Util.DebugPrint("Simulation progress:", GetSimProgress(), "at", Profiling.Millis);
                     Util.InvokeVoid(LoadingManager.instance, "DestroyAllPrefabs");
                     LoadingManager.instance.m_loadedEnvironment = null;
                     LoadingManager.instance.m_loadedMapTheme = null;
@@ -198,7 +203,16 @@ namespace LoadingScreenMod
                 for (int i = 0; i < levels.Length; i++)
                 {
                     scene = levels[i].Key;
+
+                    if (string.IsNullOrEmpty(scene)) // just a marker to stop prefab skipping
+                    {
+                        PrefabLoader.instance?.Revert();
+                        Sc("Reverted");
+                        continue;
+                    }
+
                     LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
+                    Sc(scene);
                     op = Application.LoadLevelAdditiveAsync(scene);
 
                     while (!op.isDone)
@@ -209,6 +223,29 @@ namespace LoadingScreenMod
 
                     LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
                     currentProgress = levels[i].Value;
+                }
+
+                if (Settings.settings.SkipAny)
+                {
+                    yield return null;
+                    PrefabLoader.instance?.DestroySkipped();
+                    yield return null;
+
+                    try
+                    {
+                        Resources.UnloadUnusedAssets();
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogException(e);
+                    }
+
+                    yield return null;
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    yield return null;
                 }
 
                 // LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "LoadCustomContent")); // IL_B65
@@ -228,6 +265,7 @@ namespace LoadingScreenMod
                 if (!string.IsNullOrEmpty(scene))
                 {
                     LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
+                    Sc(scene);
                     op = Application.LoadLevelAdditiveAsync(scene);
 
                     while (!op.isDone) // IL_C47
@@ -245,6 +283,7 @@ namespace LoadingScreenMod
                 if (!string.IsNullOrEmpty(uiScene)) // IL_C67
                 {
                     LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(uiScene);
+                    Sc(uiScene);
                     op = Application.LoadLevelAdditiveAsync(uiScene);
 
                     while (!op.isDone) // IL_CDE
@@ -291,6 +330,21 @@ namespace LoadingScreenMod
 
             if (Singleton<TelemetryManager>.exists)
                 Singleton<TelemetryManager>.instance.StartSession(asset?.name, playerScene, mode, SimulationManager.instance.m_metaData);
+
+            int n = PrefabCollection<BuildingInfo>.LoadedCount();
+            Sc("Scene buildings - " + n);
+
+            for (int i = 0; i < n; i++)
+                PrefabLoader.w?.WriteLine("  " + (PrefabCollection<BuildingInfo>.GetLoaded((uint) i)?.gameObject.name ?? "null"));
+
+            PrefabLoader.instance?.Dispose();
+        }
+
+        void Sc(string s)
+        {
+            s += " - " + Profiling.Millis;
+            PrefabLoader.w?.WriteLine("\n" + s);
+            PrefabLoader.w?.WriteLine(new string('-', 8));
         }
 
         /// <summary>
@@ -298,6 +352,14 @@ namespace LoadingScreenMod
         /// </summary>
         KeyValuePair<string, float>[] SetLevels()
         {
+            bool skipAny = Settings.settings.SkipAny;
+
+            if (skipAny)
+            {
+                new PrefabLoader().Deploy();
+                PrefabLoader.w.WriteLine("\nEnv: " + SimulationManager.instance.m_metaData.m_environment + "  Theme: " + (SimulationManager.instance.m_metaData.m_MapThemeMetaData?.name ?? "null") + "  City: " + instance.cityName);
+            }
+
             LoadingManager.instance.m_supportsExpansion[0] = (bool) Util.Invoke(LoadingManager.instance, "DLC", 369150u);
             LoadingManager.instance.m_supportsExpansion[1] = (bool) Util.Invoke(LoadingManager.instance, "DLC", 420610u);
             bool isWinter = SimulationManager.instance.m_metaData.m_environment == "Winter";
@@ -340,10 +402,16 @@ namespace LoadingScreenMod
             if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 515190u))
                 levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.69f));
 
+            if (skipAny && !Settings.settings.applyToEuropean)
+                levels.Add(new KeyValuePair<string, float>(string.Empty, 0f));
+
             Package.Asset europeanStyles = PackageManager.FindAssetByName("System." + DistrictStyle.kEuropeanStyleName);
 
             if (europeanStyles != null && europeanStyles.isEnabled)
                 levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment.Equals("Europe") ? "EuropeNormalPrefabs" : "EuropeStylePrefabs", 0.73f));
+
+            if (skipAny && Settings.settings.applyToEuropean)
+                levels.Add(new KeyValuePair<string, float>(string.Empty, 0f));
 
             return levels.ToArray();
         }
@@ -404,8 +472,7 @@ namespace LoadingScreenMod
         {
             try
             {
-                UsedAssets.Create();
-                return UsedAssets.instance.AnyMissing(knownToFail);
+                return UsedAssets.Create().AnyMissing(knownToFail);
             }
             catch (Exception e)
             {
@@ -459,12 +526,48 @@ namespace LoadingScreenMod
 
                 object dict = Util.GetStatic(typeof(PrefabCollection<P>), "m_prefabDict");
                 dict.GetType().GetMethod("Clear", BindingFlags.Instance | BindingFlags.Public).Invoke(dict, null);
+                int cnt = (int) dict.GetType().GetMethod("get_Count", BindingFlags.Instance | BindingFlags.Public).Invoke(dict, null);
+                Util.DebugPrint("DestroyLoaded", typeof(P).Name, "left behind:", cnt);
                 prefabs.Clear(); prefabs.Capacity = 0;
             }
             catch (Exception e)
             {
                 UnityEngine.Debug.LogException(e);
             }
+        }
+    }
+
+    sealed class TestHook : DetourUtility
+    {
+        static bool created = false;
+        static HashSet<int> destroyed = new HashSet<int>();
+
+        internal TestHook()
+        {
+            destroyed.Clear();
+
+            if (!created)
+            {
+                created = true;
+                init(typeof(BuildingCollection), "OnDestroy");
+                Deploy();
+            }
+        }
+
+        static void OnDestroy(BuildingCollection bc)
+        {
+            string d = string.Empty;
+
+            if (destroyed.Contains(bc.GetHashCode()))
+                d = "destroyed";
+            else
+                destroyed.Add(bc.GetHashCode());
+
+            GameObject go = bc.gameObject;
+            Util.DebugPrint("OnDestroy", Profiling.Millis, d, "\t", go.name, "\t", go.transform?.parent?.gameObject?.name);
+            Singleton<LoadingManager>.instance.m_loadingProfilerMain.BeginLoading(bc.gameObject.name);
+            PrefabCollection<BuildingInfo>.DestroyPrefabs(bc.gameObject.name, bc.m_prefabs, bc.m_replacedNames);
+            Singleton<LoadingManager>.instance.m_loadingProfilerMain.EndLoading();
         }
     }
 }

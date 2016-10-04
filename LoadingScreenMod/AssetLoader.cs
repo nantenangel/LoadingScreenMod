@@ -49,6 +49,7 @@ namespace LoadingScreenMod
             LevelLoader.instance.AddFailedAssets(failedAssets);
             failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear(); loadedIntersections.Clear();
             instance = null; failedAssets = null; loadedProps = null; loadedTrees = null; loadedBuildings = null; loadedVehicles = null; loadedIntersections = null;
+            Util.DebugPrint("AssetLoader disposed", Profiling.Millis);
         }
 
         void Report()
@@ -89,8 +90,16 @@ namespace LoadingScreenMod
             if (europeanStyles != null && europeanStyles.isEnabled)
             {
                 districtStyle = new DistrictStyle(DistrictStyle.kEuropeanStyleName, true);
+                // AddChildrenToBuiltin(GameObject.Find("European Style new"), districtStyle, false);
+                // AddChildrenToBuiltin(GameObject.Find("European Style others"), districtStyle, true);
+                // AddChildrenToBuiltin(GameObject.Find("Sunny Collections"), districtStyle, true);
                 Util.InvokeVoid(LoadingManager.instance, "AddChildrenToBuiltinStyle", GameObject.Find("European Style new"), districtStyle, false);
                 Util.InvokeVoid(LoadingManager.instance, "AddChildrenToBuiltinStyle", GameObject.Find("European Style others"), districtStyle, true);
+
+                // If skipping of standard prefabs is enabled, we must ensure that there are no skipped prefabs in the default district syle.
+                if (Settings.settings.SkipAny)
+                    RemoveSkipped(districtStyle);
+
                 districtStyles.Add(districtStyle);
             }
 
@@ -429,6 +438,69 @@ namespace LoadingScreenMod
             {
                 currentFullName = null;
                 LoadingManager.instance.m_loadingProfilerCustomAsset.EndLoading();
+            }
+        }
+
+        static void RemoveSkipped(DistrictStyle style)
+        {
+            HashSet<string> skippedPrefabs = PrefabLoader.instance?.skippedPrefabs;
+
+            if (skippedPrefabs == null || skippedPrefabs.Count == 0)
+                return;
+
+            try
+            {
+                BuildingInfo[] inStyle = style.GetBuildingInfos();
+                ((HashSet<BuildingInfo>) Util.Get(style, "m_Infos")).Clear();
+                ((HashSet<int>) Util.Get(style, "m_AffectedServices")).Clear();
+                Sc("\nRemove skipped from " + style.FullName);
+
+                foreach (BuildingInfo info in inStyle)
+                    if (info != null)
+                    {
+                        GameObject go = info.gameObject;
+
+                        if (go != null && !skippedPrefabs.Contains(go.name))
+                        {
+                            Sc("  " + go.name);
+                            style.Add(info);
+                        }
+                    }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
+        }
+
+        static void Sc(string s)
+        {
+            PrefabLoader.w?.WriteLine(s + " \t - " + Profiling.Millis);
+        }
+
+        void AddChildrenToBuiltin(GameObject obj, DistrictStyle style, bool spawnNormally)
+        {
+            if (obj == null)
+            {
+                Sc("\nAddChildrenToBuiltinStyle null");
+                return;
+            }
+
+            Sc("\nAddChildrenToBuiltinStyle " + obj.name + " - " + obj.activeSelf + " - " + obj.activeInHierarchy);
+            BuildingCollection[] componentsInChildren = obj.GetComponentsInChildren<BuildingCollection>(true);
+
+            for (int i = 0; i < componentsInChildren.Length; i++)
+            {
+                GameObject go = componentsInChildren[i].gameObject;
+                Sc(" BuildingCollection " + go.name + " - " + go.activeSelf + " - " + go.activeInHierarchy);
+                BuildingInfo[] prefabs = componentsInChildren[i].m_prefabs;
+
+                for (int j = 0; j < prefabs.Length; j++)
+                {
+                    Sc("  " + prefabs[j].name);
+                    // style.Add(prefabs[j]);
+                    // prefabs[j].m_dontSpawnNormally = !spawnNormally;
+                }
             }
         }
 
