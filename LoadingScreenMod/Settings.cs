@@ -135,12 +135,6 @@ namespace LoadingScreenMod
             comp.eventVisibilityChanged -= OnVisibilityChanged;
             comp.eventVisibilityChanged += OnVisibilityChanged;
             Util.DebugPrint("OnSettingsUI", Profiling.Millis, "childCount", comp.childCount, "visible", comp.isVisible);
-
-            foreach (StackFrame f in new StackTrace(1).GetFrames())
-            {
-                var method = f.GetMethod();
-                Util.DebugPrint(method.DeclaringType.FullName + "." + method.Name);
-            }
         }
 
         static UIComponent Self(UIHelperBase h) => ((UIHelper) h)?.self as UIComponent;
@@ -182,7 +176,7 @@ namespace LoadingScreenMod
             Check(group, "Industry Generic", null, skipIndGen, b => { skipIndGen = b; dirty = true; });
             Check(group, "Industry Specialized", null, skipIndSpe, b => { skipIndSpe = b; dirty = true; });
             Check(group, "Also skip these named buildings:", "A comma-separated list of building names", skipThese, b => { skipThese = b; dirty = true; });
-            TextField(group, skippedNames, OnSubmitted);
+            TextField(group, skippedNames, OnChanged);
 
             if (Steam.IsOverlayEnabled())
                 Button(group, "Show building names and images using browser", "Opens the Steam web browser", OnWebButton);
@@ -234,11 +228,11 @@ namespace LoadingScreenMod
             }
         }
 
-        void TextField(UIHelper group, string text, OnTextSubmitted action)
+        void TextField(UIHelper group, string text, OnTextChanged action)
         {
             try
             {
-                UITextField field = group.AddTextfield(" ", text, t => Util.DebugPrint("Changed to:", t), action) as UITextField;
+                UITextField field = group.AddTextfield(" ", text, action, null) as UITextField;
                 field.width *= 2.8f;
                 UIComponent parent = field.parent;
                 UILabel label = parent?.Find<UILabel>("Label");
@@ -256,14 +250,10 @@ namespace LoadingScreenMod
             }
         }
 
-        void OnSubmitted(string text)
+        void OnChanged(string text)
         {
-            if (skippedNames != text)
-            {
-                Util.DebugPrint("Submitted: ", text);
-                skippedNames = text;
-                dirty = true;
-            }
+            skippedNames = text;
+            dirty = true;
         }
 
         void Button(UIHelper group, string text, string tooltip, OnButtonClicked action)
