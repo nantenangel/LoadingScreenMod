@@ -12,7 +12,7 @@ namespace LoadingScreenMod
         public void OnEnabled() => Create();
         public void OnCreated(ILoading loading) => Create();
         public void OnDisabled() => Stopping();
-        public void OnSettingsUI(UIHelperBase helper) => Settings.settings.OnSettingsUI(helper);
+        public void OnSettingsUI(UIHelperBase helper) => Settings.OnSettingsUI(helper);
         public void OnLevelUnloading() { }
         public void OnReleased() { }
 
