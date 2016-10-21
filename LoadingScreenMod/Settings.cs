@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Xml.Serialization;
 using ColossalFramework.Steamworks;
+using ColossalFramework.IO;
 using ColossalFramework.UI;
 using ICities;
 using UnityEngine;
@@ -21,7 +21,7 @@ namespace LoadingScreenMod
         public bool shareMaterials = true;
         public bool shareMeshes = true;
         public bool reportAssets = false;
-
+        public string reportDir = "";
         public bool skipResLo = false;
         public bool skipResHi = false;
         public bool skipComLo = false;
@@ -35,7 +35,7 @@ namespace LoadingScreenMod
         public bool applyToEuropean = false;
 
         [XmlIgnoreAttribute]
-        bool dirty;
+        bool dirty = false;
 
         [XmlIgnoreAttribute]
         internal readonly bool[] skip = new bool[10];
@@ -52,6 +52,7 @@ namespace LoadingScreenMod
         static Settings singleton;
         static UIHelperBase helper;
         static bool Dirty => singleton != null && singleton.dirty;
+        internal static string DefaultSavePath => Path.Combine(Path.Combine(DataLocation.localApplicationData, "Report"), "LoadingScreenMod");
 
         public static Settings settings
         {
@@ -79,7 +80,9 @@ namespace LoadingScreenMod
             }
             catch (Exception) { s = new Settings(); }
 
-            Util.DebugPrint("Settings loaded", Profiling.Millis);
+            if (string.IsNullOrEmpty(s.reportDir = s.reportDir?.Trim()))
+                s.reportDir = DefaultSavePath;
+
             s.version = 3;
             s.Setup();
             return s;
@@ -95,8 +98,6 @@ namespace LoadingScreenMod
 
                 using (StreamWriter writer = new StreamWriter(FILENAME))
                     serializer.Serialize(writer, this);
-
-                Util.DebugPrint("Settings saved", Profiling.Millis);
             }
             catch (Exception e)
             {
@@ -129,12 +130,10 @@ namespace LoadingScreenMod
             if (comp != null)
                 comp.eventVisibilityChanged -= OnVisibilityChanged;
 
-            Profiling.stopWatch.Start();
             helper = newHelper;
             comp = Self(newHelper);
             comp.eventVisibilityChanged -= OnVisibilityChanged;
             comp.eventVisibilityChanged += OnVisibilityChanged;
-            Util.DebugPrint("OnSettingsUI", Profiling.Millis, "childCount", comp.childCount, "visible", comp.isVisible);
         }
 
         static UIComponent Self(UIHelperBase h) => ((UIHelper) h)?.self as UIComponent;
@@ -142,19 +141,10 @@ namespace LoadingScreenMod
         static void OnVisibilityChanged(UIComponent comp, bool visible)
         {
             if (comp == Self(helper))
-            {
-                Util.DebugPrint("OnVisibilityChanged", Profiling.Millis, "childCount", comp.childCount, "visible", visible);
-
                 if (visible && comp.childCount == 0)
-                {
                     settings.LateSettingsUI(helper);
-                    Util.DebugPrint("SettingsUI created", Profiling.Millis);
-                }
                 else if (!visible && Dirty)
                     settings.Save();
-            }
-            else
-                Util.DebugPrint("OnVisibilityChanged !!!", Profiling.Millis, "visible", visible);
         }
 
         void LateSettingsUI(UIHelperBase helper)
@@ -176,7 +166,7 @@ namespace LoadingScreenMod
             Check(group, "Industry Generic", null, skipIndGen, b => { skipIndGen = b; dirty = true; });
             Check(group, "Industry Specialized", null, skipIndSpe, b => { skipIndSpe = b; dirty = true; });
             Check(group, "Also skip these named buildings:", "A comma-separated list of building names", skipThese, b => { skipThese = b; dirty = true; });
-            TextField(group, skippedNames, OnChanged);
+            TextField(group, skippedNames, OnNamesChanged);
 
             if (Steam.IsOverlayEnabled())
                 Button(group, "Show building names and images using browser", "Opens the Steam web browser", OnWebButton);
@@ -184,7 +174,8 @@ namespace LoadingScreenMod
             Check(group, "Apply my selections to the European/Vanilla style", "Skip buildings in the built-in district style, too?", applyToEuropean, b => { applyToEuropean = b; dirty = true; });
 
             group = CreateGroup(helper, "Reports");
-            Check(group, "Save assets report", "Save a report of missing, failed and used assets in " + Util.GetSavePath(), reportAssets, b => { reportAssets = b; dirty = true; });
+            Check(group, "Save assets report in this directory:", "Save a report of missing, failed and used assets", reportAssets, b => { reportAssets = b; dirty = true; });
+            TextField(group, reportDir, OnReportDirChanged);
         }
 
         UIHelper CreateGroup(UIHelperBase parent, string name, string tooltip = null)
@@ -250,12 +241,6 @@ namespace LoadingScreenMod
             }
         }
 
-        void OnChanged(string text)
-        {
-            skippedNames = text;
-            dirty = true;
-        }
-
         void Button(UIHelper group, string text, string tooltip, OnButtonClicked action)
         {
             try
@@ -275,6 +260,18 @@ namespace LoadingScreenMod
         void OnWebButton()
         {
             Steam.ActivateGameOverlayToWebPage("https://cdn.rawgit.com/thale5/Buildings/master/toc.htm");
+        }
+
+        void OnNamesChanged(string text)
+        {
+            skippedNames = text;
+            dirty = true;
+        }
+
+        void OnReportDirChanged(string text)
+        {
+            reportDir = text;
+            dirty = true;
         }
     }
 }

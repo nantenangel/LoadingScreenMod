@@ -2,9 +2,7 @@
 using UnityEngine;
 using System.Linq;
 using System.Reflection;
-using ColossalFramework.IO;
 using System.IO;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace LoadingScreenMod
@@ -78,21 +76,22 @@ namespace LoadingScreenMod
 
         internal static string GetSavePath()
         {
-            try
-            {
-                string modConfigDir = Path.Combine(DataLocation.localApplicationData, "Report");
-                string modDir = Path.Combine(modConfigDir, "LoadingScreenMod");
+            string modDir = Settings.settings.reportDir.Trim();
 
-                if (!Directory.Exists(modDir))
-                    Directory.CreateDirectory(modDir);
+            if (!string.IsNullOrEmpty(modDir))
+                try
+                {
+                    if (!Directory.Exists(modDir))
+                        Directory.CreateDirectory(modDir);
 
-                return modDir;
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogException(e);
-                return String.Empty;
-            }
+                    return modDir;
+                }
+                catch (Exception)
+                {
+                    DebugPrint("Cannot create directory:", modDir);
+                }
+
+            return Settings.DefaultSavePath;
         }
 
         /// <summary>
