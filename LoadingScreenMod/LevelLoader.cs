@@ -399,8 +399,20 @@ namespace LoadingScreenMod
             if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 456200u))
                 levels.Add(new KeyValuePair<string, float>("FootballPrefabs", 0.67f));
 
+            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 525940u))
+                levels.Add(new KeyValuePair<string, float>("Football2Prefabs", 0.68f));
+
+            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 526610u))
+                levels.Add(new KeyValuePair<string, float>("Football3Prefabs", 0.685f));
+
+            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 526611u))
+                levels.Add(new KeyValuePair<string, float>("Football4Prefabs", 0.69f));
+
+            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 526612u))
+                levels.Add(new KeyValuePair<string, float>("Football5Prefabs", 0.695f));
+
             if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 515190u))
-                levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.69f));
+                levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.70f));
 
             if (skipAny && !Settings.settings.applyToEuropean)
                 levels.Add(new KeyValuePair<string, float>(string.Empty, 0f));
