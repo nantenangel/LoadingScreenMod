@@ -50,7 +50,7 @@ namespace LoadingScreenMod
         public bool SkipThis(string name) => skipThese && skippedSet.Contains(name.Trim());
 
         static Settings singleton;
-        static UIHelperBase helper;
+        internal static UIHelperBase helper;
         static bool Dirty => singleton != null && singleton.dirty;
         internal static string DefaultSavePath => Path.Combine(Path.Combine(DataLocation.localApplicationData, "Report"), "LoadingScreenMod");
 
@@ -140,11 +140,10 @@ namespace LoadingScreenMod
 
         static void OnVisibilityChanged(UIComponent comp, bool visible)
         {
-            if (comp == Self(helper))
-                if (visible && comp.childCount == 0)
-                    settings.LateSettingsUI(helper);
-                else if (!visible && Dirty)
-                    settings.Save();
+            if (visible && comp == Self(helper) && comp.childCount == 0)
+                settings.LateSettingsUI(helper);
+            else if (!visible && Dirty)
+                settings.Save();
         }
 
         void LateSettingsUI(UIHelperBase helper)

@@ -26,6 +26,8 @@ namespace LoadingScreenMod
 
             if (LevelLoader.instance.activated)
                 Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
+
+            Settings.helper = null;
         }
 
         void Create()
