@@ -25,7 +25,7 @@ namespace LoadingScreenMod
         bool dirty = false;
 
         static Settings singleton;
-        static UIHelperBase helper;
+        internal static UIHelperBase helper;
         static bool Dirty => singleton != null && singleton.dirty;
         internal static string DefaultSavePath => Path.Combine(Path.Combine(DataLocation.localApplicationData, "Report"), "LoadingScreenMod");
 
@@ -62,7 +62,7 @@ namespace LoadingScreenMod
             return s;
         }
 
-        public void Save()
+        void Save()
         {
             try
             {
@@ -96,14 +96,13 @@ namespace LoadingScreenMod
 
         static void OnVisibilityChanged(UIComponent comp, bool visible)
         {
-            if (comp == Self(helper))
-                if (visible && comp.childCount == 0)
-                    settings.LateSettingsUI(helper);
-                else if (!visible && Dirty)
-                    settings.Save();
+            if (visible && comp == Self(helper) && comp.childCount == 0)
+                settings.LateSettingsUI(helper);
+            else if (!visible && Dirty)
+                settings.Save();
         }
 
-        internal void LateSettingsUI(UIHelperBase helper)
+        void LateSettingsUI(UIHelperBase helper)
         {
             UIHelper group = CreateGroup(helper, "Loading options for custom assets", "Custom means workshop assets and assets created by yourself");
             Check(group, "Load enabled assets", "Load the assets enabled in Content Manager", loadEnabled, b => { loadEnabled = b; dirty = true; });
@@ -163,7 +162,7 @@ namespace LoadingScreenMod
             try
             {
                 UITextField field = group.AddTextfield(" ", text, action, null) as UITextField;
-                field.width *= 2.7f;
+                field.width *= 2.8f;
                 UIComponent parent = field.parent;
                 UILabel label = parent?.Find<UILabel>("Label");
 

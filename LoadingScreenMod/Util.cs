@@ -2,7 +2,6 @@
 using UnityEngine;
 using System.Linq;
 using System.Reflection;
-using ColossalFramework.IO;
 using System.IO;
 using System.Collections.Generic;
 
@@ -77,7 +76,7 @@ namespace LoadingScreenMod
 
         internal static string GetSavePath()
         {
-            string modDir = Settings.settings.reportDir.Trim();
+            string modDir = Settings.settings.reportDir?.Trim();
 
             if (!string.IsNullOrEmpty(modDir))
                 try
