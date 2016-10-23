@@ -14,7 +14,7 @@ namespace LoadingScreenMod
     {
         const string FILENAME = "LoadingScreenMod.xml";
 
-        public int version = 3;
+        public int version = 4;
         public bool loadEnabled = true;
         public bool loadUsed = true;
         public bool shareTextures = true;
@@ -83,7 +83,7 @@ namespace LoadingScreenMod
             if (string.IsNullOrEmpty(s.reportDir = s.reportDir?.Trim()))
                 s.reportDir = DefaultSavePath;
 
-            s.version = 3;
+            s.version = 4;
             s.Setup();
             return s;
         }

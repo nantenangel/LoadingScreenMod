@@ -25,7 +25,6 @@ namespace LoadingScreenMod
         {
             instance = this;
             init(Singleton<LoadingManager>.instance.GetType(), "LoadLevel", 4, 0, typeof(Package.Asset));
-            // new TestHook();
         }
 
         internal void AddFailedAssets(HashSet<string> assets)
@@ -546,40 +545,6 @@ namespace LoadingScreenMod
             {
                 UnityEngine.Debug.LogException(e);
             }
-        }
-    }
-
-    sealed class TestHook : DetourUtility
-    {
-        static bool created = false;
-        static HashSet<int> destroyed = new HashSet<int>();
-
-        internal TestHook()
-        {
-            destroyed.Clear();
-
-            if (!created)
-            {
-                created = true;
-                init(typeof(BuildingCollection), "OnDestroy");
-                Deploy();
-            }
-        }
-
-        static void OnDestroy(BuildingCollection bc)
-        {
-            string d = string.Empty;
-
-            if (destroyed.Contains(bc.GetHashCode()))
-                d = "destroyed";
-            else
-                destroyed.Add(bc.GetHashCode());
-
-            GameObject go = bc.gameObject;
-            Util.DebugPrint("OnDestroy", Profiling.Millis, d, "\t", go.name, "\t", go.transform?.parent?.gameObject?.name);
-            Singleton<LoadingManager>.instance.m_loadingProfilerMain.BeginLoading(bc.gameObject.name);
-            PrefabCollection<BuildingInfo>.DestroyPrefabs(bc.gameObject.name, bc.m_prefabs, bc.m_replacedNames);
-            Singleton<LoadingManager>.instance.m_loadingProfilerMain.EndLoading();
         }
     }
 }

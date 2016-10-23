@@ -234,9 +234,6 @@ namespace LoadingScreenMod
                 if (go != null)
                     foreach (BuildingCollection c in go.GetComponentsInChildren<BuildingCollection>(true))
                         w.WriteLine(" " + c.GetType().Name + "   " + c.name + "   " + c.isActiveAndEnabled);
-
-                // if (name == "Residential High")
-                //    SpeedTest(name, action, go);
             }
             catch (Exception) { }
 
@@ -279,71 +276,6 @@ namespace LoadingScreenMod
             catch (Exception) { }
         }
 
-        void SpeedTest(string name, IEnumerator action, GameObject go)
-        {
-            if (go == null)
-                Util.DebugPrint("GO is null");
-
-            int LEN = 100000;
-            long t = Profiling.stopWatch.ElapsedTicks, n = 0;
-
-            for (int i = 0; i < LEN; i++)
-            {
-                BuildingInfo[] prefabs = prefabsField.GetValue(action) as BuildingInfo[];
-                string[] replaces = replacesField.GetValue(action) as string[];
-                n += prefabs.Length;
-                prefabsField.SetValue(action, prefabs);
-                replacesField.SetValue(action, replaces);
-            }
-
-            Util.DebugPrint("Speed test 1", Profiling.stopWatch.ElapsedTicks - t, Stopwatch.Frequency, n);
-            t = Profiling.stopWatch.ElapsedTicks; n = 0;
-
-            for (int i = 0; i < LEN; i++)
-            {
-                BuildingCollection bc = go?.GetComponent<BuildingCollection>();
-
-                if (bc != null)
-                    n += bc.m_prefabs.Length;
-            }
-
-            Util.DebugPrint("Speed test 2", Profiling.stopWatch.ElapsedTicks - t, Stopwatch.Frequency, n);
-
-            GameObject pp = go?.transform?.parent?.gameObject;
-            BuildingCollection[] aa = pp?.GetComponentsInChildren<BuildingCollection>(true);
-
-            if (pp == null)
-                Util.DebugPrint("Parent is null");
-            else
-                Util.DebugPrint("Parent is", pp.name);
-
-            if (aa == null)
-                Util.DebugPrint("All is null");
-            else
-                Util.DebugPrint("All length is", aa.Length);
-
-            for (int j = 0; j < aa.Length; j++)
-                Util.DebugPrint(" in all:", aa[j]?.name);
-
-            t = Profiling.stopWatch.ElapsedTicks; n = 0;
-
-            for (int i = 0; i < LEN; i++)
-            {
-                BuildingCollection[] all = go?.transform?.parent?.gameObject?.GetComponentsInChildren<BuildingCollection>(true);
-
-                if (all != null)
-                    for (int j = 0; j < all.Length; j++)
-                        if (name == all[j]?.name)
-                        {
-                            n += all[j].m_prefabs.Length;
-                            break;
-                        }
-            }
-
-            Util.DebugPrint("Speed test 3", Profiling.stopWatch.ElapsedTicks - t, Stopwatch.Frequency, n);
-            t = Profiling.stopWatch.ElapsedTicks; n = 0;
-        }
-
         public static int GetIndex(ItemClass.Service service, ItemClass.SubService sub)
         {
             switch (service)
@@ -372,59 +304,13 @@ namespace LoadingScreenMod
             }
         }
 
-        void Desc2(IEnumerator action, Queue<IEnumerator> mainThreadQueue, bool isBuildingCollection)
-        {
-            if (!isBuildingCollection)
-                return;
-
-            string s = "\n";
-
-            try
-            {
-                string name = Util.Get(action, "name") as string;
-
-                if (!string.IsNullOrEmpty(name))
-                    s = string.Concat(s, name);
-            }
-            catch (Exception) { }
-
-            w.WriteLine(s);
-
-            try
-            {
-                Array prefabs = Util.Get(action, "prefabs") as Array;
-
-                if (prefabs != null && prefabs.Rank == 1)
-                    foreach (object o in prefabs)
-                    {
-                        if (o != null && o is PrefabInfo)
-                        {
-                            PrefabInfo info = (PrefabInfo) o;
-                            s = "  " + info.gameObject.name.PadRight(38);
-                            int level = (int) info.GetClassLevel() + 1;
-                            string sub = info.GetSubService() == ItemClass.SubService.None ? "" : info.GetSubService().ToString() + " ";
-                            s = string.Concat(s, info.GetService() + " " + sub + "L" + level);
-
-                            if (info.GetWidth() > 0 || info.GetLength() > 0)
-                                s = string.Concat(s, " " + info.GetWidth() + "x" + info.GetLength());
-
-                            if (info is BuildingInfo)
-                                s = string.Concat(s, " " + ((BuildingInfo) info).m_zoningMode);
-
-                            w.WriteLine(s);
-                        }
-                    }
-            }
-            catch (Exception) { }
-        }
-
         internal void DestroySkipped()
         {
             if (skippedPrefabs == null || skippedPrefabs.Count == 0)
                 return;
 
             BuildingInfo[] all = Resources.FindObjectsOfTypeAll<BuildingInfo>();
-            w.WriteLine("\nAll BuildingInfos - " + all.Length);
+            w.WriteLine("\nAll BuildingInfos (skipping now) - " + all.Length);
 
             for (int i = 0; i < all.Length; i++)
             {

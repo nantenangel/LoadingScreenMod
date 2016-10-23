@@ -90,9 +90,6 @@ namespace LoadingScreenMod
             if (europeanStyles != null && europeanStyles.isEnabled)
             {
                 districtStyle = new DistrictStyle(DistrictStyle.kEuropeanStyleName, true);
-                // AddChildrenToBuiltin(GameObject.Find("European Style new"), districtStyle, false);
-                // AddChildrenToBuiltin(GameObject.Find("European Style others"), districtStyle, true);
-                // AddChildrenToBuiltin(GameObject.Find("Sunny Collections"), districtStyle, true);
                 Util.InvokeVoid(LoadingManager.instance, "AddChildrenToBuiltinStyle", GameObject.Find("European Style new"), districtStyle, false);
                 Util.InvokeVoid(LoadingManager.instance, "AddChildrenToBuiltinStyle", GameObject.Find("European Style others"), districtStyle, true);
 
@@ -476,32 +473,6 @@ namespace LoadingScreenMod
         static void Sc(string s)
         {
             PrefabLoader.w?.WriteLine(s + " \t - " + Profiling.Millis);
-        }
-
-        void AddChildrenToBuiltin(GameObject obj, DistrictStyle style, bool spawnNormally)
-        {
-            if (obj == null)
-            {
-                Sc("\nAddChildrenToBuiltinStyle null");
-                return;
-            }
-
-            Sc("\nAddChildrenToBuiltinStyle " + obj.name + " - " + obj.activeSelf + " - " + obj.activeInHierarchy);
-            BuildingCollection[] componentsInChildren = obj.GetComponentsInChildren<BuildingCollection>(true);
-
-            for (int i = 0; i < componentsInChildren.Length; i++)
-            {
-                GameObject go = componentsInChildren[i].gameObject;
-                Sc(" BuildingCollection " + go.name + " - " + go.activeSelf + " - " + go.activeInHierarchy);
-                BuildingInfo[] prefabs = componentsInChildren[i].m_prefabs;
-
-                for (int j = 0; j < prefabs.Length; j++)
-                {
-                    Sc("  " + prefabs[j].name);
-                    // style.Add(prefabs[j]);
-                    // prefabs[j].m_dontSpawnNormally = !spawnNormally;
-                }
-            }
         }
 
         internal static Package.Asset[] FilterAssets(Package.AssetType assetType)
