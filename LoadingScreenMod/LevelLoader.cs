@@ -359,8 +359,9 @@ namespace LoadingScreenMod
                 PrefabLoader.w.WriteLine("\nEnv: " + SimulationManager.instance.m_metaData.m_environment + "  Theme: " + (SimulationManager.instance.m_metaData.m_MapThemeMetaData?.name ?? "null") + "  City: " + instance.cityName);
             }
 
-            LoadingManager.instance.m_supportsExpansion[0] = (bool) Util.Invoke(LoadingManager.instance, "DLC", 369150u);
-            LoadingManager.instance.m_supportsExpansion[1] = (bool) Util.Invoke(LoadingManager.instance, "DLC", 420610u);
+            MethodInfo dlcMethod = typeof(LoadingManager).GetMethod("DLC", BindingFlags.Instance | BindingFlags.NonPublic);
+            LoadingManager.instance.m_supportsExpansion[0] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 369150u });
+            LoadingManager.instance.m_supportsExpansion[1] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 420610u });
             bool isWinter = SimulationManager.instance.m_metaData.m_environment == "Winter";
 
             if (isWinter && !LoadingManager.instance.m_supportsExpansion[1])
@@ -377,13 +378,13 @@ namespace LoadingScreenMod
 
             levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment + "Prefabs", 0.57f));
 
-            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 1u))
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 1u }))
                 levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterLoginPackPrefabs" : "LoginPackPrefabs", 0.58f));
 
             levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterPreorderPackPrefabs" : "PreorderPackPrefabs", 0.59f));
             levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterSignupPackPrefabs" : "SignupPackPrefabs", 0.60f));
 
-            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 346791u))
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 346791u }))
                 levels.Add(new KeyValuePair<string, float>("DeluxePackPrefabs", 0.61f));
 
             if (Steam.IsAppOwned(238370u))
@@ -395,22 +396,22 @@ namespace LoadingScreenMod
             if (LoadingManager.instance.m_supportsExpansion[1])
                 levels.Add(new KeyValuePair<string, float>("Expansion2Prefabs", 0.66f));
 
-            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 456200u))
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 456200u }))
                 levels.Add(new KeyValuePair<string, float>("FootballPrefabs", 0.67f));
 
-            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 525940u))
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 525940u }))
                 levels.Add(new KeyValuePair<string, float>("Football2Prefabs", 0.68f));
 
-            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 526610u))
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526610u }))
                 levels.Add(new KeyValuePair<string, float>("Football3Prefabs", 0.685f));
 
-            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 526611u))
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526611u }))
                 levels.Add(new KeyValuePair<string, float>("Football4Prefabs", 0.69f));
 
-            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 526612u))
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526612u }))
                 levels.Add(new KeyValuePair<string, float>("Football5Prefabs", 0.695f));
 
-            if ((bool) Util.Invoke(LoadingManager.instance, "DLC", 515190u))
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 515190u }))
                 levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.70f));
 
             if (skipAny && !Settings.settings.applyToEuropean)
