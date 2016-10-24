@@ -51,7 +51,7 @@ namespace LoadingScreenMod
         {
             bool isBuildingCollection = action.GetType().Name == ROUTINE;
 
-            // This race condition with the simulation thread must be checked. It never occurs in my game, though.
+            // This race condition with the simulation thread must be watched. It never occurs in my game, though.
             if (isBuildingCollection && !instance.saveDeserialized)
             {
                 int startMillis = Profiling.Millis;
@@ -132,10 +132,10 @@ namespace LoadingScreenMod
                 if (keptPrefabs != null)
                 {
                     BuildingInfo[] p = keptPrefabs.ToArray();
-                    BuildingCollection bc = GameObject.Find(name)?.GetComponent<BuildingCollection>();
                     w.WriteLine("\nKept " + p.Length + " prefabs out of " + prefabs.Length + " (" + name + ")");
                     prefabsField.SetValue(action, p);
                     prefabsField2.SetValue(action, p);
+                    BuildingCollection bc = GameObject.Find(name)?.GetComponent<BuildingCollection>();
 
                     // In the presence of the European Buildings Unlocker mod, bc is usually null.
                     // Obviously caused by the Destroy() invokes in that mod.
@@ -317,8 +317,7 @@ namespace LoadingScreenMod
                 BuildingInfo info = all[i];
                 GameObject go = info.gameObject;
                 bool skipped = skippedPrefabs.Contains(go.name);
-                string s = "  " + (go.name ?? "null") + " " + go.activeInHierarchy + " " + info.isActiveAndEnabled;
-                s += " " + (go.transform?.parent?.gameObject?.name ?? "null parent") + " " + (skipped ? "  skipped" : "");
+                string s = "  " + (go.name ?? "null") + "   " + (skipped ? "  skipped" : "");
                 w?.WriteLine(s);
 
                 if (skipped)

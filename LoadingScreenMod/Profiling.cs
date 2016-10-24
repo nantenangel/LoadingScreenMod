@@ -24,7 +24,7 @@ namespace LoadingScreenMod
         {
             Sink.builder.Length = 0; Sink.builder.Capacity = 0;
             customAssetEvents = null;
-            // stopWatch.Reset();
+            stopWatch.Reset();
         }
 
         internal static int Millis => (int) stopWatch.ElapsedMilliseconds;
@@ -127,8 +127,8 @@ namespace LoadingScreenMod
         protected int index;
         readonly bool alwaysLoading;
 
-        static readonly FieldInfo eventsField = typeof(LoadingProfiler).GetField("m_events", BindingFlags.NonPublic | BindingFlags.Instance);
-        internal static FastList<LoadingProfiler.Event> GetEvents(LoadingProfiler profiler) => (FastList<LoadingProfiler.Event>) eventsField.GetValue(profiler);
+        static FieldInfo EventsField => typeof(LoadingProfiler).GetField("m_events", BindingFlags.NonPublic | BindingFlags.Instance);
+        internal static FastList<LoadingProfiler.Event> GetEvents(LoadingProfiler profiler) => (FastList<LoadingProfiler.Event>) EventsField.GetValue(profiler);
 
         protected bool IsLoading
         {
