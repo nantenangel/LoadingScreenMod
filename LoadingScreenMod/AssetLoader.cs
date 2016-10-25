@@ -49,7 +49,6 @@ namespace LoadingScreenMod
             LevelLoader.instance.AddFailedAssets(failedAssets);
             failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear(); loadedIntersections.Clear();
             instance = null; failedAssets = null; loadedProps = null; loadedTrees = null; loadedBuildings = null; loadedVehicles = null; loadedIntersections = null;
-            Util.DebugPrint("AssetLoader disposed", Profiling.Millis);
         }
 
         void Report()
@@ -450,7 +449,6 @@ namespace LoadingScreenMod
                 BuildingInfo[] inStyle = style.GetBuildingInfos();
                 ((HashSet<BuildingInfo>) Util.Get(style, "m_Infos")).Clear();
                 ((HashSet<int>) Util.Get(style, "m_AffectedServices")).Clear();
-                Sc("\nRemove skipped from " + style.FullName);
 
                 foreach (BuildingInfo info in inStyle)
                     if (info != null)
@@ -458,21 +456,13 @@ namespace LoadingScreenMod
                         GameObject go = info.gameObject;
 
                         if (go != null && !skippedPrefabs.Contains(go.name))
-                        {
-                            Sc("  " + go.name);
                             style.Add(info);
-                        }
                     }
             }
             catch (Exception e)
             {
                 UnityEngine.Debug.LogException(e);
             }
-        }
-
-        static void Sc(string s)
-        {
-            PrefabLoader.w?.WriteLine(s + " \t - " + Profiling.Millis);
         }
 
         internal static Package.Asset[] FilterAssets(Package.AssetType assetType)

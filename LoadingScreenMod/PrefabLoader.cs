@@ -19,13 +19,10 @@ namespace LoadingScreenMod
         internal HashSet<string> skippedPrefabs = new HashSet<string>();
         bool saveDeserialized;
         const string ROUTINE = "<InitializePrefabs>c__Iterator2";
-        internal static StreamWriter w;
 
         internal PrefabLoader()
         {
             instance = this;
-            w = new StreamWriter(Util.GetFileName("LoadingQueue", "txt"));
-
             Type coroutine = typeof(BuildingCollection).GetNestedType(ROUTINE, BindingFlags.NonPublic);
             nameField = coroutine?.GetField("name", BindingFlags.NonPublic | BindingFlags.Instance);
             prefabsField = coroutine?.GetField("prefabs", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -42,9 +39,7 @@ namespace LoadingScreenMod
             Util.DebugPrint("Skipped", skippedPrefabs.Count, "prefabs");
             Revert();
             base.Dispose();
-            skippedPrefabs.Clear(); skippedPrefabs = null;
-            w?.Dispose();
-            w = null; instance = null;
+            skippedPrefabs.Clear(); skippedPrefabs = null; instance = null;
         }
 
         public static void QueueLoadingAction(LoadingManager lm, IEnumerator action)
@@ -57,10 +52,7 @@ namespace LoadingScreenMod
                 int startMillis = Profiling.Millis;
 
                 while (!LevelLoader.IsSaveDeserialized() && Profiling.Millis - startMillis < 2000)
-                {
-                    w.WriteLine("\nSleeping - " + LevelLoader.GetSimProgress() + " - " + Profiling.Millis);
                     Thread.Sleep(60);
-                }
 
                 instance.saveDeserialized = true;
             }
@@ -76,7 +68,6 @@ namespace LoadingScreenMod
                 if (action != null)
                 {
                     Queue<IEnumerator> mainThreadQueue = (Queue<IEnumerator>) instance.queueField.GetValue(lm);
-                    instance.Desc(action, mainThreadQueue, isBuildingCollection);
                     mainThreadQueue.Enqueue(action);
 
                     if (mainThreadQueue.Count < 2)
@@ -132,7 +123,6 @@ namespace LoadingScreenMod
                 if (keptPrefabs != null)
                 {
                     BuildingInfo[] p = keptPrefabs.ToArray();
-                    w.WriteLine("\nKept " + p.Length + " prefabs out of " + prefabs.Length + " (" + name + ")");
                     prefabsField.SetValue(action, p);
                     prefabsField2.SetValue(action, p);
                     BuildingCollection bc = GameObject.Find(name)?.GetComponent<BuildingCollection>();
@@ -145,7 +135,6 @@ namespace LoadingScreenMod
                     if (keptReplaces != null)
                     {
                         string[] r = keptReplaces.ToArray();
-                        w.WriteLine("Kept " + r.Length + " replaces out of " + replaces.Length);
                         replacesField.SetValue(action, r);
                         replacesField2.SetValue(action, r);
 
@@ -168,112 +157,9 @@ namespace LoadingScreenMod
         static bool Skip(BuildingInfo info, string replace)
         {
             string name = info.gameObject.name;
-
-            if (info.name != name)
-                Util.DebugPrint("Difference:", info.name, name);
-
             int index = GetIndex(info.GetService(), info.GetSubService());
             bool skipClass = Settings.settings.skip[index];
             return (skipClass || Settings.settings.SkipThis(name)) && !UsedAssets.instance.GotPrefab(name, replace);
-        }
-
-        void Desc(IEnumerator action, Queue<IEnumerator> mainThreadQueue, bool isBuildingCollection)
-        {
-            string s = string.Empty;
-
-            try
-            {
-                var method = new StackFrame(2).GetMethod();
-                s = "\n" + method.DeclaringType.FullName + "." + method.Name + " - " + Profiling.Millis + " - " + LevelLoader.GetSimProgress() + " - " + mainThreadQueue.Count;
-                string name = Util.Get(action, "name") as string;
-                GameObject go = GameObject.Find(name);
-
-                if (go != null)
-                    s = string.Concat(s, " - ", go.activeSelf, " - ", go.activeInHierarchy);
-
-                if (!string.IsNullOrEmpty(name))
-                    s = string.Concat(s, " - ", name);
-
-                s = string.Concat(s, " - ", go?.transform?.parent?.gameObject?.name ?? "null parent");
-
-                BuildingInfo[] prefabs = (BuildingInfo[]) Util.Get(action, "prefabs");
-                string[] replaces = (string[]) Util.Get(action, "replaces");
-                s = string.Concat(s, " - (", prefabs.Length, ", ");
-
-                if (replaces != null)
-                    s = string.Concat(s, replaces.Length, ")");
-                else
-                    s = string.Concat(s, "null)");
-            }
-            catch (Exception) { }
-
-            try
-            {
-                BuildingCommonCollection common = Util.Get(action, "collection") as BuildingCommonCollection;
-
-                if (common != null)
-                {
-                    BuildingInfoSub burned = common.m_burned;
-                    BuildingInfoSub constr = common.m_construction;
-
-                    if (burned != null)
-                        s = string.Concat(s, " + ", burned.name, " ", burned.GetService(), " ", burned.GetSubService());
-                    if (constr != null)
-                        s = string.Concat(s, " + ", constr.name, " ", constr.GetService(), " ", constr.GetSubService());
-                }
-            }
-            catch (Exception) { }
-
-            w.WriteLine(s + "  \t" + action.GetType().Name);
-
-            try
-            {
-                string name = Util.Get(action, "name") as string;
-                GameObject go = GameObject.Find(name);
-
-                if (go != null)
-                    foreach (BuildingCollection c in go.GetComponentsInChildren<BuildingCollection>(true))
-                        w.WriteLine(" " + c.GetType().Name + "   " + c.name + "   " + c.isActiveAndEnabled);
-            }
-            catch (Exception) { }
-
-            try
-            {
-                Array prefabs = Util.Get(action, "prefabs") as Array;
-                string[] replaces = Util.Get(action, "replaces") as string[];
-                int i = 0;
-
-                if (prefabs != null && prefabs.Rank == 1)
-                    foreach (object o in prefabs)
-                    {
-                        if (o != null && o is PrefabInfo)
-                        {
-                            PrefabInfo info = (PrefabInfo) o;
-                            s = "  " + info.gameObject.name.PadRight(38);
-                            int level = (int) info.GetClassLevel() + 1;
-                            s = string.Concat(s, info.GetType().Name + " " + info.GetService() + " " + info.GetSubService() + " L" + level);
-
-                            if (info.GetWidth() > 0 || info.GetLength() > 0)
-                                s = string.Concat(s, " " + info.GetWidth() + "x" + info.GetLength());
-
-                            if (info is BuildingInfo)
-                                s = string.Concat(s, " " + ((BuildingInfo) info).m_zoningMode);
-
-                            if (replaces != null && replaces.Length > i)
-                            {
-                                string r = replaces[i];
-
-                                if (!string.IsNullOrEmpty(r))
-                                    s = string.Concat(s.PadRight(105), " replaces ", r);
-                            }
-
-                            w.WriteLine(s);
-                        }
-
-                        i++;
-                    }
-            }
-            catch (Exception) { }
         }
 
         public static int GetIndex(ItemClass.Service service, ItemClass.SubService sub)
@@ -310,15 +196,12 @@ namespace LoadingScreenMod
                 return;
 
             BuildingInfo[] all = Resources.FindObjectsOfTypeAll<BuildingInfo>();
-            w.WriteLine("\nAll BuildingInfos (skipping now) - " + all.Length);
 
             for (int i = 0; i < all.Length; i++)
             {
                 BuildingInfo info = all[i];
                 GameObject go = info.gameObject;
                 bool skipped = skippedPrefabs.Contains(go.name);
-                string s = "  " + (go.name ?? "null") + "   " + (skipped ? "  skipped" : "");
-                w?.WriteLine(s);
 
                 if (skipped)
                     DestroyBuilding(info);

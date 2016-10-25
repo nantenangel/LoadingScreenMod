@@ -65,7 +65,7 @@ namespace LoadingScreenMod
                 H1(AssetLoader.AssetName(LevelLoader.instance.cityName));
                 int seconds = Profiling.Millis / 1000 + 4;
                 string loadingTime = string.Concat((seconds / 60).ToString(), ":", (seconds % 60).ToString("00"));
-                Italics(string.Concat("Loading time " + loadingTime, "."));
+                Italics(string.Concat("Loading time was ", loadingTime, "."));
 
                 Italics("To stop saving these files, disable the option \"Save assets report\" in Loading Screen Mod.");
                 Italics("You can safely delete this file. No-one reads it except you.");

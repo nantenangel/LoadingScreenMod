@@ -135,10 +135,7 @@ namespace LoadingScreenMod
         {
             foreach (string name in fullNames)
                 if (!ignore.Contains(name) && PrefabCollection<P>.FindLoaded(name) == null)
-                {
-                    Util.DebugPrint("AnyMissing", typeof(P).Name, ":", name);
                     return true;
-                }
 
             return false;
         }
@@ -171,7 +168,6 @@ namespace LoadingScreenMod
                 Building[] buffer = BuildingManager.instance.m_buildings.m_buffer;
                 int n = buffer.Length;
                 HashSet<string> prefabs = Settings.settings.SkipAny ? buildingPrefabs : null;
-                Sc("\nUsed prefabs:");
 
                 for (int i = 1; i < n; i++)
                     if (buffer[i].m_flags != Building.Flags.None)
@@ -181,11 +177,6 @@ namespace LoadingScreenMod
             {
                 UnityEngine.Debug.LogException(e);
             }
-        }
-
-        static void Sc(string s)
-        {
-            PrefabLoader.w?.WriteLine(s + " \t - " + Profiling.Millis);
         }
 
         static void Add(string name, HashSet<string> packages, HashSet<string> assets, HashSet<string> prefabs = null)
@@ -201,8 +192,7 @@ namespace LoadingScreenMod
                     assets.Add(name); // packagename.assetname
                 }
                 else if (prefabs != null)
-                    if (prefabs.Add(name))
-                        Sc("  " + name);
+                    prefabs.Add(name);
             }
         }
 

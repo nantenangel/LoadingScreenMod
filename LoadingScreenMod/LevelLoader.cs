@@ -106,14 +106,11 @@ namespace LoadingScreenMod
 
             if (LoadingManager.instance.m_loadedEnvironment == null) // loading from main menu
             {
-                Util.DebugPrint("Main", Settings.settings.skip.asString(), Settings.settings.applyToEuropean);
                 knownToFail.Clear();
                 fastLoad = false;
             }
             else // loading from in-game (the pause menu)
             {
-                Util.DebugPrint("Game", Settings.settings.skip.asString(), Settings.settings.applyToEuropean);
-
                 while (!LoadingManager.instance.m_metaDataLoaded && !task.completedOrFailed) // IL_158
                     yield return null;
 
@@ -161,7 +158,6 @@ namespace LoadingScreenMod
                 {
                     // Notice that there is a race condition in the base game at this point: DestroyAllPrefabs ruins the simulation
                     // if its deserialization has progressed far enough. Typically there is no problem.
-                    Util.DebugPrint("Simulation progress:", GetSimProgress(), "at", Profiling.Millis);
                     Util.InvokeVoid(LoadingManager.instance, "DestroyAllPrefabs");
                     LoadingManager.instance.m_loadedEnvironment = null;
                     LoadingManager.instance.m_loadedMapTheme = null;
@@ -206,12 +202,10 @@ namespace LoadingScreenMod
                     if (string.IsNullOrEmpty(scene)) // just a marker to stop prefab skipping
                     {
                         PrefabLoader.instance?.Revert();
-                        Sc("Reverted");
                         continue;
                     }
 
                     LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                    Sc(scene);
                     op = Application.LoadLevelAdditiveAsync(scene);
 
                     while (!op.isDone)
@@ -264,7 +258,6 @@ namespace LoadingScreenMod
                 if (!string.IsNullOrEmpty(scene))
                 {
                     LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
-                    Sc(scene);
                     op = Application.LoadLevelAdditiveAsync(scene);
 
                     while (!op.isDone) // IL_C47
@@ -282,7 +275,6 @@ namespace LoadingScreenMod
                 if (!string.IsNullOrEmpty(uiScene)) // IL_C67
                 {
                     LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(uiScene);
-                    Sc(uiScene);
                     op = Application.LoadLevelAdditiveAsync(uiScene);
 
                     while (!op.isDone) // IL_CDE
@@ -330,20 +322,7 @@ namespace LoadingScreenMod
             if (Singleton<TelemetryManager>.exists)
                 Singleton<TelemetryManager>.instance.StartSession(asset?.name, playerScene, mode, SimulationManager.instance.m_metaData);
 
-            int n = PrefabCollection<BuildingInfo>.LoadedCount();
-            Sc("Scene buildings - " + n);
-
-            for (int i = 0; i < n; i++)
-                PrefabLoader.w?.WriteLine("  " + (PrefabCollection<BuildingInfo>.GetLoaded((uint) i)?.gameObject.name ?? "null"));
-
             PrefabLoader.instance?.Dispose();
-        }
-
-        void Sc(string s)
-        {
-            s += " - " + Profiling.Millis;
-            PrefabLoader.w?.WriteLine("\n" + s);
-            PrefabLoader.w?.WriteLine(new string('-', 8));
         }
 
         /// <summary>
@@ -354,10 +333,7 @@ namespace LoadingScreenMod
             bool skipAny = Settings.settings.SkipAny;
 
             if (skipAny)
-            {
                 new PrefabLoader().Deploy();
-                PrefabLoader.w.WriteLine("\nEnv: " + SimulationManager.instance.m_metaData.m_environment + "  Theme: " + (SimulationManager.instance.m_metaData.m_MapThemeMetaData?.name ?? "null") + "  City: " + instance.cityName);
-            }
 
             MethodInfo dlcMethod = typeof(LoadingManager).GetMethod("DLC", BindingFlags.Instance | BindingFlags.NonPublic);
             LoadingManager.instance.m_supportsExpansion[0] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 369150u });
@@ -538,8 +514,6 @@ namespace LoadingScreenMod
 
                 object dict = Util.GetStatic(typeof(PrefabCollection<P>), "m_prefabDict");
                 dict.GetType().GetMethod("Clear", BindingFlags.Instance | BindingFlags.Public).Invoke(dict, null);
-                int cnt = (int) dict.GetType().GetMethod("get_Count", BindingFlags.Instance | BindingFlags.Public).Invoke(dict, null);
-                Util.DebugPrint("DestroyLoaded", typeof(P).Name, "left behind:", cnt);
                 prefabs.Clear(); prefabs.Capacity = 0;
             }
             catch (Exception e)
