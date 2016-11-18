@@ -44,7 +44,7 @@ namespace LoadingScreenMod
         public Coroutine LoadLevel(Package.Asset asset, string playerScene, string uiScene, SimulationMetaData ngs)
         {
             LoadingManager lm = Singleton<LoadingManager>.instance;
-            instance.activated = ngs.m_updateMode == SimulationManager.UpdateMode.LoadGame || ngs.m_updateMode == SimulationManager.UpdateMode.NewGame;
+            instance.activated = ngs.m_updateMode == SimulationManager.UpdateMode.LoadGame || ngs.m_updateMode == SimulationManager.UpdateMode.NewGame || Input.GetKey(KeyCode.LeftControl);
             instance.simulationFailed = false;
 
             if (!lm.m_currentlyLoading && !lm.m_applicationQuitting)
