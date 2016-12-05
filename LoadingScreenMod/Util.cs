@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.IO;
 using System.Collections.Generic;
+using ColossalFramework.PlatformServices;
 
 namespace LoadingScreenMod
 {
@@ -111,6 +112,12 @@ namespace LoadingScreenMod
                 ret.Add(array[i]);
 
             return ret;
+        }
+
+        internal static PublishedFileId GetPackageId(string packageName)
+        {
+            ulong id;
+            return ulong.TryParse(packageName, out id) ? new PublishedFileId(id) : PublishedFileId.invalid;
         }
     }
 }

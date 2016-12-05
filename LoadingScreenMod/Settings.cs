@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
-using ColossalFramework.Steamworks;
+using ColossalFramework.PlatformServices;
 using ColossalFramework.IO;
 using ColossalFramework.UI;
 using ICities;
@@ -167,7 +167,7 @@ namespace LoadingScreenMod
             Check(group, "Also skip these named buildings:", "A comma-separated list of building names", skipThese, b => { skipThese = b; dirty = true; });
             TextField(group, skippedNames, OnNamesChanged);
 
-            if (Steam.IsOverlayEnabled())
+            if (PlatformService.IsOverlayEnabled())
                 Button(group, "Show building names and images using browser", "Opens the Steam web browser", OnWebButton);
 
             Check(group, "Apply my selections to the European/Vanilla style", "Skip buildings in the built-in district style, too?", applyToEuropean, b => { applyToEuropean = b; dirty = true; });
@@ -258,7 +258,7 @@ namespace LoadingScreenMod
 
         void OnWebButton()
         {
-            Steam.ActivateGameOverlayToWebPage("https://cdn.rawgit.com/thale5/Buildings/master/toc.htm");
+            PlatformService.ActivateGameOverlayToWebPage("https://cdn.rawgit.com/thale5/Buildings/master/toc.htm");
         }
 
         void OnNamesChanged(string text)

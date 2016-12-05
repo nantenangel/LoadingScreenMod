@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using ColossalFramework.Packaging;
-using ColossalFramework.Steamworks;
+using ColossalFramework.PlatformServices;
 using UnityEngine;
 
 namespace LoadingScreenMod
@@ -14,6 +14,8 @@ namespace LoadingScreenMod
         HashSet<string> buildingAssets = new HashSet<string>(), propAssets = new HashSet<string>(), treeAssets = new HashSet<string>(), vehicleAssets = new HashSet<string>();
         HashSet<string> indirectProps = new HashSet<string>(), indirectTrees = new HashSet<string>(), buildingPrefabs = new HashSet<string>();
         Package.Asset[] assets;
+        Dictionary<PublishedFileId, HashSet<string>> packagesToPaths;
+
         internal HashSet<string> Buildings => buildingAssets;
         internal HashSet<string> Props => propAssets;
         internal HashSet<string> Trees => treeAssets;
@@ -54,6 +56,8 @@ namespace LoadingScreenMod
 
         internal void Dispose()
         {
+            Util.DebugPrint("Packages: total, reflected, hit, asset hit:", pkgtotal, pkgreflect, pkghit, assethit);
+
             buildingPackages.Clear(); propPackages.Clear(); treePackages.Clear(); vehiclePackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear(); buildingPrefabs.Clear();
             buildingPackages = null; propPackages = null; treePackages = null; vehiclePackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null; buildingPrefabs = null;
             instance = null; assets = null; defaultHandler = null;
@@ -279,15 +283,13 @@ namespace LoadingScreenMod
             {
                 int j = name.IndexOf('.');
 
-                if (j >= 0 && j < name.Length - 1)
+                if (j > 0 && j < name.Length - 1)
                 {
-                    Package package; Package.Asset asset;
-                    ulong id;
-
                     // The fast path.
-                    if (ulong.TryParse(name.Substring(0, j), out id) && (package = PackageManager.FindPackageBy(new PublishedFileId(id))) != null &&
-                        (asset = package.Find(name.Substring(j + 1))) != null)
-                            return asset;
+                    Package.Asset asset = instance.FindByName(name.Substring(0, j), name.Substring(j + 1));
+
+                    if (asset != null)
+                        return asset;
                 }
 
                 Package.Asset[] a = UsedAssets.instance.assets;
@@ -303,6 +305,41 @@ namespace LoadingScreenMod
             catch (Exception e)
             {
                 UnityEngine.Debug.LogException(e);
+            }
+
+            return null;
+        }
+
+        internal int pkgtotal, pkgreflect, pkghit, assethit;
+
+        Package.Asset FindByName(string packageName, string assetName)
+        {
+            PublishedFileId id = Util.GetPackageId(packageName);
+
+            if (id != PublishedFileId.invalid)
+            {
+                pkgtotal++;
+
+                if (packagesToPaths == null || packagesToPaths.Count == 0)
+                {
+                    pkgreflect++;
+                    packagesToPaths = (Dictionary<PublishedFileId, HashSet<string>>) Util.GetStatic(typeof(PackageManager), "m_PackagesSteamToPathsMap");
+                }
+
+                HashSet<string> paths;
+
+                if (packagesToPaths.TryGetValue(id, out paths))
+                {
+                    pkghit++;
+                    Package package; Package.Asset asset;
+
+                    foreach (string path in paths)
+                        if ((package = PackageManager.FindPackageAt(path)) != null && (asset = package.Find(assetName)) != null)
+                        {
+                            assethit++;
+                            return asset;
+                        }
+                }
             }
 
             return null;

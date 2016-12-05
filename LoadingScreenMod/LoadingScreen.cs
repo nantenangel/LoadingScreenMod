@@ -220,7 +220,7 @@ namespace LoadingScreenMod
             if (inst.animationLoaded)
             {
                 Quaternion q = Quaternion.AngleAxis(inst.timer * rotationSpeed, Vector3.back);
-                inst.animationMaterial.color = new Color(0.5f, 0.75f, 1.0f, 1f);
+                inst.animationMaterial.color = new Color(0f, 0.25f, 0.75f, 1f);
                 Mesh amesh = inst.animationMesh;
 
                 if (inst.animationMaterial.SetPass(0))
