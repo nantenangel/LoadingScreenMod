@@ -46,11 +46,13 @@ namespace LoadingScreenMod
         {
             LoadingProfiler[] pp = { LoadingManager.instance.m_loadingProfilerMain, LoadingManager.instance.m_loadingProfilerScenes,
                     LoadingManager.instance.m_loadingProfilerSimulation, LoadingManager.instance.m_loadingProfilerCustomContent, LoadingManager.instance.m_loadingProfilerCustomAsset };
+            string[] names = { "Main:", "Scenes:", "Simulation:", "CustomContent:", "CustomAsset:" };
+            int i = 0;
 
             using (StreamWriter w = new StreamWriter(Util.GetFileName("profilers", "txt")))
                 foreach (LoadingProfiler p in pp)
                 {
-                    w.WriteLine(); w.WriteLine(p.ToString());
+                    w.WriteLine(); w.WriteLine(names[i++]);
                     FastList<LoadingProfiler.Event> events = ProfilerSource.GetEvents(p);
 
                     foreach (LoadingProfiler.Event e in events)

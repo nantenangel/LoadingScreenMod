@@ -56,6 +56,7 @@ namespace LoadingScreenMod
 
         internal void Dispose()
         {
+            Util.DebugPrint("Asset lookup: total, fast hits, slow hits:", atotal, afasthit, aslowhit);
             Util.DebugPrint("Packages: total, reflected, hit, asset hit:", pkgtotal, pkgreflect, pkghit, assethit);
 
             allPackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear(); buildingPrefabs.Clear();
@@ -74,6 +75,18 @@ namespace LoadingScreenMod
         internal bool GotVehicle(string fullName) => vehicleAssets.Contains(fullName);
         internal bool GotIndirectProp(string fullName) => indirectProps.Contains(fullName);
         internal bool GotIndirectTree(string fullName) => indirectTrees.Contains(fullName);
+
+        /// <summary>
+        /// Dynamic check to find out if at least one asset in the current load chain is used in the city. At this time, only buildings are considered containers.
+        /// </summary>
+        bool GotAnyContainer()
+        {
+            foreach (string fullName in AssetLoader.instance.current)
+                if (GotBuilding(fullName))
+                    return true;
+
+            return false;
+        }
 
         internal bool GotPrefab(string fullName, string replace)
         {
@@ -204,18 +217,10 @@ namespace LoadingScreenMod
             // Props and trees in buildings and parks.
             if (t == typeof(BuildingInfo.Prop))
             {
-                string propName = r.ReadString(); // old name format (without package name) is possible
-                string treeName = r.ReadString(); // old name format (without package name) is possible
-                PropInfo pi = PrefabCollection<PropInfo>.FindLoaded(propName);
-                TreeInfo ti = PrefabCollection<TreeInfo>.FindLoaded(treeName);
+                PropInfo pi = Get<PropInfo>(r.ReadString()); // old name format (without package name) is possible
+                TreeInfo ti = Get<TreeInfo>(r.ReadString()); // old name format (without package name) is possible
 
-                if (pi == null && !string.IsNullOrEmpty(propName) && LoadPropTree(ref propName))
-                    pi = PrefabCollection<PropInfo>.FindLoaded(propName);
-
-                if (ti == null && !string.IsNullOrEmpty(treeName) && LoadPropTree(ref treeName))
-                    ti = PrefabCollection<TreeInfo>.FindLoaded(treeName);
-
-                if (Settings.settings.reportAssets && UsedAssets.instance.GotBuilding(AssetLoader.instance.currentFullName))
+                if (Settings.settings.reportAssets && UsedAssets.instance.GotAnyContainer())
                 {
                     if (pi != null)
                     {
@@ -245,16 +250,41 @@ namespace LoadingScreenMod
                 };
             }
 
+            // Prop variations in props.
+            if (t == typeof(PropInfo.Variation))
+            {
+                string name = r.ReadString();
+                string fullName = p.packageName + "." + name;
+                PropInfo pi = Get<PropInfo>(p, fullName, name, false);
+
+                return new PropInfo.Variation
+                {
+                    m_prop = pi,
+                    m_probability = r.ReadInt32()
+                };
+            }
+
+            // Tree variations in trees.
+            if (t == typeof(TreeInfo.Variation))
+            {
+                string name = r.ReadString();
+                string fullName = p.packageName + "." + name;
+                TreeInfo ti = Get<TreeInfo>(p, fullName, name, false);
+
+                return new TreeInfo.Variation
+                {
+                    m_tree = ti,
+                    m_probability = r.ReadInt32()
+                };
+            }
+
             // It seems that trailers are listed in the save game so this is not necessary. Better to be safe however
             // because a missing trailer reference is fatal for the simulation thread.
             if (t == typeof(VehicleInfo.VehicleTrailer))
             {
                 string name = r.ReadString();
                 string fullName = p.packageName + "." + name;
-                VehicleInfo vi = PrefabCollection<VehicleInfo>.FindLoaded(fullName);
-
-                if (vi == null && LoadTrailer(p, fullName, name))
-                    vi = PrefabCollection<VehicleInfo>.FindLoaded(fullName);
+                VehicleInfo vi = Get<VehicleInfo>(p, fullName, name, false);
 
                 VehicleInfo.VehicleTrailer trailer;
                 trailer.m_info = vi;
@@ -263,25 +293,85 @@ namespace LoadingScreenMod
                 return trailer;
             }
 
+            // Sub-buildings in buildings.
+            if (t == typeof(BuildingInfo.SubInfo))
+            {
+                string name = r.ReadString();
+                string fullName = p.packageName + "." + name;
+                BuildingInfo bi = Get<BuildingInfo>(p, fullName, name, true);
+
+                BuildingInfo.SubInfo subInfo = new BuildingInfo.SubInfo();
+                subInfo.m_buildingInfo = bi;
+                subInfo.m_position = r.ReadVector3();
+                subInfo.m_angle = r.ReadSingle();
+                subInfo.m_fixedHeight = r.ReadBoolean();
+                return subInfo;
+            }
+
             return defaultHandler(p, t, r);
         }
 
+        // Works with (fullName = asset name), too.
+        static T Get<T>(string fullName) where T : PrefabInfo
+        {
+            if (string.IsNullOrEmpty(fullName))
+                return null;
+
+            T info = PrefabCollection<T>.FindLoaded(fullName);
+
+            if (info == null && Load(ref fullName, FindAsset(fullName)))
+                info = PrefabCollection<T>.FindLoaded(fullName);
+
+            return info;
+        }
+
+        // For sub-buildings, name may be package.assetname.
+        static T Get<T>(Package package, string fullName, string name, bool tryName) where T : PrefabInfo
+        {
+            T info = PrefabCollection<T>.FindLoaded(fullName);
+
+            if (info == null && tryName)
+                info = PrefabCollection<T>.FindLoaded(name);
+
+            if (info == null)
+            {
+                Package.Asset data = package.Find(name);
+
+                if (data == null && tryName)
+                    data = FindAsset(name); // yes, name
+
+                if (data != null)
+                    fullName = data.fullName;
+                else if (name.Contains("."))
+                    fullName = name;
+
+                if (Load(ref fullName, data))
+                    info = PrefabCollection<T>.FindLoaded(fullName);
+            }
+
+            return info;
+        }
+
         /// <summary>
-        /// Given packagename.assetname, find the asset.
+        /// Given packagename.assetname, find the asset. Works with (fullName = asset name), too.
         /// </summary>
-        static Package.Asset FindAsset(string name)
+        static Package.Asset FindAsset(string fullName)
         {
             try
             {
-                int j = name.IndexOf('.');
+                instance.atotal++;
+                int j = fullName.IndexOf('.');
 
-                if (j > 0 && j < name.Length - 1)
+                if (j > 0 && j < fullName.Length - 1)
                 {
                     // The fast path.
-                    Package.Asset asset = instance.FindByName(name.Substring(0, j), name.Substring(j + 1));
+                    Package.Asset asset = instance.FindByName(fullName.Substring(0, j), fullName.Substring(j + 1));
 
                     if (asset != null)
+                    {
+                        instance.afasthit++;
                         return asset;
+                    }
                 }
 
                 Package.Asset[] a = UsedAssets.instance.assets;
@@ -289,10 +379,13 @@ namespace LoadingScreenMod
                 if (a == null)
                     a = UsedAssets.instance.assets = AssetLoader.FilterAssets(Package.AssetType.Object);
 
-                // We also try the old (early 2015) naming that does not contain the package name. FindLoaded does it, too.
+                // We also try the old (early 2015) naming that does not contain the package name. FindLoaded does this, too.
                 for (int i = 0; i < a.Length; i++)
-                    if (name == a[i].fullName || name == a[i].name)
+                    if (fullName == a[i].fullName || fullName == a[i].name)
+                    {
+                        instance.aslowhit++;
                         return a[i];
+                    }
             }
             catch (Exception e)
             {
@@ -302,7 +395,8 @@ namespace LoadingScreenMod
             return null;
         }
 
-        internal int pkgtotal, pkgreflect, pkghit, assethit;
+        int atotal, afasthit, aslowhit;
+        int pkgtotal, pkgreflect, pkghit, assethit;
 
         Package.Asset FindByName(string packageName, string assetName)
         {
@@ -337,34 +431,12 @@ namespace LoadingScreenMod
             return null;
         }
 
-        static bool LoadPropTree(ref string fullName)
+        static bool Load(ref string fullName, Package.Asset data)
         {
-            Package.Asset data = FindAsset(fullName);
-
             if (data != null)
                 try
                 {
                     fullName = data.fullName;
-                    AssetLoader.instance.LoadImpl(fullName, data);
-                    return true;
-                }
-                catch (Exception e)
-                {
-                    AssetLoader.instance.Failed(fullName, e);
-                }
-            else
-                AssetLoader.instance.NotFound(fullName);
-
-            return false;
-        }
-
-        static bool LoadTrailer(Package package, string fullName, string name)
-        {
-            Package.Asset data = package.Find(name);
-
-            if (data != null)
-                try
-                {
                     AssetLoader.instance.LoadImpl(fullName, data);
                     return true;
                 }
