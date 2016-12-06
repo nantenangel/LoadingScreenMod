@@ -10,7 +10,7 @@ namespace LoadingScreenMod
     {
         internal static UsedAssets instance;
         static PackageDeserializer.CustomDeserializeHandler defaultHandler;
-        HashSet<string> buildingPackages = new HashSet<string>(), propPackages = new HashSet<string>(), treePackages = new HashSet<string>(), vehiclePackages = new HashSet<string>();
+        HashSet<string> allPackages = new HashSet<string>();
         HashSet<string> buildingAssets = new HashSet<string>(), propAssets = new HashSet<string>(), treeAssets = new HashSet<string>(), vehicleAssets = new HashSet<string>();
         HashSet<string> indirectProps = new HashSet<string>(), indirectTrees = new HashSet<string>(), buildingPrefabs = new HashSet<string>();
         Package.Asset[] assets;
@@ -36,10 +36,10 @@ namespace LoadingScreenMod
 
         void LookupUsed()
         {
-            LookupSimulationBuildings(buildingPackages, buildingAssets);
-            LookupSimulationAssets<PropInfo>(propPackages, propAssets);
-            LookupSimulationAssets<TreeInfo>(treePackages, treeAssets);
-            LookupSimulationAssets<VehicleInfo>(vehiclePackages, vehicleAssets);
+            LookupSimulationBuildings(allPackages, buildingAssets);
+            LookupSimulationAssets<PropInfo>(allPackages, propAssets);
+            LookupSimulationAssets<TreeInfo>(allPackages, treeAssets);
+            LookupSimulationAssets<VehicleInfo>(allPackages, vehicleAssets);
         }
 
         internal void Hook()
@@ -58,22 +58,15 @@ namespace LoadingScreenMod
         {
             Util.DebugPrint("Packages: total, reflected, hit, asset hit:", pkgtotal, pkgreflect, pkghit, assethit);
 
-            buildingPackages.Clear(); propPackages.Clear(); treePackages.Clear(); vehiclePackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear(); buildingPrefabs.Clear();
-            buildingPackages = null; propPackages = null; treePackages = null; vehiclePackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null; buildingPrefabs = null;
+            allPackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear(); buildingPrefabs.Clear();
+            allPackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null; buildingPrefabs = null;
             instance = null; assets = null; defaultHandler = null;
         }
 
-        internal bool GotPropTreeTrailerPackage(string packageName)
-        {
-            // Some false positives are possible at this stage because of dots.
-            return propPackages.Contains(packageName) || treePackages.Contains(packageName) || vehiclePackages.Contains(packageName) || packageName.IndexOf('.') >= 0;
-        }
-
-        internal bool GotBuildingVehiclePackage(string packageName)
-        {
-            // Some false positives are possible at this stage because of dots.
-            return buildingPackages.Contains(packageName) || vehiclePackages.Contains(packageName) || packageName.IndexOf('.') >= 0;
-        }
+        /// <summary>
+        /// False positives are possible at this stage.
+        /// </summary>
+        internal bool GotPackage(string packageName) => allPackages.Contains(packageName) || packageName.IndexOf('.') >= 0;
 
         internal bool GotProp(string fullName) => propAssets.Contains(fullName);
         internal bool GotTree(string fullName) => treeAssets.Contains(fullName);
@@ -183,20 +176,20 @@ namespace LoadingScreenMod
             }
         }
 
-        static void Add(string name, HashSet<string> packages, HashSet<string> assets, HashSet<string> prefabs = null)
+        static void Add(string fullName, HashSet<string> packages, HashSet<string> assets, HashSet<string> prefabs = null)
         {
-            if (!string.IsNullOrEmpty(name))
+            if (!string.IsNullOrEmpty(fullName))
             {
-                int j = name.IndexOf('.');
+                int j = fullName.IndexOf('.');
 
                 // Recognize custom assets:
-                if (j >= 0 && j < name.Length - 1)
+                if (j >= 0 && j < fullName.Length - 1)
                 {
-                    packages.Add(name.Substring(0, j)); // packagename (or pac in case the full name is pac.kagename.assetname)
-                    assets.Add(name); // packagename.assetname
+                    packages.Add(fullName.Substring(0, j)); // packagename (or pac in case the full name is pac.kagename.assetname)
+                    assets.Add(fullName); // packagename.assetname
                 }
                 else if (prefabs != null)
-                    prefabs.Add(name);
+                    prefabs.Add(fullName);
             }
         }
 
@@ -274,8 +267,7 @@ namespace LoadingScreenMod
         }
 
         /// <summary>
-        /// Given packagename.assetname, find the asset. Unfortunately this is a bit more complicated than expected because dots are possible everywhere.
-        /// Even PackageManager.FindAssetByName() does it wrong.
+        /// Given packagename.assetname, find the asset.
         /// </summary>
         static Package.Asset FindAsset(string name)
         {
@@ -353,12 +345,12 @@ namespace LoadingScreenMod
                 try
                 {
                     fullName = data.fullName;
-                    AssetLoader.instance.PropTreeTrailerImpl(fullName, data);
+                    AssetLoader.instance.LoadImpl(fullName, data);
                     return true;
                 }
                 catch (Exception e)
                 {
-                    AssetLoader.instance.Failed(data, e);
+                    AssetLoader.instance.Failed(fullName, e);
                 }
             else
                 AssetLoader.instance.NotFound(fullName);
@@ -373,12 +365,12 @@ namespace LoadingScreenMod
             if (data != null)
                 try
                 {
-                    AssetLoader.instance.PropTreeTrailerImpl(fullName, data);
+                    AssetLoader.instance.LoadImpl(fullName, data);
                     return true;
                 }
                 catch (Exception e)
                 {
-                    AssetLoader.instance.Failed(data, e);
+                    AssetLoader.instance.Failed(fullName, e);
                 }
             else
                 AssetLoader.instance.NotFound(fullName);
