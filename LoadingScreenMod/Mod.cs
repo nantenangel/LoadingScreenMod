@@ -33,6 +33,7 @@ namespace LoadingScreenMod
                 Trace.Start();
                 Stopping();
                 new LevelLoader().Deploy();
+                new PackageManagerFix().Deploy();
                 created = true;
             }
         }
@@ -40,6 +41,7 @@ namespace LoadingScreenMod
         void Stopping()
         {
             LevelLoader.instance?.Dispose();
+            PackageManagerFix.instance?.Dispose();
 
             if (created)
                 Trace.Stop();
