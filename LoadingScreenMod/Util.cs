@@ -120,4 +120,13 @@ namespace LoadingScreenMod
             return ulong.TryParse(packageName, out id) ? new PublishedFileId(id) : PublishedFileId.invalid;
         }
     }
+
+    internal static class Trace
+    {
+        static StreamWriter w;
+        internal static void Start() => w = new StreamWriter(Util.GetFileName("trace", "txt"));
+        internal static void Stop() => w.Dispose();
+        internal static void Ind(int n, params object[] args) => w.WriteLine(new string(' ', n) + " ".OnJoin(args) + " (" + Profiling.Millis + ")");
+        internal static void Newline() => w.WriteLine();
+    }
 }

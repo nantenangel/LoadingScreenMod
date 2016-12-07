@@ -57,6 +57,7 @@ namespace LoadingScreenMod
             gameObject.SetActive(reader.ReadBoolean());
             int num = reader.ReadInt32();
             Sharing.instance.isMain = num > 3;
+            Trace.Ind(Sharing.instance.isMain ? 16 : 18, "GO", name);
 
             for (int i = 0; i < num; i++)
                 Sharing.instance.DeserializeComponent(package, gameObject, reader);

@@ -239,7 +239,7 @@ namespace LoadingScreenMod
         {
             try
             {
-                Console.WriteLine(new string(' ', current.Count * 2) + fullName, Profiling.Millis);
+                Trace.Ind(current.Count * 2, fullName);
 
                 current.Push(fullName);
                 LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(assetRef.name));
@@ -417,6 +417,7 @@ namespace LoadingScreenMod
                 }
             }
 
+            Trace.Ind(0, "Queues", queues[0].Count, queues[1].Count, queues[2].Count, queues[3].Count);
             return queues;
         }
 

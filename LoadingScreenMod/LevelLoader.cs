@@ -48,7 +48,8 @@ namespace LoadingScreenMod
             instance.activated = ngs.m_updateMode == SimulationManager.UpdateMode.LoadGame || ngs.m_updateMode == SimulationManager.UpdateMode.NewGameFromMap ||
                 ngs.m_updateMode == SimulationManager.UpdateMode.NewGameFromScenario || Input.GetKey(KeyCode.LeftControl);
             instance.simulationFailed = false;
-            Util.DebugPrint("LoadLevel", playerScene, uiScene, ngs.m_updateMode);
+            Trace.Newline();
+            Trace.Ind(0, "LoadLevel", playerScene, uiScene, ngs.m_updateMode);
 
             if (!lm.m_currentlyLoading && !lm.m_applicationQuitting)
             {
@@ -451,7 +452,7 @@ namespace LoadingScreenMod
         /// <summary>
         /// Checks if buildings, props, trees, and vehicles have been deserialized from the savegame.
         /// </summary>
-        public static bool IsSaveDeserialized() => GetSimProgress() > 55;
+        public static bool IsSaveDeserialized() => GetSimProgress() > 54;
 
         /// <summary>
         /// Returns the progress of simulation deserialization.

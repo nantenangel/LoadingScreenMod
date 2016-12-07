@@ -56,9 +56,6 @@ namespace LoadingScreenMod
 
         internal void Dispose()
         {
-            Util.DebugPrint("Asset lookup: total, fast hits, slow hits:", atotal, afasthit, aslowhit);
-            Util.DebugPrint("Packages: total, reflected, hit, asset hit:", pkgtotal, pkgreflect, pkghit, assethit);
-
             allPackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear(); buildingPrefabs.Clear();
             allPackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null; buildingPrefabs = null;
             instance = null; assets = null; defaultHandler = null;
@@ -256,6 +253,7 @@ namespace LoadingScreenMod
                 string name = r.ReadString();
                 string fullName = p.packageName + "." + name;
                 PropInfo pi = Get<PropInfo>(p, fullName, name, false);
+                Trace.Ind(28, "Prop variation", fullName, pi != null);
 
                 return new PropInfo.Variation
                 {
@@ -299,6 +297,7 @@ namespace LoadingScreenMod
                 string name = r.ReadString();
                 string fullName = p.packageName + "." + name;
                 BuildingInfo bi = Get<BuildingInfo>(p, fullName, name, true);
+                Trace.Ind(28, "Sub-building", fullName, bi != null);
 
                 BuildingInfo.SubInfo subInfo = new BuildingInfo.SubInfo();
                 subInfo.m_buildingInfo = bi;
@@ -359,7 +358,6 @@ namespace LoadingScreenMod
         {
             try
             {
-                instance.atotal++;
                 int j = fullName.IndexOf('.');
 
                 if (j > 0 && j < fullName.Length - 1)
@@ -368,10 +366,7 @@ namespace LoadingScreenMod
                     Package.Asset asset = instance.FindByName(fullName.Substring(0, j), fullName.Substring(j + 1));
 
                     if (asset != null)
-                    {
-                        instance.afasthit++;
                         return asset;
-                    }
                 }
 
                 Package.Asset[] a = UsedAssets.instance.assets;
@@ -383,7 +378,7 @@ namespace LoadingScreenMod
                 for (int i = 0; i < a.Length; i++)
                     if (fullName == a[i].fullName || fullName == a[i].name)
                     {
-                        instance.aslowhit++;
+                        Trace.Ind(12, "FindAsset slow hit", a[i].fullName);
                         return a[i];
                     }
             }
@@ -392,11 +387,9 @@ namespace LoadingScreenMod
                 UnityEngine.Debug.LogException(e);
             }
 
+            Trace.Ind(12, "FindAsset miss", fullName);
             return null;
         }
-
-        int atotal, afasthit, aslowhit;
-        int pkgtotal, pkgreflect, pkghit, assethit;
 
         Package.Asset FindByName(string packageName, string assetName)
         {
@@ -404,11 +397,11 @@ namespace LoadingScreenMod
 
             if (id != PublishedFileId.invalid)
             {
-                pkgtotal++;
+                Trace.Ind(12, "FindByName", packageName, assetName);
 
                 if (packagesToPaths == null || packagesToPaths.Count == 0)
                 {
-                    pkgreflect++;
+                    Trace.Ind(12, "FindByName reflected");
                     packagesToPaths = (Dictionary<PublishedFileId, HashSet<string>>) Util.GetStatic(typeof(PackageManager), "m_PackagesSteamToPathsMap");
                 }
 
@@ -416,16 +409,18 @@ namespace LoadingScreenMod
 
                 if (packagesToPaths.TryGetValue(id, out paths))
                 {
-                    pkghit++;
+                    Trace.Ind(12, "FindByName package hit");
                     Package package; Package.Asset asset;
 
                     foreach (string path in paths)
                         if ((package = PackageManager.FindPackageAt(path)) != null && (asset = package.Find(assetName)) != null)
                         {
-                            assethit++;
+                            Trace.Ind(12, "FindByName asset hit");
                             return asset;
                         }
                 }
+
+                Trace.Ind(12, "FindByName miss");
             }
 
             return null;
