@@ -30,7 +30,6 @@ namespace LoadingScreenMod
         {
             if (!created)
             {
-                Trace.Start();
                 Stopping();
                 new LevelLoader().Deploy();
                 new PackageManagerFix().Deploy();
@@ -42,10 +41,6 @@ namespace LoadingScreenMod
         {
             LevelLoader.instance?.Dispose();
             PackageManagerFix.instance?.Dispose();
-
-            if (created)
-                Trace.Stop();
-
             created = false;
         }
 

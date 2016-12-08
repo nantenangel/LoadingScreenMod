@@ -253,7 +253,6 @@ namespace LoadingScreenMod
                 string name = r.ReadString();
                 string fullName = p.packageName + "." + name;
                 PropInfo pi = Get<PropInfo>(p, fullName, name, false);
-                Trace.Ind(28, "Prop variation", fullName, pi != null);
 
                 return new PropInfo.Variation
                 {
@@ -297,7 +296,6 @@ namespace LoadingScreenMod
                 string name = r.ReadString();
                 string fullName = p.packageName + "." + name;
                 BuildingInfo bi = Get<BuildingInfo>(p, fullName, name, true);
-                Trace.Ind(28, "Sub-building", fullName, bi != null);
 
                 BuildingInfo.SubInfo subInfo = new BuildingInfo.SubInfo();
                 subInfo.m_buildingInfo = bi;
@@ -371,10 +369,7 @@ namespace LoadingScreenMod
 
                 // Fast fail.
                 if (AssetLoader.instance.HasFailed(fullName))
-                {
-                    Trace.Ind(12, "FindAsset fast miss", fullName);
                     return null;
-                }
 
                 Package.Asset[] a = UsedAssets.instance.assets;
 
@@ -384,17 +379,13 @@ namespace LoadingScreenMod
                 // We also try the old (early 2015) naming that does not contain the package name. FindLoaded does this, too.
                 for (int i = 0; i < a.Length; i++)
                     if (fullName == a[i].fullName || fullName == a[i].name)
-                    {
-                        Trace.Ind(12, "FindAsset slow hit", a[i].fullName);
                         return a[i];
-                    }
             }
             catch (Exception e)
             {
                 UnityEngine.Debug.LogException(e);
             }
 
-            Trace.Ind(12, "FindAsset miss", fullName);
             return null;
         }
 
@@ -404,30 +395,19 @@ namespace LoadingScreenMod
 
             if (id != PublishedFileId.invalid)
             {
-                Trace.Ind(12, "FindByName", packageName, assetName);
-
                 if (packagesToPaths == null || packagesToPaths.Count == 0)
-                {
-                    Trace.Ind(12, "FindByName reflected");
                     packagesToPaths = (Dictionary<PublishedFileId, HashSet<string>>) Util.GetStatic(typeof(PackageManager), "m_PackagesSteamToPathsMap");
-                }
 
                 HashSet<string> paths;
 
                 if (packagesToPaths.TryGetValue(id, out paths))
                 {
-                    Trace.Ind(12, "FindByName package hit");
                     Package package; Package.Asset asset;
 
                     foreach (string path in paths)
                         if ((package = PackageManager.FindPackageAt(path)) != null && (asset = package.Find(assetName)) != null)
-                        {
-                            Trace.Ind(12, "FindByName asset hit");
                             return asset;
-                        }
                 }
-
-                Trace.Ind(12, "FindByName miss");
             }
 
             return null;
