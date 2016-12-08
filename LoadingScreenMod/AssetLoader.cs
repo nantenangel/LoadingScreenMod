@@ -26,6 +26,7 @@ namespace LoadingScreenMod
         internal HashSet<string> Buildings => loadedBuildings;
         internal HashSet<string> Vehicles => loadedVehicles;
         internal bool IsIntersection(string fullName) => loadedIntersections.Contains(fullName);
+        internal bool HasFailed(string fullName) => failedAssets.Contains(fullName);
 
         public AssetLoader()
         {

@@ -369,6 +369,13 @@ namespace LoadingScreenMod
                         return asset;
                 }
 
+                // Fast fail.
+                if (AssetLoader.instance.HasFailed(fullName))
+                {
+                    Trace.Ind(12, "FindAsset fast miss", fullName);
+                    return null;
+                }
+
                 Package.Asset[] a = UsedAssets.instance.assets;
 
                 if (a == null)
