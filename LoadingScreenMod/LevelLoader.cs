@@ -212,6 +212,7 @@ namespace LoadingScreenMod
                     }
 
                     LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
+                    Sc(scene);
                     op = SceneManager.LoadSceneAsync(scene, LoadSceneMode.Additive);
 
                     while (!op.isDone)
@@ -264,6 +265,7 @@ namespace LoadingScreenMod
                 if (!string.IsNullOrEmpty(scene))
                 {
                     LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
+                    Sc(scene);
                     op = SceneManager.LoadSceneAsync(scene, LoadSceneMode.Additive);
 
                     while (!op.isDone) // IL_C47
@@ -281,6 +283,7 @@ namespace LoadingScreenMod
                 if (!string.IsNullOrEmpty(uiScene)) // IL_C67
                 {
                     LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(uiScene);
+                    Sc(scene);
                     op = SceneManager.LoadSceneAsync(uiScene, LoadSceneMode.Additive);
 
                     while (!op.isDone) // IL_CDE
@@ -329,6 +332,13 @@ namespace LoadingScreenMod
                 Singleton<TelemetryManager>.instance.StartSession(asset?.name, playerScene, mode, SimulationManager.instance.m_metaData);
 
             PrefabLoader.instance?.Dispose();
+        }
+
+        void Sc(string s)
+        {
+            s += " - " + Profiling.Millis;
+            PrefabLoader.w?.WriteLine("\n" + s);
+            PrefabLoader.w?.WriteLine(new string('-', 8));
         }
 
         /// <summary>
