@@ -65,6 +65,9 @@ namespace LoadingScreenMod
                 AssetReport.instance.Dispose();
             }
 
+            Util.DebugPrint("Total millis:", totalMicros / 1000, " textures:", Sharing.instance.textureMicros / 1000,
+                " materials:", Sharing.instance.materialMicros / 1000, " meshes:", Sharing.instance.meshMicros / 1000);
+
             Sharing.instance?.Dispose();
         }
 
@@ -236,13 +239,17 @@ namespace LoadingScreenMod
             }
         }
 
+        internal long totalMicros;
+
         internal void LoadImpl(string fullName, Package.Asset assetRef, bool spawnNormally = true)
         {
             try
             {
                 current.Push(fullName);
                 LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(assetRef.name));
+                totalMicros -= Profiling.Micros;
                 GameObject go = assetRef.Instantiate<GameObject>();
+                totalMicros += Profiling.Micros;
                 go.name = fullName;
                 go.SetActive(false);
                 PrefabInfo info = go.GetComponent<PrefabInfo>();

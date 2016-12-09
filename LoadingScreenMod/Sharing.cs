@@ -105,7 +105,9 @@ namespace LoadingScreenMod
                             Sharing.instance.texhit++;
                         else
                         {
+                            instance.textureMicros -= Profiling.Micros;
                             texture = PackageManager.FindAssetByChecksum(checksum).Instantiate<Texture>();
+                            instance.textureMicros += Profiling.Micros;
                             Sharing.instance.texload++;
 
                             if (share)
@@ -122,6 +124,8 @@ namespace LoadingScreenMod
 
             return material;
         }
+
+        internal long textureMicros, materialMicros, meshMicros;
 
         internal static void DeserializeMeshRenderer(Package package, MeshRenderer renderer, PackageReader reader)
         {
@@ -144,7 +148,9 @@ namespace LoadingScreenMod
                 else
                 {
                     Sharing.instance.textureCount = 0;
+                    instance.materialMicros -= Profiling.Micros;
                     material = PackageManager.FindAssetByChecksum(checksum).Instantiate<Material>();
+                    instance.materialMicros += Profiling.Micros;
                     Sharing.instance.matload++;
 
                     if (share)
@@ -167,7 +173,9 @@ namespace LoadingScreenMod
                 Sharing.instance.meshit++;
             else
             {
+                instance.meshMicros -= Profiling.Micros;
                 mesh = PackageManager.FindAssetByChecksum(checksum).Instantiate<Mesh>();
+                instance.meshMicros += Profiling.Micros;
                 Sharing.instance.mesload++;
 
                 if (share)
