@@ -347,7 +347,6 @@ namespace LoadingScreenMod
             if (uifont == null)
                 return false;
 
-            long t = Profiling.Ticks;
             UIFontRenderer uiFontRenderer = uifont.ObtainRenderer();
             UIRenderData uiRenderData = UIRenderData.Obtain();
 

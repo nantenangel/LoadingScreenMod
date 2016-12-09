@@ -28,7 +28,6 @@ namespace LoadingScreenMod
         }
 
         internal static int Millis => (int) stopWatch.ElapsedMilliseconds;
-        internal static long Ticks => stopWatch.ElapsedTicks;
         internal static void CustomAssetFailed(string name) => ModifyEvent(customAssetEvents, name, FAILED);
         internal static void CustomAssetDuplicate(string name) => ModifyEvent(customAssetEvents, name, DUPLICATE);
         internal static void CustomAssetNotFound(string name) => ModifyEvent(customAssetEvents, name, NOT_FOUND);
