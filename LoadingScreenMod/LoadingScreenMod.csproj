@@ -54,6 +54,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AssetDeserializer.cs" />
     <Compile Include="AssetLoader.cs" />
     <Compile Include="AssetReport.cs" />
     <Compile Include="DetourUtility.cs" />
