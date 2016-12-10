@@ -13,13 +13,14 @@ namespace LoadingScreenMod
         readonly Package package;
         readonly Package.Asset asset;
         readonly PackageReader reader;
+        int ind = 0;
 
-        public static T Instantiate<T>(Package.Asset asset) where T : class
+        public static T Instantiate<T>(Package.Asset asset, int ind = 0) where T : class
         {
-            return Instantiate(asset) as T;
+            return Instantiate(asset, ind) as T;
         }
 
-        public static object Instantiate(Package.Asset asset)
+        public static object Instantiate(Package.Asset asset, int ind = 0)
         {
             if ((asset.type >= Package.UnityTypeStart && asset.type <= Package.UnityTypeEnd) || asset.type >= Package.AssetType.User)
             {
@@ -27,11 +28,15 @@ namespace LoadingScreenMod
                 using (PackageReader reader = new PackageReader(stream))
                 {
                     AssetDeserializer d = new AssetDeserializer(asset, reader);
+                    d.ind = ind;
                     return d.Deserialize();
                 }
             }
             else
+            {
+                Trace.Tra("asset.Instantiate");
                 return asset.Instantiate();
+            }
         }
 
         AssetDeserializer(Package.Asset asset, PackageReader reader)
@@ -43,10 +48,16 @@ namespace LoadingScreenMod
 
         object Deserialize()
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            Trace.Typ(asset.GetType());
+            Trace.Ind(ind++, "ASSET", asset.fullName);
             Type type;
 
             if (!DeserializeHeader(out type))
                 return null;
+
+            Trace.Typ(type);
+
             if (type == typeof(GameObject))
                 return DeserializeGameObject();
             if (type == typeof(Mesh))
@@ -63,14 +74,19 @@ namespace LoadingScreenMod
 
         object DeserializeSingleObject(Type type, Type expectedType)
         {
-            object obj = PackageHelper.CustomDeserialize(package, type, reader);
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            Trace.Typ(type);
+            object obj = CustomDeserialize(type);
 
             if (obj != null)
                 return obj;
             if (typeof(ScriptableObject).IsAssignableFrom(type))
-                return Instantiate(reader.ReadAsset());
+                return Instantiate(reader.ReadAsset(), ind);
             if (typeof(GameObject).IsAssignableFrom(type))
-                return Instantiate(reader.ReadAsset());
+                return Instantiate(reader.ReadAsset(), ind);
+
+            Trace.Tra("ReadUnityType");
+
             if (package.version < 3u && expectedType != null && expectedType == typeof(Package.Asset))
                 return reader.ReadUnityType(expectedType);
 
@@ -79,92 +95,100 @@ namespace LoadingScreenMod
 
         UnityEngine.Object DeserializeScriptableObject(Type type)
         {
-            object obj = PackageHelper.CustomDeserialize(package, type, reader);
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            object obj = CustomDeserialize(type);
 
             if (obj != null)
                 return (UnityEngine.Object) obj;
 
-            ScriptableObject scriptableObject = ScriptableObject.CreateInstance(type);
-            scriptableObject.name = reader.ReadString();
-            int num = reader.ReadInt32();
+            ScriptableObject so = ScriptableObject.CreateInstance(type);
+            so.name = reader.ReadString();
+            Trace.Ind(ind, "SO", so.name);
+            DeserializeFields(so, type, false);
+            return so;
+        }
 
-            for (int i = 0; i < num; i++)
+        void DeserializeFields(object obj, Type type, bool resolveMember)
+        {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            int count = reader.ReadInt32();
+            ind++;
+
+            for (int i = 0; i < count; i++)
             {
-                Type type2;
+                Type t;
                 string name;
 
-                if (DeserializeHeader(out type2, out name))
+                if (DeserializeHeader(out t, out name))
                 {
                     FieldInfo field = type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+                    if (field == null && resolveMember)
+                        field = type.GetField(ResolveLegacyMember(t, type, name), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
                     Type expectedType = field?.FieldType;
 
-                    if (type2.IsArray)
+                    if (t.IsArray)
                     {
-                        int num2 = reader.ReadInt32();
-                        Array array = Array.CreateInstance(type2.GetElementType(), num2);
+                        int n = reader.ReadInt32();
+                        Array array = Array.CreateInstance(t.GetElementType(), n);
 
-                        for (int j = 0; j < num2; j++)
-                            array.SetValue(DeserializeSingleObject(type2.GetElementType(), expectedType), j);
+                        for (int j = 0; j < n; j++)
+                            array.SetValue(DeserializeSingleObject(t.GetElementType(), expectedType), j);
 
-                        field?.SetValue(scriptableObject, array);
+                        field?.SetValue(obj, array);
                     }
                     else
                     {
-                        object value = DeserializeSingleObject(type2, expectedType);
-                        field?.SetValue(scriptableObject, value);
+                        object value = DeserializeSingleObject(t, expectedType);
+                        field?.SetValue(obj, value);
                     }
                 }
             }
 
-            return scriptableObject;
+            ind--;
         }
 
         UnityEngine.Object DeserializeGameObject()
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string name = reader.ReadString();
-            GameObject gameObject = new GameObject(name);
-            gameObject.tag = reader.ReadString();
-            gameObject.layer = reader.ReadInt32();
-            gameObject.SetActive(reader.ReadBoolean());
-            int num = reader.ReadInt32();
+            GameObject go = new GameObject(name);
+            go.tag = reader.ReadString();
+            go.layer = reader.ReadInt32();
+            go.SetActive(reader.ReadBoolean());
+            int count = reader.ReadInt32();
+            Trace.Ind(ind, "GO", go.name + ", " + count);
 
-            for (int i = 0; i < num; i++)
-                DeserializeComponent(gameObject);
+            ind++;
+            for (int i = 0; i < count; i++)
+            {
+                Type type;
 
-            return gameObject;
-        }
+                if (!DeserializeHeader(out type))
+                    continue;
 
-        void DeserializeComponent(GameObject go)
-        {
-            Type type;
+                Trace.Typ(type);
 
-            if (!DeserializeHeader(out type))
-                return;
-            if (type == typeof(Transform))
-            {
-                DeserializeTransform(go.transform);
-                return;
+                if (type == typeof(Transform))
+                    DeserializeTransform(go.transform);
+                else if (type == typeof(MeshFilter))
+                    DeserializeMeshFilter(go.AddComponent(type) as MeshFilter);
+                else if (type == typeof(MeshRenderer))
+                    DeserializeMeshRenderer(go.AddComponent(type) as MeshRenderer);
+                else if (typeof(MonoBehaviour).IsAssignableFrom(type))
+                    DeserializeMonoBehaviour((MonoBehaviour) go.AddComponent(type));
+                else
+                    throw new InvalidDataException("Unknown type to deserialize " + type.Name);
             }
-            if (type == typeof(MeshFilter))
-            {
-                DeserializeMeshFilter(go.AddComponent(type) as MeshFilter);
-                return;
-            }
-            if (type == typeof(MeshRenderer))
-            {
-                DeserializeMeshRenderer(go.AddComponent(type) as MeshRenderer);
-                return;
-            }
-            if (typeof(MonoBehaviour).IsAssignableFrom(type))
-            {
-                DeserializeMonoBehaviour((MonoBehaviour) go.AddComponent(type));
-                return;
-            }
-            throw new InvalidDataException("Unknown type to deserialize " + type.Name);
+
+            ind--;
+            return go;
         }
 
         UnityEngine.Object DeserializeTexture()
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string name = reader.ReadString();
             bool linear = reader.ReadBoolean();
             int count = reader.ReadInt32();
@@ -172,18 +196,22 @@ namespace LoadingScreenMod
             Image image = new Image(fileByte);
             Texture2D texture2D = image.CreateTexture(linear);
             texture2D.name = name;
+            Trace.Ind(ind, "Texture2D", name, texture2D.width, "x", texture2D.height);
             return texture2D;
         }
 
         UnityEngine.Object DeserializeMaterial()
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string name = reader.ReadString();
-            string name2 = reader.ReadString();
-            Material material = new Material(Shader.Find(name2));
+            string shader = reader.ReadString();
+            Material material = new Material(Shader.Find(shader));
             material.name = name;
-            int num = reader.ReadInt32();
+            int count = reader.ReadInt32();
+            Trace.Ind(ind, "Material", name + ", " + shader);
+            ind++;
 
-            for (int i = 0; i < num; i++)
+            for (int i = 0; i < count; i++)
             {
                 int num2 = reader.ReadInt32();
                 if (num2 == 0)
@@ -203,7 +231,7 @@ namespace LoadingScreenMod
                     string propertyName = reader.ReadString();
                     if (!reader.ReadBoolean())
                     {
-                        material.SetTexture(propertyName, Instantiate<Texture>(reader.ReadAsset()));
+                        material.SetTexture(propertyName, Instantiate<Texture>(reader.ReadAsset(), ind));
                     }
                     else
                     {
@@ -211,115 +239,63 @@ namespace LoadingScreenMod
                     }
                 }
             }
+
+            ind--;
             return material;
         }
 
         void DeserializeTransform(Transform transform)
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             transform.localPosition = reader.ReadVector3();
             transform.localRotation = reader.ReadQuaternion();
             transform.localScale = reader.ReadVector3();
+            Trace.Ind(ind, "Transform", transform.name);
         }
 
         void DeserializeMeshFilter(MeshFilter meshFilter)
         {
-            meshFilter.sharedMesh = Instantiate<Mesh>(reader.ReadAsset());
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            meshFilter.sharedMesh = Instantiate<Mesh>(reader.ReadAsset(), ind);
         }
 
         void DeserializeMonoBehaviour(MonoBehaviour behaviour)
         {
-            int num = reader.ReadInt32();
-
-            for (int i = 0; i < num; i++)
-            {
-                Type type;
-                string name;
-
-                if (DeserializeHeader(out type, out name))
-                {
-                    FieldInfo field = behaviour.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                    Type expectedType = field?.FieldType;
-
-                    if (type.IsArray)
-                    {
-                        int num2 = reader.ReadInt32();
-                        Array array = Array.CreateInstance(type.GetElementType(), num2);
-
-                        for (int j = 0; j < num2; j++)
-                            array.SetValue(DeserializeSingleObject(type.GetElementType(), expectedType), j);
-
-                        field?.SetValue(behaviour, array);
-                    }
-                    else
-                    {
-                        object value = DeserializeSingleObject(type, expectedType);
-                        field?.SetValue(behaviour, value);
-                    }
-                }
-            }
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            Trace.Ind(ind, behaviour.GetType().Name);
+            DeserializeFields(behaviour, behaviour.GetType(), false);
         }
 
         object DeserializeObject(Type type)
         {
-            object obj = PackageHelper.CustomDeserialize(package, type, reader);
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            Trace.Ind(ind, "object", type.Name);
+            object obj = CustomDeserialize(type);
 
             if (obj != null)
                 return obj;
 
-            object obj2 = Activator.CreateInstance(type);
+            obj = Activator.CreateInstance(type);
             reader.ReadString();
-            int num = reader.ReadInt32();
-
-            for (int i = 0; i < num; i++)
-            {
-                Type type2;
-                string text;
-
-                if (DeserializeHeader(out type2, out text))
-                {
-                    FieldInfo field = type.GetField(text, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-                    if (field == null)
-                    {
-                        text = ResolveLegacyMember(type2, type, text);
-                        field = type.GetField(text, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                    }
-
-                    Type expectedType = field?.FieldType;
-
-                    if (type2.IsArray)
-                    {
-                        int num2 = reader.ReadInt32();
-                        Array array = Array.CreateInstance(type2.GetElementType(), num2);
-
-                        for (int j = 0; j < num2; j++)
-                            array.SetValue(DeserializeSingleObject(type2.GetElementType(), expectedType), j);
-
-                        field?.SetValue(obj2, array);
-                    }
-                    else
-                    {
-                        object value = DeserializeSingleObject(type2, expectedType);
-                        field?.SetValue(obj2, value);
-                    }
-                }
-            }
-            return obj2;
+            DeserializeFields(obj, type, true);
+            return obj;
         }
 
         void DeserializeMeshRenderer(MeshRenderer renderer)
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             int num = reader.ReadInt32();
             Material[] array = new Material[num];
 
             for (int i = 0; i < num; i++)
-                array[i] = Instantiate<Material>(reader.ReadAsset());
+                array[i] = Instantiate<Material>(reader.ReadAsset(), ind);
 
             renderer.sharedMaterials = array;
         }
 
         UnityEngine.Object DeserializeMesh()
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             Mesh mesh = new Mesh();
             mesh.name = reader.ReadString();
             mesh.vertices = reader.ReadVector3Array();
@@ -334,61 +310,69 @@ namespace LoadingScreenMod
             for (int i = 0; i < mesh.subMeshCount; i++)
                 mesh.SetTriangles(reader.ReadInt32Array(), i);
 
+            Trace.Ind(ind, "Mesh", mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
             return mesh;
         }
 
         bool DeserializeHeader(out Type type)
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             type = null;
+
             if (reader.ReadBoolean())
-            {
                 return false;
-            }
+
             string text = reader.ReadString();
             type = Type.GetType(text);
+
             if (type == null)
             {
                 type = Type.GetType(ResolveLegacyType(text));
+
                 if (type == null)
                 {
                     if (HandleUnknownType(text) < 0)
-                    {
                         throw new InvalidDataException("Unknown type to deserialize " + text);
-                    }
+
                     return false;
                 }
             }
+
             return true;
         }
 
         bool DeserializeHeader(out Type type, out string name)
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             type = null;
             name = null;
+
             if (reader.ReadBoolean())
-            {
                 return false;
-            }
+
             string text = reader.ReadString();
             type = Type.GetType(text);
             name = reader.ReadString();
+
             if (type == null)
             {
                 type = Type.GetType(ResolveLegacyType(text));
+
                 if (type == null)
                 {
                     if (HandleUnknownType(text) < 0)
-                    {
                         throw new InvalidDataException("Unknown type to deserialize " + text);
-                    }
+
                     return false;
                 }
             }
+
             return true;
         }
 
         int HandleUnknownType(string type)
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             int num = PackageHelper.UnknownTypeHandler(type);
             CODebugBase<InternalLogChannel>.Warn(InternalLogChannel.Packer, string.Concat("Unexpected type '", type, "' detected. No resolver handled this type. Skipping ", num, " bytes."));
 
@@ -402,6 +386,7 @@ namespace LoadingScreenMod
 
         static string ResolveLegacyType(string type)
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string text = PackageHelper.ResolveLegacyTypeHandler(type);
             CODebugBase<InternalLogChannel>.Warn(InternalLogChannel.Packer, string.Concat("Unkown type detected. Attempting to resolve from '", type, "' to '", text, "'"));
             return text;
@@ -409,10 +394,17 @@ namespace LoadingScreenMod
 
         static string ResolveLegacyMember(Type fieldType, Type classType, string member)
         {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string text = PackageHelper.ResolveLegacyMemberHandler(classType, member);
             CODebugBase<InternalLogChannel>.Warn(InternalLogChannel.Packer, string.Concat("Unkown member detected of type ", fieldType.FullName, " in ", classType.FullName,
                 ". Attempting to resolve from '", member, "' to '", text, "'"));
             return text;
+        }
+
+        object CustomDeserialize(Type type)
+        {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            return PackageHelper.CustomDeserialize(package, type, reader);
         }
     }
 }
