@@ -31,7 +31,7 @@ namespace LoadingScreenMod
             {
                 Stopping();
                 new LevelLoader().Deploy();
-                new PackageManagerFix().Deploy();
+                // new PackageManagerFix().Deploy();
                 created = true;
             }
         }
@@ -39,7 +39,7 @@ namespace LoadingScreenMod
         void Stopping()
         {
             LevelLoader.instance?.Dispose();
-            PackageManagerFix.instance?.Dispose();
+            // PackageManagerFix.instance?.Dispose();
             created = false;
         }
     }
