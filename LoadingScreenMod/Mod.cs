@@ -35,10 +35,8 @@ namespace LoadingScreenMod
                 Trace.Start();
                 new LevelLoader().Deploy();
                 // new PackageManagerFix().Deploy();
-
-                // GameObject go = new GameObject("My tester GO");
-                // go.AddComponent<Tester>();
-
+                GameObject go = new GameObject("My tester GO");
+                go.AddComponent<Tester>();
                 created = true;
             }
         }
@@ -46,27 +44,11 @@ namespace LoadingScreenMod
         void Stopping()
         {
             if (created)
-            {
-                PrintPackages();
                 Trace.Stop();
-            }
 
             LevelLoader.instance?.Dispose();
             // PackageManagerFix.instance?.Dispose();
             created = false;
-        }
-
-        void PrintPackages()
-        {
-            foreach (Package p in PackageManager.allPackages)
-            {
-                Trace.Pr(p.packageName, "\t\t", p.packagePath);
-
-                foreach (Package.Asset a in p)
-                    Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(90), a.checksum, a.type, a.size);
-            }
-
-            Trace.Newline();
         }
     }
 }

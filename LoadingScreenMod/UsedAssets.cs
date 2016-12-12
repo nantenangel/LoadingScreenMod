@@ -78,7 +78,7 @@ namespace LoadingScreenMod
         /// </summary>
         bool GotAnyContainer()
         {
-            foreach (string fullName in AssetLoader.instance.current)
+            foreach (string fullName in AssetLoader.instance.stack)
                 if (GotBuilding(fullName))
                     return true;
 
@@ -252,7 +252,12 @@ namespace LoadingScreenMod
             {
                 string name = r.ReadString();
                 string fullName = p.packageName + "." + name;
-                PropInfo pi = Get<PropInfo>(p, fullName, name, false);
+                PropInfo pi = null;
+
+                if (fullName == AssetLoader.instance.Current)
+                    Util.DebugPrint("Warning:", fullName, "wants to be a prop variation for itself.");
+                else
+                    pi = Get<PropInfo>(p, fullName, name, false);
 
                 return new PropInfo.Variation
                 {
@@ -266,7 +271,12 @@ namespace LoadingScreenMod
             {
                 string name = r.ReadString();
                 string fullName = p.packageName + "." + name;
-                TreeInfo ti = Get<TreeInfo>(p, fullName, name, false);
+                TreeInfo ti = null;
+
+                if (fullName == AssetLoader.instance.Current)
+                    Util.DebugPrint("Warning:", fullName, "wants to be a tree variation for itself.");
+                else
+                    ti = Get<TreeInfo>(p, fullName, name, false);
 
                 return new TreeInfo.Variation
                 {
@@ -295,7 +305,12 @@ namespace LoadingScreenMod
             {
                 string name = r.ReadString();
                 string fullName = p.packageName + "." + name;
-                BuildingInfo bi = Get<BuildingInfo>(p, fullName, name, true);
+                BuildingInfo bi = null;
+
+                if (fullName == AssetLoader.instance.Current || name == AssetLoader.instance.Current)
+                    Util.DebugPrint("Warning:", fullName, "wants to be a sub-building for itself.");
+                else
+                    bi = Get<BuildingInfo>(p, fullName, name, true);
 
                 BuildingInfo.SubInfo subInfo = new BuildingInfo.SubInfo();
                 subInfo.m_buildingInfo = bi;

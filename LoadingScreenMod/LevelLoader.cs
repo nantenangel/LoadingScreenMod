@@ -405,6 +405,9 @@ namespace LoadingScreenMod
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 547500u }))
                 levels.Add(new KeyValuePair<string, float>("ModderPack2Prefabs", 0.70f));
 
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 563850u }))
+                levels.Add(new KeyValuePair<string, float>("ChinaPackPrefabs", 0.71f));
+
             if (skipAny && !Settings.settings.applyToEuropean)
                 levels.Add(new KeyValuePair<string, float>(string.Empty, 0f));
 
