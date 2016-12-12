@@ -131,6 +131,10 @@ namespace LoadingScreenMod
             if (loadUsed)
                 UsedAssets.Create().Hook();
 
+            yield return null;
+            new Tester().Test();
+
+            /*
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Calculating asset load order");
             List<Package.Asset>[] queues = GetLoadQueues(styleBuildings);
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
@@ -154,7 +158,7 @@ namespace LoadingScreenMod
                 }
 
                 LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
-            }
+            } */
 
             stack.Clear();
             Report();

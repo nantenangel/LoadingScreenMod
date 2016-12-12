@@ -9,7 +9,7 @@ namespace LoadingScreenMod
 {
     public static class Profiling
     {
-        internal static readonly Stopwatch stopWatch = new Stopwatch();
+        static readonly Stopwatch stopWatch = new Stopwatch();
         static FastList<LoadingProfiler.Event> customAssetEvents;
         internal const string FAILED = " (failed)", DUPLICATE = " (duplicate)", NOT_FOUND = " (not found)";
 
@@ -17,7 +17,12 @@ namespace LoadingScreenMod
         {
             Sink.builder.Length = 0;
             customAssetEvents = ProfilerSource.GetEvents(LoadingManager.instance.m_loadingProfilerCustomAsset);
+        }
+
+        internal static void Start()
+        {
             stopWatch.Reset();
+            stopWatch.Start();
         }
 
         internal static void Stop()

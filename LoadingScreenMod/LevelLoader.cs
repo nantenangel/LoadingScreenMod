@@ -74,7 +74,7 @@ namespace LoadingScreenMod
                 Util.Set(lm, "m_simulationProgress", 0f);
 
                 if (instance.activated)
-                    Profiling.stopWatch.Start();
+                    Profiling.Start();
 
                 lm.m_loadingProfilerMain.Reset();
                 lm.m_loadingProfilerSimulation.Reset();

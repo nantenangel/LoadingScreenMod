@@ -81,9 +81,9 @@ namespace LoadingScreenMod
             if (obj != null)
                 return obj;
             if (typeof(ScriptableObject).IsAssignableFrom(type))
-                return Instantiate(reader.ReadAsset(), ind);
+                return Instantiate(ReadAsset(), ind);
             if (typeof(GameObject).IsAssignableFrom(type))
-                return Instantiate(reader.ReadAsset(), ind);
+                return Instantiate(ReadAsset(), ind);
 
             Trace.Tra("ReadUnityType");
 
@@ -231,7 +231,7 @@ namespace LoadingScreenMod
                     string propertyName = reader.ReadString();
                     if (!reader.ReadBoolean())
                     {
-                        material.SetTexture(propertyName, Instantiate<Texture>(reader.ReadAsset(), ind));
+                        material.SetTexture(propertyName, Instantiate<Texture>(ReadAsset(), ind));
                     }
                     else
                     {
@@ -256,7 +256,7 @@ namespace LoadingScreenMod
         void DeserializeMeshFilter(MeshFilter meshFilter)
         {
             Trace.Tra(MethodBase.GetCurrentMethod().Name);
-            meshFilter.sharedMesh = Instantiate<Mesh>(reader.ReadAsset(), ind);
+            meshFilter.sharedMesh = Instantiate<Mesh>(ReadAsset(), ind);
         }
 
         void DeserializeMonoBehaviour(MonoBehaviour behaviour)
@@ -288,7 +288,7 @@ namespace LoadingScreenMod
             Material[] array = new Material[num];
 
             for (int i = 0; i < num; i++)
-                array[i] = Instantiate<Material>(reader.ReadAsset(), ind);
+                array[i] = Instantiate<Material>(ReadAsset(), ind);
 
             renderer.sharedMaterials = array;
         }
@@ -339,6 +339,12 @@ namespace LoadingScreenMod
             }
 
             return true;
+        }
+
+        Package.Asset ReadAsset()
+        {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            return package.FindByChecksum(reader.ReadString());
         }
 
         bool DeserializeHeader(out Type type, out string name)

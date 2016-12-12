@@ -35,8 +35,6 @@ namespace LoadingScreenMod
                 Trace.Start();
                 new LevelLoader().Deploy();
                 // new PackageManagerFix().Deploy();
-                GameObject go = new GameObject("My tester GO");
-                go.AddComponent<Tester>();
                 created = true;
             }
         }
