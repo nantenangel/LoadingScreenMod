@@ -16,7 +16,7 @@ namespace LoadingScreenMod
         public static AssetLoader instance;
         HashSet<string> failedAssets = new HashSet<string>(), loadedProps = new HashSet<string>(), loadedTrees = new HashSet<string>(),
             loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>(), loadedIntersections = new HashSet<string>();
-        internal Stack<string> current = new Stack<string>(4);
+        internal Stack<string> stack = new Stack<string>(4); // the asset loading stack
         int propCount, treeCount, buildingCount, vehicleCount, lastMillis;
         readonly bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, reportAssets = Settings.settings.reportAssets;
         public bool hasStarted, hasFinished;
@@ -27,6 +27,7 @@ namespace LoadingScreenMod
         internal HashSet<string> Vehicles => loadedVehicles;
         internal bool IsIntersection(string fullName) => loadedIntersections.Contains(fullName);
         internal bool HasFailed(string fullName) => failedAssets.Contains(fullName);
+        internal string Current => stack.Count > 0 ? stack.Peek() : string.Empty;
 
         public AssetLoader()
         {
@@ -155,7 +156,7 @@ namespace LoadingScreenMod
                 LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
             }
 
-            current.Clear();
+            stack.Clear();
             Report();
 
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Finalizing District Styles");
@@ -227,7 +228,7 @@ namespace LoadingScreenMod
                 CustomAssetMetaData.Type type = assetMetaData.type;
                 bool spawnNormally = (type == CustomAssetMetaData.Type.Building || type == CustomAssetMetaData.Type.SubBuilding) ?
                     loadEnabled && IsEnabled(asset) || loadUsed && UsedAssets.instance.GotBuilding(fullName) : true;
-                current.Clear();
+                stack.Clear();
                 LoadImpl(fullName, assetMetaData.assetRef, spawnNormally);
             }
             catch (Exception e)
@@ -240,7 +241,7 @@ namespace LoadingScreenMod
         {
             try
             {
-                current.Push(fullName);
+                stack.Push(fullName);
                 LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(assetRef.name));
                 GameObject go = assetRef.Instantiate<GameObject>();
                 go.name = fullName;
@@ -307,7 +308,7 @@ namespace LoadingScreenMod
             }
             finally
             {
-                current.Pop();
+                stack.Pop();
                 LoadingManager.instance.m_loadingProfilerCustomAsset.EndLoading();
             }
         }
@@ -501,8 +502,8 @@ namespace LoadingScreenMod
             {
                 if (reportAssets)
                 {
-                    if (current.Count > 0)
-                        AssetReport.instance.NotFound(fullName, current.Peek());
+                    if (!string.IsNullOrEmpty(Current))
+                        AssetReport.instance.NotFound(fullName, Current);
                     else
                         AssetReport.instance.NotFound(fullName);
                 }
