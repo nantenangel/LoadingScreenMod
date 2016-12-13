@@ -24,7 +24,7 @@ namespace LoadingScreenMod
         {
             if ((asset.type >= Package.UnityTypeStart && asset.type <= Package.UnityTypeEnd) || asset.type >= Package.AssetType.User)
             {
-                using (Stream stream = asset.GetStream())
+                using (Stream stream = Tester.instance.GetStream(asset))
                 using (PackageReader reader = new PackageReader(stream))
                 {
                     AssetDeserializer d = new AssetDeserializer(asset, reader);
@@ -410,6 +410,10 @@ namespace LoadingScreenMod
         object CustomDeserialize(Type type)
         {
             Trace.Tra(MethodBase.GetCurrentMethod().Name);
+
+            if (type == typeof(Package.Asset))
+                return ReadAsset();
+
             return PackageHelper.CustomDeserialize(package, type, reader);
         }
     }

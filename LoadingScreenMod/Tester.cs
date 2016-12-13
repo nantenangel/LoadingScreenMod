@@ -9,10 +9,13 @@ namespace LoadingScreenMod
     internal sealed class Tester
     {
         const string dir = @"g:\testassets1\";
+        internal static Tester instance;
         Package[] packages;
+        Dictionary<string, byte[]> data = new Dictionary<string, byte[]>();
 
         internal void Test()
         {
+            instance = this;
             packages = CreatePackages(dir);
             PrintPackages();
             LoadPackages();
@@ -33,7 +36,7 @@ namespace LoadingScreenMod
                 AssetDeserializer.Instantiate<GameObject>(asset);
 
             Trace.Ind(0, "Done");
-            packages = null;
+            data.Clear(); packages = null; instance = null;
         }
 
         Package[] CreatePackages(string path)
@@ -49,14 +52,18 @@ namespace LoadingScreenMod
 
         void LoadPackages()
         {
+            Trace.Newline();
+            Trace.Ind(0, "Loading packages");
+
+            foreach (Package p in packages)
+                data[p.packagePath] = File.ReadAllBytes(p.packagePath);
+
+            Trace.Ind(0, "Loading finished");
         }
 
         void AddAssets(List<Package.Asset> assets, params CustomAssetMetaData.Type[] types)
         {
             foreach (Package p in packages)
-            {
-                byte[] bytes = File.ReadAllBytes(p.packagePath);
-
                 foreach (Package.Asset a in p.FilterAssets(UserAssetType.CustomAssetMetaData))
                 {
                     CustomAssetMetaData assetMetaData = AssetDeserializer.Instantiate<CustomAssetMetaData>(a);
@@ -64,7 +71,17 @@ namespace LoadingScreenMod
                     if (((IList<CustomAssetMetaData.Type>) types).Contains(assetMetaData.type))
                         assets.Add(assetMetaData.assetRef);
                 }
-            }
+        }
+
+        internal Stream GetStream(Package.Asset asset)
+        {
+            byte[] mem;
+
+            if (data.TryGetValue(asset.package.packagePath, out mem))
+                return new MemoryStream(mem, (int) asset.offset, asset.size, true, true);
+
+            Trace.Pr("NOT IN MEMORY:", asset.fullName, asset.package.packagePath);
+            return asset.GetStream();
         }
 
         void PrintPackages()
