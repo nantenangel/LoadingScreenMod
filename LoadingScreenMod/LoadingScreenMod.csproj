@@ -61,6 +61,7 @@
     <Compile Include="LevelLoader.cs" />
     <Compile Include="LoadingScreen.cs" />
     <Compile Include="MemoryAPI.cs" />
+    <Compile Include="MemStream.cs" />
     <Compile Include="Mod.cs" />
     <Compile Include="PackageManagerFix.cs" />
     <Compile Include="PrefabLoader.cs" />

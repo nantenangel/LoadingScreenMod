@@ -12,7 +12,7 @@ namespace LoadingScreenMod
     {
         readonly Package package;
         readonly Package.Asset asset;
-        readonly PackageReader reader;
+        readonly MemReader reader;
         int ind = 0;
 
         public static T Instantiate<T>(Package.Asset asset, int ind = 0) where T : class
@@ -24,8 +24,8 @@ namespace LoadingScreenMod
         {
             if ((asset.type >= Package.UnityTypeStart && asset.type <= Package.UnityTypeEnd) || asset.type >= Package.AssetType.User)
             {
-                using (Stream stream = Tester.instance.GetStream(asset))
-                using (PackageReader reader = new PackageReader(stream))
+                using (MemStream stream = Tester.instance.GetStream(asset))
+                using (MemReader reader = new MemReader(stream))
                 {
                     AssetDeserializer d = new AssetDeserializer(asset, reader);
                     d.ind = ind;
@@ -39,7 +39,7 @@ namespace LoadingScreenMod
             }
         }
 
-        AssetDeserializer(Package.Asset asset, PackageReader reader)
+        AssetDeserializer(Package.Asset asset, MemReader reader)
         {
             this.asset = asset;
             this.package = asset.package;
@@ -192,9 +192,23 @@ namespace LoadingScreenMod
             string name = reader.ReadString();
             bool linear = reader.ReadBoolean();
             int count = reader.ReadInt32();
+
+            Trace.texBytes -= Profiling.Micros;
             byte[] fileByte = reader.ReadBytes(count);
+
+            long m = Profiling.Micros;
+            Trace.texBytes += m;
+            Trace.texImage -= m;
+
             Image image = new Image(fileByte);
+
+            m = Profiling.Micros;
+            Trace.texImage += m;
+            Trace.texCreate -= m;
+
             Texture2D texture2D = image.CreateTexture(linear);
+            Trace.texCreate += Profiling.Micros;
+
             texture2D.name = name;
             Trace.Ind(ind, "Texture2D", name, texture2D.width, "x", texture2D.height);
             return texture2D;
@@ -296,6 +310,7 @@ namespace LoadingScreenMod
         UnityEngine.Object DeserializeMesh()
         {
             Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            Trace.meshMicros -= Profiling.Micros;
             Mesh mesh = new Mesh();
             mesh.name = reader.ReadString();
             mesh.vertices = reader.ReadVector3Array();
@@ -310,6 +325,7 @@ namespace LoadingScreenMod
             for (int i = 0; i < mesh.subMeshCount; i++)
                 mesh.SetTriangles(reader.ReadInt32Array(), i);
 
+            Trace.meshMicros += Profiling.Micros;
             Trace.Ind(ind, "Mesh", mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
             return mesh;
         }

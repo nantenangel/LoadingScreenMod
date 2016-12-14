@@ -21,6 +21,14 @@ namespace LoadingScreenMod
             LoadPackages();
 
             Trace.Newline();
+            Trace.Ind(0, "GC");
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            Trace.Ind(0, "GC finished");
+
+            Trace.Newline();
             Trace.Pr("CustomAssetMetaData:");
             Profiling.Start();
             List<Package.Asset> assets = new List<Package.Asset>();
@@ -33,7 +41,11 @@ namespace LoadingScreenMod
             Trace.Pr("Assets:");
 
             foreach (Package.Asset asset in assets)
-                AssetDeserializer.Instantiate<GameObject>(asset);
+            {
+                GameObject go = AssetDeserializer.Instantiate<GameObject>(asset);
+                go.name = asset.fullName;
+                Initialize(go);
+            }
 
             Trace.Ind(0, "Done");
             data.Clear(); packages = null; instance = null;
@@ -73,15 +85,15 @@ namespace LoadingScreenMod
                 }
         }
 
-        internal Stream GetStream(Package.Asset asset)
+        internal MemStream GetStream(Package.Asset asset)
         {
             byte[] mem;
 
             if (data.TryGetValue(asset.package.packagePath, out mem))
-                return new MemoryStream(mem, (int) asset.offset, asset.size, true, true);
+                return new MemStream(mem, (int) asset.offset);
 
             Trace.Pr("NOT IN MEMORY:", asset.fullName, asset.package.packagePath);
-            return asset.GetStream();
+            return null; // TODO
         }
 
         void PrintPackages()
@@ -92,6 +104,53 @@ namespace LoadingScreenMod
 
                 foreach(Package.Asset a in p)
                     Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(90), a.checksum, a.type, a.size);
+            }
+        }
+
+        void Initialize(GameObject go)
+        {
+            Trace.Ind(0, "Initialize", go.name);
+            go.SetActive(false);
+            PrefabInfo info = go.GetComponent<PrefabInfo>();
+            info.m_isCustomContent = true;
+
+            if (info.m_Atlas != null && !string.IsNullOrEmpty(info.m_InfoTooltipThumbnail) && info.m_Atlas[info.m_InfoTooltipThumbnail] != null)
+                info.m_InfoTooltipAtlas = info.m_Atlas;
+
+            PropInfo pi = go.GetComponent<PropInfo>();
+
+            if (pi != null)
+            {
+                if (pi.m_lodObject != null)
+                    pi.m_lodObject.SetActive(false);
+
+                PrefabCollection<PropInfo>.InitializePrefabs("Custom Assets", pi, null);
+            }
+
+            TreeInfo ti = go.GetComponent<TreeInfo>();
+
+            if (ti != null)
+                PrefabCollection<TreeInfo>.InitializePrefabs("Custom Assets", ti, null);
+
+            BuildingInfo bi = go.GetComponent<BuildingInfo>();
+
+            if (bi != null)
+            {
+                if (bi.m_lodObject != null)
+                    bi.m_lodObject.SetActive(false);
+
+                PrefabCollection<BuildingInfo>.InitializePrefabs("Custom Assets", bi, null);
+                bi.m_dontSpawnNormally = false;
+            }
+
+            VehicleInfo vi = go.GetComponent<VehicleInfo>();
+
+            if (vi != null)
+            {
+                if (vi.m_lodObject != null)
+                    vi.m_lodObject.SetActive(false);
+
+                PrefabCollection<VehicleInfo>.InitializePrefabs("Custom Assets", vi, null);
             }
         }
     }

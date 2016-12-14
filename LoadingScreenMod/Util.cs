@@ -125,12 +125,14 @@ namespace LoadingScreenMod
     {
         static Dictionary<string, int> methods = new Dictionary<string, int>(16);
         static Dictionary<string, int> types = new Dictionary<string, int>(64);
+        internal static long meshMicros, texBytes, texImage, texCreate, stringRead;
+        internal static int maxString;
 
         static StreamWriter w;
         internal static void Start() => w = new StreamWriter(Util.GetFileName("trace", "txt"));
         internal static void Stop() { SaveAll(); w.Dispose(); }
-        internal static void Ind(int n, params object[] args) => w.WriteLine((new string(' ', n + n) + " ".OnJoin(args)).PadRight(96) + " (" + Profiling.Millis + ")");
         internal static void Pr(params object[] args) => w.WriteLine(" ".OnJoin(args));
+        internal static void Ind(int n, params object[] args) => w.WriteLine((new string(' ', n + n) + " ".OnJoin(args)).PadRight(96) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")");
         internal static void Newline() => w.WriteLine();
 
         internal static void Tra(string name)
@@ -167,6 +169,13 @@ namespace LoadingScreenMod
                 Pr(kvp.Key.PadRight(48), kvp.Value);
 
             methods.Clear(); types.Clear();
+
+            Newline();
+            Pr("meshMicros", meshMicros);
+            Pr("texBytes", texBytes);
+            Pr("texImage", texImage);
+            Pr("texCreate", texCreate);
+            Pr("stringRead", stringRead);
         }
     }
 }
