@@ -11,14 +11,12 @@ namespace LoadingScreenMod
         const string dir = @"g:\testassets1\";
         internal static Tester instance;
         Package[] packages;
-        Dictionary<string, byte[]> data = new Dictionary<string, byte[]>();
 
         internal void Test()
         {
             instance = this;
             packages = CreatePackages(dir);
             PrintPackages();
-            LoadPackages();
 
             Trace.Newline();
             Trace.Ind(0, "GC");
@@ -31,24 +29,23 @@ namespace LoadingScreenMod
             Trace.Newline();
             Trace.Pr("CustomAssetMetaData:");
             Profiling.Start();
-            List<Package.Asset> assets = new List<Package.Asset>();
-            AddAssets(assets, CustomAssetMetaData.Type.PropVariation);
-            AddAssets(assets, CustomAssetMetaData.Type.Prop, CustomAssetMetaData.Type.Tree, CustomAssetMetaData.Type.Trailer);
-            AddAssets(assets, CustomAssetMetaData.Type.SubBuilding);
-            AddAssets(assets, CustomAssetMetaData.Type.Building, CustomAssetMetaData.Type.Vehicle);
+            List<Package.Asset>[] queues = GetLoadQueues();
 
+            LoadPackages();
             Trace.Newline();
             Trace.Pr("Assets:");
 
-            foreach (Package.Asset asset in assets)
-            {
-                GameObject go = AssetDeserializer.Instantiate<GameObject>(asset);
-                go.name = asset.fullName;
-                Initialize(go);
-            }
+            for(int i = 0; i < queues.Length; i++)
+                for (int j = 0; j < queues[i].Count; j++)
+                {
+                    Package.Asset asset = queues[i][j];
+                    GameObject go = AssetDeserializer.Instantiate<GameObject>(asset);
+                    go.name = asset.fullName;
+                    Initialize(go);
+                }
 
             Trace.Ind(0, "Done");
-            data.Clear(); packages = null; instance = null;
+            packages = null; instance = null;
         }
 
         Package[] CreatePackages(string path)
@@ -68,32 +65,46 @@ namespace LoadingScreenMod
             Trace.Ind(0, "Loading packages");
 
             foreach (Package p in packages)
-                data[p.packagePath] = File.ReadAllBytes(p.packagePath);
+                Sharing.instance.LoadPackage(p);
 
             Trace.Ind(0, "Loading finished");
         }
 
-        void AddAssets(List<Package.Asset> assets, params CustomAssetMetaData.Type[] types)
+        List<Package.Asset>[] GetLoadQueues()
         {
+            List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4), new List<Package.Asset>(64) };
+
             foreach (Package p in packages)
                 foreach (Package.Asset a in p.FilterAssets(UserAssetType.CustomAssetMetaData))
                 {
                     CustomAssetMetaData assetMetaData = AssetDeserializer.Instantiate<CustomAssetMetaData>(a);
+                    Package.Asset assetRef = assetMetaData.assetRef;
 
-                    if (((IList<CustomAssetMetaData.Type>) types).Contains(assetMetaData.type))
-                        assets.Add(assetMetaData.assetRef);
+                    switch (assetMetaData.type)
+                    {
+                        case CustomAssetMetaData.Type.Building:
+                        case CustomAssetMetaData.Type.Vehicle:
+                        case CustomAssetMetaData.Type.Unknown:
+                            queues[3].Add(assetRef);
+                            break;
+
+                        case CustomAssetMetaData.Type.Prop:
+                        case CustomAssetMetaData.Type.Tree:
+                        case CustomAssetMetaData.Type.Trailer:
+                            queues[1].Add(assetRef);
+                            break;
+
+                        case CustomAssetMetaData.Type.SubBuilding:
+                            queues[2].Add(assetRef);
+                            break;
+
+                        case CustomAssetMetaData.Type.PropVariation:
+                            queues[0].Add(assetRef);
+                            break;
+                    }
                 }
-        }
 
-        internal MemStream GetStream(Package.Asset asset)
-        {
-            byte[] mem;
-
-            if (data.TryGetValue(asset.package.packagePath, out mem))
-                return new MemStream(mem, (int) asset.offset);
-
-            Trace.Pr("NOT IN MEMORY:", asset.fullName, asset.package.packagePath);
-            return null; // TODO
+            return queues;
         }
 
         void PrintPackages()
@@ -103,7 +114,7 @@ namespace LoadingScreenMod
                 Trace.Pr(p.packageName, "\t\t", p.packagePath);
 
                 foreach(Package.Asset a in p)
-                    Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(90), a.checksum, a.type, a.size);
+                    Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(90), a.checksum, a.type.ToString().PadRight(10), a.offset.ToString().PadLeft(7), a.size.ToString().PadLeft(7));
             }
         }
 

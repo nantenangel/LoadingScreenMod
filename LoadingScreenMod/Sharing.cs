@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using ColossalFramework.Packaging;
 using UnityEngine;
 
@@ -8,6 +9,72 @@ namespace LoadingScreenMod
     internal sealed class Sharing : DetourUtility
     {
         internal static Sharing instance;
+
+        // Asset checksum to bytes.
+        Dictionary<string, byte[]> assets = new Dictionary<string, byte[]>();
+        internal static bool Supports(Package.AssetType type) => type <= Package.UnityTypeEnd && type >= Package.UnityTypeStart;
+
+        internal void LoadPackage(Package package)
+        {
+            List<Package.Asset> list = new List<Package.Asset>(32);
+            int i = 0;
+
+            foreach (Package.Asset asset in package)
+            {
+                string name = asset.name;
+                i++;
+
+                if (i == 1 && name.EndsWith("_SteamPreview") || i == 2 && name.EndsWith("_Snapshot"))
+                    continue;
+
+                if (Supports(asset.type) && !assets.ContainsKey(asset.checksum))
+                    list.Add(asset);
+            }
+
+            list.Sort((a, b) => (int) (a.offset - b.offset));
+
+            using (FileStream fs = File.OpenRead(package.packagePath))
+                for (i = 0; i < list.Count; i++)
+                    assets[list[i].checksum] = LoadAsset(fs, list[i]);
+        }
+
+        byte[] LoadAsset(FileStream fs, Package.Asset asset)
+        {
+            fs.Position = asset.offset;
+            int len = asset.size;
+            byte[] bytes = new byte[len];
+            int got = 0;
+            int remaining = len;
+
+            while (remaining > 0)
+            {
+                int n = fs.Read(bytes, got, remaining);
+
+                if (n == 0)
+                    throw new IOException("Unexpected end of file: " + asset.fullName);
+
+                got += n; remaining -= n;
+            }
+
+            return bytes;
+        }
+
+        internal Stream GetStream(Package.Asset asset)
+        {
+            byte[] bytes;
+
+            if (assets.TryGetValue(asset.checksum, out bytes))
+                return new MemStream(bytes, 0);
+
+            Trace.Pr("NOT IN MEMORY:", asset.fullName, asset.package.packagePath);
+            return asset.GetStream();
+        }
+
+        internal PackageReader GetReader(Stream stream)
+        {
+            MemStream ms = stream as MemStream;
+            return ms != null ? new MemReader(ms) : new PackageReader(stream);
+        }
 
         // Delegates can be used to call non-public methods. Delegates have about the same performance as regular method calls.
         // Delegates are roughly 100 times faster than reflection in Unity 5.
@@ -36,8 +103,8 @@ namespace LoadingScreenMod
             Util.DebugPrint("Textures / Materials / Meshes loaded:", texload, "/", matload, "/", mesload, "referenced:", texhit, "/", mathit, "/", meshit);
             Revert();
             base.Dispose();
-            textures.Clear(); materials.Clear(); meshes.Clear();
-            instance = null; textures = null; materials = null; meshes = null;
+            assets.Clear(); textures.Clear(); materials.Clear(); meshes.Clear();
+            assets = null; textures = null; materials = null; meshes = null; instance = null;
         }
 
         internal void Start()

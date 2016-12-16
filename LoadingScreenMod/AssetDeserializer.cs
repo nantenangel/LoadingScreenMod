@@ -11,8 +11,7 @@ namespace LoadingScreenMod
     internal sealed class AssetDeserializer
     {
         readonly Package package;
-        readonly Package.Asset asset;
-        readonly MemReader reader;
+        readonly PackageReader reader;
         int ind = 0;
 
         public static T Instantiate<T>(Package.Asset asset, int ind = 0) where T : class
@@ -22,35 +21,27 @@ namespace LoadingScreenMod
 
         public static object Instantiate(Package.Asset asset, int ind = 0)
         {
-            if ((asset.type >= Package.UnityTypeStart && asset.type <= Package.UnityTypeEnd) || asset.type >= Package.AssetType.User)
+            using (Stream stream = Sharing.instance.GetStream(asset))
+            using (PackageReader reader = Sharing.instance.GetReader(stream))
             {
-                using (MemStream stream = Tester.instance.GetStream(asset))
-                using (MemReader reader = new MemReader(stream))
-                {
-                    AssetDeserializer d = new AssetDeserializer(asset, reader);
-                    d.ind = ind;
-                    return d.Deserialize();
-                }
-            }
-            else
-            {
-                Trace.Tra("asset.Instantiate");
-                return asset.Instantiate();
+                AssetDeserializer d = new AssetDeserializer(asset, reader);
+                d.ind = ind;
+                Trace.Tra("Deserialize");
+                Trace.Typ(asset.GetType());
+                Trace.Ind(ind, "ASSET", asset.fullName);
+                return d.Deserialize();
             }
         }
 
-        AssetDeserializer(Package.Asset asset, MemReader reader)
+        AssetDeserializer(Package.Asset asset, PackageReader reader)
         {
-            this.asset = asset;
             this.package = asset.package;
             this.reader = reader;
         }
 
         object Deserialize()
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
-            Trace.Typ(asset.GetType());
-            Trace.Ind(ind++, "ASSET", asset.fullName);
+            ind++;
             Type type;
 
             if (!DeserializeHeader(out type))
@@ -76,6 +67,13 @@ namespace LoadingScreenMod
         {
             Trace.Tra(MethodBase.GetCurrentMethod().Name);
             Trace.Typ(type);
+
+            // Make the common case fast.
+            if (type == typeof(float))
+                return reader.ReadSingle();
+            if (type == typeof(Vector2))
+                return reader.ReadVector2();
+
             object obj = CustomDeserialize(type);
 
             if (obj != null)
