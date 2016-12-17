@@ -92,10 +92,11 @@ namespace LoadingScreenMod
             instance = this;
 
             // Be quick, or the JIT Compiler will inline calls to this one. It is a small method, less than 32 IL bytes.
-            init(typeof(PackageDeserializer), "DeserializeMeshFilter");
-            init(typeof(PackageDeserializer), "DeserializeMaterial");
-            init(typeof(PackageDeserializer), "DeserializeMeshRenderer");
-            init(typeof(PackageDeserializer), "DeserializeGameObject");
+            //init(typeof(PackageDeserializer), "DeserializeMeshFilter");
+            //init(typeof(PackageDeserializer), "DeserializeMaterial");
+            //init(typeof(PackageDeserializer), "DeserializeMeshRenderer");
+            //init(typeof(PackageDeserializer), "DeserializeGameObject");
+            init(typeof(PackageReader), "ReadByteArray", typeof(MemReader), "DreadByteArray");
         }
 
         internal override void Dispose()

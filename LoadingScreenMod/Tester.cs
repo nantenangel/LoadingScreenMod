@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using ColossalFramework.Packaging;
 using UnityEngine;
 
@@ -70,6 +71,13 @@ namespace LoadingScreenMod
             Trace.Ind(0, "Loading finished");
         }
 
+        void GetLoadQueue()
+        {
+            // Package[] packages = PackageManager.allPackages.ToArray();
+            Array.Sort(packages, (a, b) => string.Compare(a.packageName, b.packageName));
+
+        }
+
         List<Package.Asset>[] GetLoadQueues()
         {
             List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4), new List<Package.Asset>(64) };
@@ -111,7 +119,7 @@ namespace LoadingScreenMod
         {
             foreach(Package p in packages)
             {
-                Trace.Pr(p.packageName, "\t\t", p.packagePath);
+                Trace.Pr(p.packageName, "\t\t", p.packagePath, "   ", p.version);
 
                 foreach(Package.Asset a in p)
                     Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(90), a.checksum, a.type.ToString().PadRight(10), a.offset.ToString().PadLeft(7), a.size.ToString().PadLeft(7));
