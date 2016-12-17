@@ -439,7 +439,7 @@ namespace LoadingScreenMod
                 }
                 catch (Exception e)
                 {
-                    AssetLoader.instance.Failed(fullName, e);
+                    AssetLoader.instance.AssetFailed(fullName, e);
                 }
             else
                 AssetLoader.instance.NotFound(fullName);

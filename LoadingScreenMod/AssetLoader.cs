@@ -233,7 +233,7 @@ namespace LoadingScreenMod
             }
             catch (Exception e)
             {
-                Failed(fullName ?? asset.fullName, e);
+                AssetFailed(fullName ?? asset.fullName, e);
             }
         }
 
@@ -413,7 +413,7 @@ namespace LoadingScreenMod
                 }
                 catch (Exception e)
                 {
-                    Failed(fullName ?? asset.fullName, e);
+                    AssetFailed(fullName ?? asset.fullName, e);
                 }
             }
 
@@ -462,14 +462,14 @@ namespace LoadingScreenMod
             return AssetName(fullName_Data);
         }
 
-        internal void Failed(string fullName, Exception e)
+        internal void AssetFailed(string fullName, Exception e)
         {
             if (fullName != null && failedAssets.Add(fullName))
             {
                 Util.DebugPrint("Asset failed:", fullName);
 
                 if (reportAssets)
-                    AssetReport.instance.Failed(fullName);
+                    AssetReport.instance.AssetFailed(fullName);
 
                 Profiling.CustomAssetFailed(ShorterAssetName(fullName));
                 DualProfilerSource profiler = LoadingScreen.instance.DualSource;
