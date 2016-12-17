@@ -26,7 +26,7 @@ namespace LoadingScreenMod
             instance = null; failed = null; duplicate = null; notFoundIndirect = null;
         }
 
-        internal void Failed(string name) => failed.Add(name);
+        internal void AssetFailed(string name) => failed.Add(name);
 
         internal void Duplicate(string name, string path)
         {
