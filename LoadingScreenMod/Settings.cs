@@ -14,12 +14,13 @@ namespace LoadingScreenMod
     {
         const string FILENAME = "LoadingScreenMod.xml";
 
-        public int version = 4;
+        public int version = 5;
         public bool loadEnabled = true;
         public bool loadUsed = true;
         public bool shareTextures = true;
         public bool shareMaterials = true;
         public bool shareMeshes = true;
+        public bool subscribeToMissing = false;
         public bool reportAssets = false;
         public string reportDir = "";
         public bool skipResLo = false;
@@ -83,7 +84,7 @@ namespace LoadingScreenMod
             if (string.IsNullOrEmpty(s.reportDir = s.reportDir?.Trim()))
                 s.reportDir = DefaultSavePath;
 
-            s.version = 4;
+            s.version = 5;
             s.Setup();
             return s;
         }
@@ -123,6 +124,7 @@ namespace LoadingScreenMod
             skip[5] = skipIndGen; skip[6] = skipIndSpe; skip[7] = skipComSpe; skip[8] = skipOffice; skip[9] = skippedSet.Count > 0;
         }
 
+        // Late initialization (faster startup, less Unity GC).
         static internal void OnSettingsUI(UIHelperBase newHelper)
         {
             UIComponent comp = Self(helper);
@@ -154,8 +156,9 @@ namespace LoadingScreenMod
             Check(group, "Share textures", "Replace exact duplicates by references", shareTextures, b => { shareTextures = b; dirty = true; });
             Check(group, "Share materials", "Replace exact duplicates by references", shareMaterials, b => { shareMaterials = b; dirty = true; });
             Check(group, "Share meshes", "Replace exact duplicates by references", shareMeshes, b => { shareMeshes = b; dirty = true; });
+            Check(group, "Subscribe to missing assets  [Experimental!]", "Loads from Steam in the background", subscribeToMissing, b => { subscribeToMissing = b; dirty = true; });
 
-            group = CreateGroup(helper, "Skip unused standard buildings  [Experimental]", "This means the buildings included in the base game and DLCs");
+            group = CreateGroup(helper, "Skip unused standard buildings", "This means the buildings included in the base game and DLCs");
             Check(group, "Residential Low", null, skipResLo, b => { skipResLo = b; dirty = true; });
             Check(group, "Residential High", null, skipResHi, b => { skipResHi = b; dirty = true; });
             Check(group, "Commercial Low", null, skipComLo, b => { skipComLo = b; dirty = true; });

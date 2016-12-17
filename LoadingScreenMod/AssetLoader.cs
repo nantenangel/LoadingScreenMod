@@ -16,15 +16,18 @@ namespace LoadingScreenMod
         public static AssetLoader instance;
         HashSet<string> failedAssets = new HashSet<string>(), loadedProps = new HashSet<string>(), loadedTrees = new HashSet<string>(),
             loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>(), loadedIntersections = new HashSet<string>();
+        HashSet<ulong> subscribePackages = new HashSet<ulong>();
         internal Stack<string> stack = new Stack<string>(4); // the asset loading stack
         int propCount, treeCount, buildingCount, vehicleCount, lastMillis;
-        readonly bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, reportAssets = Settings.settings.reportAssets;
+        readonly bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, reportAssets = Settings.settings.reportAssets,
+            subscribe = Settings.settings.subscribeToMissing;
         public bool hasStarted, hasFinished;
         internal const int yieldInterval = 200;
         internal HashSet<string> Props => loadedProps;
         internal HashSet<string> Trees => loadedTrees;
         internal HashSet<string> Buildings => loadedBuildings;
         internal HashSet<string> Vehicles => loadedVehicles;
+        internal HashSet<ulong> SubscribePackages => subscribePackages;
         internal bool IsIntersection(string fullName) => loadedIntersections.Contains(fullName);
         internal bool HasFailed(string fullName) => failedAssets.Contains(fullName);
         internal string Current => stack.Count > 0 ? stack.Peek() : string.Empty;
@@ -49,6 +52,7 @@ namespace LoadingScreenMod
             Sharing.instance?.Dispose();
             LevelLoader.instance.AddFailedAssets(failedAssets);
             failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear(); loadedIntersections.Clear();
+            subscribePackages = null;
             instance = null; failedAssets = null; loadedProps = null; loadedTrees = null; loadedBuildings = null; loadedVehicles = null; loadedIntersections = null;
         }
 
@@ -511,6 +515,15 @@ namespace LoadingScreenMod
                 if (failedAssets.Add(fullName))
                 {
                     Util.DebugPrint("Asset not found:", fullName);
+
+                    if (subscribe)
+                    {
+                        ulong id;
+
+                        if (IsWorkshopPackage(fullName, out id))
+                            subscribePackages.Add(id);
+                    }
+
                     string name = ShorterAssetName(fullName);
                     LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(name);
                     Profiling.CustomAssetNotFound(name);

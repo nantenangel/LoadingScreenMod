@@ -68,6 +68,7 @@
     <Compile Include="RedirectionHelper.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="Sharing.cs" />
+    <Compile Include="Subscribe.cs" />
     <Compile Include="UsedAssets.cs" />
     <Compile Include="Util.cs" />
   </ItemGroup>

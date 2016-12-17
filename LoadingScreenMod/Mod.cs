@@ -14,15 +14,25 @@ namespace LoadingScreenMod
         public void OnCreated(ILoading loading) => Create();
         public void OnDisabled() => Stopping();
         public void OnSettingsUI(UIHelperBase helper) => Settings.OnSettingsUI(helper);
-        public void OnLevelUnloading() { }
         public void OnReleased() { }
 
         public void OnLevelLoaded(LoadMode mode)
         {
             if (LevelLoader.instance.activated)
+            {
+                if (Settings.settings.subscribeToMissing)
+                    Subscribe.Begin(AssetLoader.instance.SubscribePackages);
+
                 Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
+            }
 
             Settings.helper = null;
+        }
+
+        public void OnLevelUnloading()
+        {
+            if (Settings.settings.subscribeToMissing)
+                Subscribe.Stop();
         }
 
         void Create()
