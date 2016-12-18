@@ -30,20 +30,19 @@ namespace LoadingScreenMod
             Trace.Newline();
             Trace.Pr("CustomAssetMetaData:");
             Profiling.Start();
-            List<Package.Asset>[] queues = GetLoadQueues();
+            Package.Asset[] queue = GetLoadQueue();
 
             LoadPackages();
             Trace.Newline();
             Trace.Pr("Assets:");
 
-            for(int i = 0; i < queues.Length; i++)
-                for (int j = 0; j < queues[i].Count; j++)
-                {
-                    Package.Asset asset = queues[i][j];
-                    GameObject go = AssetDeserializer.Instantiate<GameObject>(asset);
-                    go.name = asset.fullName;
-                    Initialize(go);
-                }
+            for(int i = 0; i < queue.Length; i++)
+            {
+                Package.Asset asset = queue[i];
+                GameObject go = AssetDeserializer.Instantiate<GameObject>(asset);
+                go.name = asset.fullName;
+                Initialize(go);
+            }
 
             Trace.Ind(0, "Done");
             packages = null; instance = null;
@@ -71,48 +70,79 @@ namespace LoadingScreenMod
             Trace.Ind(0, "Loading finished");
         }
 
-        void GetLoadQueue()
+        Package.Asset[] GetLoadQueue()
         {
             // Package[] packages = PackageManager.allPackages.ToArray();
             Array.Sort(packages, (a, b) => string.Compare(a.packageName, b.packageName));
+            List<CustomAssetMetaData> list = new List<CustomAssetMetaData>(5);
 
-        }
-
-        List<Package.Asset>[] GetLoadQueues()
-        {
-            List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4), new List<Package.Asset>(64) };
+            // [0] propvar - prop  [1] prop & tree  [2] sub-building - building  [3] building  [4] trailer - vehicle  [5] vehicle
+            List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4),
+                                             new List<Package.Asset>(64), new List<Package.Asset>(32), new List<Package.Asset>(16) };
 
             foreach (Package p in packages)
+            {
+                list.Clear();
+
                 foreach (Package.Asset a in p.FilterAssets(UserAssetType.CustomAssetMetaData))
+                    list.Add(AssetDeserializer.Instantiate<CustomAssetMetaData>(a));
+
+                if (list.Count == 1) // the common case
                 {
-                    CustomAssetMetaData assetMetaData = AssetDeserializer.Instantiate<CustomAssetMetaData>(a);
-                    Package.Asset assetRef = assetMetaData.assetRef;
-
-                    switch (assetMetaData.type)
-                    {
-                        case CustomAssetMetaData.Type.Building:
-                        case CustomAssetMetaData.Type.Vehicle:
-                        case CustomAssetMetaData.Type.Unknown:
-                            queues[3].Add(assetRef);
-                            break;
-
-                        case CustomAssetMetaData.Type.Prop:
-                        case CustomAssetMetaData.Type.Tree:
-                        case CustomAssetMetaData.Type.Trailer:
-                            queues[1].Add(assetRef);
-                            break;
-
-                        case CustomAssetMetaData.Type.SubBuilding:
-                            queues[2].Add(assetRef);
-                            break;
-
-                        case CustomAssetMetaData.Type.PropVariation:
-                            queues[0].Add(assetRef);
-                            break;
-                    }
+                    CustomAssetMetaData meta = list[0];
+                    CustomAssetMetaData.Type type = meta.type;
+                    int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding || type == CustomAssetMetaData.Type.PropVariation ? -1 : 0;
+                    AddToQueue(queues, meta, offset);
                 }
+                else if (list.Count > 1)
+                {
+                    list.Sort((a, b) => b.type - a.type); // prop variation, sub-building, trailer before main asset
+                    CustomAssetMetaData.Type type = list[0].type;
+                    int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding || type == CustomAssetMetaData.Type.PropVariation ? -1 : 0;
 
-            return queues;
+                    for(int i = 0; i < list.Count; i++)
+                        AddToQueue(queues, list[i], offset);
+                }
+            }
+
+            Package.Asset[] queue = new Package.Asset[queues.Select(lst => lst.Count).Sum()];
+
+            for (int i = 0, k = 0; i < queues.Length; k += queues[i].Count, i++)
+                queues[i].CopyTo(queue, k);
+
+            return queue;
+        }
+
+        void AddToQueue(List<Package.Asset>[] queues, CustomAssetMetaData meta, int offset)
+        {
+            Package.Asset assetRef = meta.assetRef;
+
+            switch (meta.type)
+            {
+                case CustomAssetMetaData.Type.Prop:
+                case CustomAssetMetaData.Type.Tree:
+                case CustomAssetMetaData.Type.PropVariation:
+                    queues[1 + offset].Add(assetRef);
+                    break;
+
+                case CustomAssetMetaData.Type.Building:
+                case CustomAssetMetaData.Type.SubBuilding:
+                    queues[3 + offset].Add(assetRef);
+                    break;
+
+                //case CustomAssetMetaData.Type.Vehicle:
+                //case CustomAssetMetaData.Type.Trailer:
+                //case CustomAssetMetaData.Type.Unknown:
+                default:
+                    queues[5 + offset].Add(assetRef);
+                    break;
+            }
+        }
+
+        static bool IsEnabled(Package package)
+        {
+            Package.Asset mainAsset = package.Find(package.packageMainAsset);
+            return mainAsset?.isEnabled ?? true;
         }
 
         void PrintPackages()

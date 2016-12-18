@@ -17,14 +17,12 @@ namespace LoadingScreenMod
         internal void LoadPackage(Package package)
         {
             List<Package.Asset> list = new List<Package.Asset>(32);
-            int i = 0;
 
             foreach (Package.Asset asset in package)
             {
                 string name = asset.name;
-                i++;
 
-                if (i == 1 && name.EndsWith("_SteamPreview") || i == 2 && name.EndsWith("_Snapshot"))
+                if (name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot"))
                     continue;
 
                 if (Supports(asset.type) && !assets.ContainsKey(asset.checksum))
@@ -34,7 +32,7 @@ namespace LoadingScreenMod
             list.Sort((a, b) => (int) (a.offset - b.offset));
 
             using (FileStream fs = File.OpenRead(package.packagePath))
-                for (i = 0; i < list.Count; i++)
+                for (int i = 0; i < list.Count; i++)
                     assets[list[i].checksum] = LoadAsset(fs, list[i]);
         }
 

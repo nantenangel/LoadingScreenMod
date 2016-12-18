@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Reflection;
 using System.Text;
 using ColossalFramework.Packaging;
 
@@ -113,7 +112,7 @@ namespace LoadingScreenMod
             if (charBuf.Length < len)
                 charBuf = new char[len];
 
-            int n = utf.GetChars(stream.Buf, stream.Pos, len, charBuf, 0);
+            int n = utf.GetChars(stream.Buf, stream.Pos, len, charBuf, 0); // looks thread-safe to me
             stream.Skip(len);
             string s = new string(charBuf, 0, n);
             Trace.stringRead += Profiling.Micros;
