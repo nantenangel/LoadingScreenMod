@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using ColossalFramework.Packaging;
 using UnityEngine;
 
@@ -10,13 +11,40 @@ namespace LoadingScreenMod
     {
         internal static Sharing instance;
 
+        int loadAhead;
+        int cacheDepth = 4;
+        readonly string SYNC = "SYNC";
+
+        // The assets to load, ordered for maximum performance.
+        Package.Asset[] queue;
+
+        object sync = new object();
+
         // Asset checksum to bytes.
-        Dictionary<string, byte[]> assets = new Dictionary<string, byte[]>();
+        Dictionary<string, byte[]> assets = new Dictionary<string, byte[]>(128);
+        Queue<string> assetsQueue = new Queue<string>(128);
         internal static bool Supports(Package.AssetType type) => type <= Package.UnityTypeEnd && type >= Package.UnityTypeStart;
 
-        internal void LoadPackage(Package package)
+        // These are local to loadWorker.
+        List<Package.Asset> loadList = new List<Package.Asset>(30);
+        Dictionary<string, byte[]> loadMap = new Dictionary<string, byte[]>(30);
+        int loadBytes, removeIndex;
+
+        internal void WaitForLoad()
         {
-            List<Package.Asset> list = new List<Package.Asset>(32);
+            lock (sync)
+            {
+                while (loadAhead <= 0)
+                    Monitor.Wait(sync);
+
+                Interlocked.Decrement(ref loadAhead);
+                Monitor.Pulse(sync);
+            }
+        }
+
+        void LoadPackage(Package package)
+        {
+            loadList.Clear(); loadMap.Clear();
 
             foreach (Package.Asset asset in package)
             {
@@ -25,15 +53,25 @@ namespace LoadingScreenMod
                 if (name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot"))
                     continue;
 
-                if (Supports(asset.type) && !assets.ContainsKey(asset.checksum))
-                    list.Add(asset);
+                if (Supports(asset.type) && !assets.ContainsKey(asset.checksum)) // thread-safe for writer
+                    loadList.Add(asset);
             }
 
-            list.Sort((a, b) => (int) (a.offset - b.offset));
+            loadList.Sort((a, b) => (int) (a.offset - b.offset));
 
             using (FileStream fs = File.OpenRead(package.packagePath))
-                for (int i = 0; i < list.Count; i++)
-                    assets[list[i].checksum] = LoadAsset(fs, list[i]);
+                for (int i = 0; i < loadList.Count; i++)
+                    loadMap[loadList[i].checksum] = LoadAsset(fs, loadList[i]);
+
+            lock(sync)
+            {
+                foreach (var kvp in loadMap)
+                {
+                    assets[kvp.Key] = kvp.Value;
+                    assetsQueue.Enqueue(kvp.Key);
+                    loadBytes += kvp.Value.Length;
+                }
+            }
         }
 
         byte[] LoadAsset(FileStream fs, Package.Asset asset)
@@ -59,12 +97,22 @@ namespace LoadingScreenMod
 
         internal Stream GetStream(Package.Asset asset)
         {
-            byte[] bytes;
+            byte[] bytes = null;
+            int count;
 
-            if (assets.TryGetValue(asset.checksum, out bytes))
+            lock(sync)
+            {
+                assets.TryGetValue(asset.checksum, out bytes);
+                count = assets.Count;
+            }
+
+            if (bytes != null)
+            {
+                Trace.Seq("Got data at index", Tester.instance.index, "Assets:", count);
                 return new MemStream(bytes, 0);
+            }
 
-            Trace.Pr("NOT IN MEMORY:", asset.fullName, asset.package.packagePath);
+            Trace.Pr("MISS:", asset.fullName, asset.package.packagePath, " Assets:", count);
             return asset.GetStream();
         }
 
@@ -72,6 +120,54 @@ namespace LoadingScreenMod
         {
             MemStream ms = stream as MemStream;
             return ms != null ? new MemReader(ms) : new PackageReader(stream);
+        }
+
+        void LoadWorker()
+        {
+            Package.Asset[] q = queue;
+            Package prevPackage = null;
+
+            for (int index = 0; index < q.Length; index++)
+            {
+                Package p = q[index].package;
+
+                if (!ReferenceEquals(p, prevPackage))
+                    LoadPackage(p);
+
+                assetsQueue.Enqueue(SYNC); // end-of-asset marker
+                Trace.Seq("Loaded index", index, ":", assets.Count, "assets,", loadBytes, "bytes in memory");
+                prevPackage = p;
+                Interlocked.Increment(ref loadAhead);
+                bool removed = false;
+
+                lock (sync)
+                {
+                    Monitor.Pulse(sync);
+
+                    while (loadAhead >= cacheDepth)
+                        Monitor.Wait(sync);
+
+                    while (index - removeIndex > 2 * cacheDepth)
+                    {
+                        removed = true;
+                        string s = assetsQueue.Dequeue();
+
+                        if (ReferenceEquals(s, SYNC))
+                            removeIndex++;
+                        else
+                        {
+                            loadBytes -= assets[s].Length;
+                            assets.Remove(s);
+                        }
+                    }
+                }
+
+                if (removed)
+                    Trace.Seq("Removed until", removeIndex, ":", assets.Count, "assets,", loadBytes, "bytes in memory");
+            }
+
+            Trace.Seq("LoadWorker exits", assets.Count, assetsQueue.Count);
+            assetsQueue.Clear(); assetsQueue = null;
         }
 
         // Delegates can be used to call non-public methods. Delegates have about the same performance as regular method calls.
@@ -102,16 +198,19 @@ namespace LoadingScreenMod
             Util.DebugPrint("Textures / Materials / Meshes loaded:", texload, "/", matload, "/", mesload, "referenced:", texhit, "/", mathit, "/", meshit);
             Revert();
             base.Dispose();
-            assets.Clear(); textures.Clear(); materials.Clear(); meshes.Clear();
-            assets = null; textures = null; materials = null; meshes = null; instance = null;
+            textures.Clear(); materials.Clear(); meshes.Clear();
+            textures = null; materials = null; meshes = null; instance = null;
         }
 
-        internal void Start()
+        internal void Start(Package.Asset[] queue)
         {
             shareTextures = Settings.settings.shareTextures;
             shareMaterials = Settings.settings.shareMaterials;
             shareMeshes = Settings.settings.shareMeshes;
             isMain = false;
+
+            this.queue = queue;
+            new Thread(LoadWorker).Start();
         }
 
         internal static UnityEngine.Object DeserializeGameObject(Package package, PackageReader reader)

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using ColossalFramework.Packaging;
 using UnityEngine;
 
@@ -12,6 +13,7 @@ namespace LoadingScreenMod
         const string dir = @"g:\testassets1\";
         internal static Tester instance;
         Package[] packages;
+        internal int index;
 
         internal void Test()
         {
@@ -32,13 +34,14 @@ namespace LoadingScreenMod
             Profiling.Start();
             Package.Asset[] queue = GetLoadQueue();
 
-            LoadPackages();
+            Sharing.instance.Start(queue);
             Trace.Newline();
             Trace.Pr("Assets:");
 
-            for(int i = 0; i < queue.Length; i++)
+            for (index = 0; index < queue.Length; index++)
             {
-                Package.Asset asset = queue[i];
+                Sharing.instance.WaitForLoad();
+                Package.Asset asset = queue[index];
                 GameObject go = AssetDeserializer.Instantiate<GameObject>(asset);
                 go.name = asset.fullName;
                 Initialize(go);
@@ -59,16 +62,16 @@ namespace LoadingScreenMod
             return list.ToArray();
         }
 
-        void LoadPackages()
-        {
-            Trace.Newline();
-            Trace.Ind(0, "Loading packages");
+        //void LoadPackages()
+        //{
+        //    Trace.Newline();
+        //    Trace.Ind(0, "Loading packages");
 
-            foreach (Package p in packages)
-                Sharing.instance.LoadPackage(p);
+        //    foreach (Package p in packages)
+        //        Sharing.instance.LoadPackage(p);
 
-            Trace.Ind(0, "Loading finished");
-        }
+        //    Trace.Ind(0, "Loading finished");
+        //}
 
         Package.Asset[] GetLoadQueue()
         {
@@ -158,7 +161,7 @@ namespace LoadingScreenMod
 
         void Initialize(GameObject go)
         {
-            Trace.Ind(0, "Initialize", go.name);
+            // Trace.Ind(0, "Initialize", go.name);
             go.SetActive(false);
             PrefabInfo info = go.GetComponent<PrefabInfo>();
             info.m_isCustomContent = true;

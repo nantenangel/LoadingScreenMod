@@ -125,6 +125,7 @@ namespace LoadingScreenMod
     {
         static Dictionary<string, int> methods = new Dictionary<string, int>(16);
         static Dictionary<string, int> types = new Dictionary<string, int>(64);
+        static List<string> seq = new List<string>(32);
         internal static long meshMicros, texBytes, texImage, texCreate, stringRead;
 
         static StreamWriter w;
@@ -134,6 +135,14 @@ namespace LoadingScreenMod
         internal static void Ind(int n, params object[] args) => w.WriteLine((new string(' ', n + n) + " ".OnJoin(args)).PadRight(96) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")");
         internal static void Newline() { w.WriteLine(); w.Flush(); }
         internal static void Flush() => w.Flush();
+
+        internal static void Seq(params object[] args)
+        {
+            lock(seq)
+            {
+                seq.Add((" ".OnJoin(args)).PadRight(96) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")");
+            }
+        }
 
         internal static void Tra(string name)
         {
@@ -176,6 +185,13 @@ namespace LoadingScreenMod
             Pr("texImage", texImage);
             Pr("texCreate", texCreate);
             Pr("stringRead", stringRead);
+
+            Newline();
+            Pr("Seq:");
+            foreach (var s in seq)
+                Pr(s);
+
+            seq.Clear();
         }
     }
 }
