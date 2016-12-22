@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using ColossalFramework.Packaging;
 using UnityEngine;
 
@@ -40,7 +39,7 @@ namespace LoadingScreenMod
 
             for (index = 0; index < queue.Length; index++)
             {
-                Sharing.instance.WaitForLoad();
+                Sharing.instance.WaitForWorkers();
                 Package.Asset asset = queue[index];
                 GameObject go = AssetDeserializer.Instantiate<GameObject>(asset);
                 go.name = asset.fullName;

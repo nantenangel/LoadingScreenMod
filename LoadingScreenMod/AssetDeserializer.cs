@@ -79,9 +79,9 @@ namespace LoadingScreenMod
             if (obj != null)
                 return obj;
             if (typeof(ScriptableObject).IsAssignableFrom(type))
-                return Instantiate(ReadAsset(), ind);
+                return Instantiate(FindAsset(reader.ReadString()), ind);
             if (typeof(GameObject).IsAssignableFrom(type))
-                return Instantiate(ReadAsset(), ind);
+                return Instantiate(FindAsset(reader.ReadString()), ind);
 
             Trace.Tra("ReadUnityType");
 
@@ -108,6 +108,7 @@ namespace LoadingScreenMod
 
         void DeserializeFields(object obj, Type type, bool resolveMember)
         {
+            Trace.Seq("DeserializeFields", type.Name);
             Trace.Tra(MethodBase.GetCurrentMethod().Name);
             int count = reader.ReadInt32();
             ind++;
@@ -119,6 +120,7 @@ namespace LoadingScreenMod
 
                 if (DeserializeHeader(out t, out name))
                 {
+                    Trace.Seq(" Field", name);
                     FieldInfo field = type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
                     if (field == null && resolveMember)
@@ -144,6 +146,7 @@ namespace LoadingScreenMod
                 }
             }
 
+            Trace.Seq("DeserializeFields", type.Name, "done");
             ind--;
         }
 
@@ -243,7 +246,7 @@ namespace LoadingScreenMod
                     string propertyName = reader.ReadString();
                     if (!reader.ReadBoolean())
                     {
-                        material.SetTexture(propertyName, Instantiate<Texture>(ReadAsset(), ind));
+                        material.SetTexture(propertyName, Instantiate<Texture>(FindAsset(reader.ReadString()), ind));
                     }
                     else
                     {
@@ -268,7 +271,9 @@ namespace LoadingScreenMod
         void DeserializeMeshFilter(MeshFilter meshFilter)
         {
             Trace.Tra(MethodBase.GetCurrentMethod().Name);
-            meshFilter.sharedMesh = Instantiate<Mesh>(ReadAsset(), ind);
+            string checksum = reader.ReadString();
+            Mesh mesh = Sharing.instance.GetMesh(checksum, ind);
+            meshFilter.sharedMesh = mesh != null ? mesh : Instantiate<Mesh>(FindAsset(checksum), ind);
         }
 
         void DeserializeMonoBehaviour(MonoBehaviour behaviour)
@@ -300,7 +305,7 @@ namespace LoadingScreenMod
             Material[] array = new Material[num];
 
             for (int i = 0; i < num; i++)
-                array[i] = Instantiate<Material>(ReadAsset(), ind);
+                array[i] = Instantiate<Material>(FindAsset(reader.ReadString()), ind);
 
             renderer.sharedMaterials = array;
         }
@@ -355,10 +360,10 @@ namespace LoadingScreenMod
             return true;
         }
 
-        Package.Asset ReadAsset()
+        Package.Asset FindAsset(string checksum)
         {
             Trace.Tra(MethodBase.GetCurrentMethod().Name);
-            return package.FindByChecksum(reader.ReadString());
+            return package.FindByChecksum(checksum);
         }
 
         bool DeserializeHeader(out Type type, out string name)
@@ -426,7 +431,7 @@ namespace LoadingScreenMod
             Trace.Tra(MethodBase.GetCurrentMethod().Name);
 
             if (type == typeof(Package.Asset))
-                return ReadAsset();
+                return FindAsset(reader.ReadString());
 
             return PackageHelper.CustomDeserialize(package, type, reader);
         }

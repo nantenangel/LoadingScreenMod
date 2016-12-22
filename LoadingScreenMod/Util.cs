@@ -131,16 +131,40 @@ namespace LoadingScreenMod
         static StreamWriter w;
         internal static void Start() => w = new StreamWriter(Util.GetFileName("trace", "txt"));
         internal static void Stop() { SaveAll(); w.Dispose(); }
-        internal static void Pr(params object[] args) => w.WriteLine(" ".OnJoin(args));
-        internal static void Ind(int n, params object[] args) => w.WriteLine((new string(' ', n + n) + " ".OnJoin(args)).PadRight(96) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")");
         internal static void Newline() { w.WriteLine(); w.Flush(); }
         internal static void Flush() => w.Flush();
 
+        internal static void Pr(params object[] args)
+        {
+            string s = " ".OnJoin(args);
+
+            lock (seq)
+            {
+                w.WriteLine(s);
+                w.Flush();
+            }
+        }
+
+        internal static void Ind(int n, params object[] args)
+        {
+            string s = (new string(' ', n + n) + " ".OnJoin(args)).PadRight(96) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")";
+
+            lock (seq)
+            {
+                w.WriteLine(s);
+                w.Flush();
+            }
+        }
+
         internal static void Seq(params object[] args)
         {
-            lock(seq)
+            string s = (" ".OnJoin(args)).PadRight(96) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")";
+
+            lock (seq)
             {
-                seq.Add((" ".OnJoin(args)).PadRight(96) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")");
+                w.WriteLine(s);
+                w.Flush();
+                seq.Add(s);
             }
         }
 

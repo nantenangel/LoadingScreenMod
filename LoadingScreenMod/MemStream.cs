@@ -36,13 +36,11 @@ namespace LoadingScreenMod
 
         internal int ReadInt32()
         {
-            Trace.Tra("ReadInt32");
             return I8() | I8() << 8 | I8() << 16 | I8() << 24;
         }
 
         internal float ReadSingle()
         {
-            Trace.Tra("ReadSingle");
             float f;
 
             unsafe
@@ -80,8 +78,8 @@ namespace LoadingScreenMod
         protected override void Dispose(bool b) { stream = null; charBuf = null; base.Dispose(b); }
         public override float ReadSingle() => stream.ReadSingle();
         public override int ReadInt32() => stream.ReadInt32();
-        public override byte ReadByte() { Trace.Tra("ReadByte"); return stream.B8(); }
-        public override bool ReadBoolean() { Trace.Tra("ReadBoolean"); return stream.B8() != 0; }
+        public override byte ReadByte() { return stream.B8(); }
+        public override bool ReadBoolean() { return stream.B8() != 0; }
 
         internal MemReader(MemStream stream) : base(stream)
         {
@@ -90,14 +88,12 @@ namespace LoadingScreenMod
 
         public override ulong ReadUInt64()
         {
-            Trace.Tra("ReadUInt64");
             uint i1 = (uint) stream.ReadInt32(), i2 = (uint) stream.ReadInt32();
             return i1 | (ulong) i2 << 32;
         }
 
         public override string ReadString()
         {
-            Trace.Tra("ReadString");
             Trace.stringRead -= Profiling.Micros;
             int len = ReadEncodedInt();
 
@@ -138,7 +134,6 @@ namespace LoadingScreenMod
 
         public override byte[] ReadBytes(int count)
         {
-            Trace.Tra("ReadBytes");
             byte[] result = new byte[count];
             Buffer.BlockCopy(stream.Buf, stream.Pos, result, 0, count);
             stream.Skip(count);
@@ -147,7 +142,6 @@ namespace LoadingScreenMod
 
         static byte[] DreadByteArray(PackageReader r) // detour
         {
-            Trace.Tra("ReadByteArray");
             return r.ReadBytes(r.ReadInt32());
         }
     }

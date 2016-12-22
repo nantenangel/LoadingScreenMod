@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using ColossalFramework.Packaging;
 using UnityEngine;
@@ -11,66 +12,70 @@ namespace LoadingScreenMod
     {
         internal static Sharing instance;
 
-        int loadAhead;
-        int cacheDepth = 4;
-        readonly string SYNC = "SYNC";
+        const int cacheDepth = 4;
+        const int dataHistory = cacheDepth * 3 * 12;
+        ConcurrentCounter loadAhead = new ConcurrentCounter(0, 0, cacheDepth), mtAhead = new ConcurrentCounter(0, 0, cacheDepth);
+        static bool Supports(Package.AssetType type) => type <= Package.UnityTypeEnd && type >= Package.UnityTypeStart;
 
         // The assets to load, ordered for maximum performance.
-        Package.Asset[] queue;
+        Package.Asset[] assetsQueue;
+        object mutex = new object();
 
-        object sync = new object();
+        // Asset checksum to asset data.
+        Dictionary<string, object> data = new Dictionary<string, object>(dataHistory + 16);
+        int dataCount = 0;
 
-        // Asset checksum to bytes.
-        Dictionary<string, byte[]> assets = new Dictionary<string, byte[]>(128);
-        Queue<string> assetsQueue = new Queue<string>(128);
-        internal static bool Supports(Package.AssetType type) => type <= Package.UnityTypeEnd && type >= Package.UnityTypeStart;
+        // Meshes and textures from loadWorker to mtWorker.
+        ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>> mtQueue = new ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>>(32);
 
         // These are local to loadWorker.
+        Queue<string> dataQueue = new Queue<string>(dataHistory + 16);
         List<Package.Asset> loadList = new List<Package.Asset>(30);
         Dictionary<string, byte[]> loadMap = new Dictionary<string, byte[]>(30);
-        int loadBytes, removeIndex;
 
-        internal void WaitForLoad()
-        {
-            lock (sync)
-            {
-                while (loadAhead <= 0)
-                    Monitor.Wait(sync);
+        // These are managed by mtWorker.
+        // data, mtQueue, meshObj, meshes
 
-                Interlocked.Decrement(ref loadAhead);
-                Monitor.Pulse(sync);
-            }
-        }
+        internal void WaitForWorkers() => mtAhead.Decrement();
 
         void LoadPackage(Package package)
         {
             loadList.Clear(); loadMap.Clear();
 
-            foreach (Package.Asset asset in package)
+            lock (mutex)
             {
-                string name = asset.name;
+                foreach (Package.Asset asset in package)
+                {
+                    string name = asset.name;
 
-                if (name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot"))
-                    continue;
+                    if (name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot"))
+                        continue;
 
-                if (Supports(asset.type) && !assets.ContainsKey(asset.checksum)) // thread-safe for writer
-                    loadList.Add(asset);
+                    if (Supports(asset.type) && !data.ContainsKey(asset.checksum))
+                        loadList.Add(asset);
+                }
             }
 
             loadList.Sort((a, b) => (int) (a.offset - b.offset));
+            dataCount += loadList.Count;
 
             using (FileStream fs = File.OpenRead(package.packagePath))
                 for (int i = 0; i < loadList.Count; i++)
-                    loadMap[loadList[i].checksum] = LoadAsset(fs, loadList[i]);
+                {
+                    Package.Asset asset = loadList[i];
+                    byte[] bytes = LoadAsset(fs, asset);
+                    string checksum = asset.checksum;
+                    loadMap[checksum] = bytes;
+                    dataQueue.Enqueue(checksum);
 
-            lock(sync)
+                    if (asset.type == Package.AssetType.StaticMesh)
+                        mtQueue.Enqueue(new KeyValuePair<Package.Asset, byte[]>(asset, bytes));
+                }
+
+            lock (mutex)
             {
                 foreach (var kvp in loadMap)
-                {
-                    assets[kvp.Key] = kvp.Value;
-                    assetsQueue.Enqueue(kvp.Key);
-                    loadBytes += kvp.Value.Length;
-                }
+                    data[kvp.Key] = kvp.Value; // TODO overwrites sometimes!
             }
         }
 
@@ -97,22 +102,25 @@ namespace LoadingScreenMod
 
         internal Stream GetStream(Package.Asset asset)
         {
-            byte[] bytes = null;
+            object obj;
             int count;
+            Trace.Seq("Get bytes at index", Tester.instance.index);
 
-            lock(sync)
+            lock (mutex)
             {
-                assets.TryGetValue(asset.checksum, out bytes);
-                count = assets.Count;
+                data.TryGetValue(asset.checksum, out obj);
+                count = data.Count;
             }
+
+            byte[] bytes = obj as byte[];
 
             if (bytes != null)
             {
-                Trace.Seq("Got data at index", Tester.instance.index, "Assets:", count);
+                Trace.Seq("Got bytes at index", Tester.instance.index, "Assets:", count);
                 return new MemStream(bytes, 0);
             }
 
-            Trace.Pr("MISS:", asset.fullName, asset.package.packagePath, " Assets:", count);
+            Trace.Pr("MISS BYTES:", asset.fullName, asset.package.packagePath, " Assets:", count);
             return asset.GetStream();
         }
 
@@ -124,7 +132,7 @@ namespace LoadingScreenMod
 
         void LoadWorker()
         {
-            Package.Asset[] q = queue;
+            Package.Asset[] q = assetsQueue;
             Package prevPackage = null;
 
             for (int index = 0; index < q.Length; index++)
@@ -134,40 +142,138 @@ namespace LoadingScreenMod
                 if (!ReferenceEquals(p, prevPackage))
                     LoadPackage(p);
 
-                assetsQueue.Enqueue(SYNC); // end-of-asset marker
-                Trace.Seq("Loaded index", index, ":", assets.Count, "assets,", loadBytes, "bytes in memory");
+                mtQueue.Enqueue(default(KeyValuePair<Package.Asset, byte[]>)); // end-of-asset marker
+                loadAhead.Increment();
+                Trace.Seq("Loaded index", index, ":", data.Count, "assets");
                 prevPackage = p;
-                Interlocked.Increment(ref loadAhead);
-                bool removed = false;
+                int count = 0;
 
-                lock (sync)
+                lock (mutex)
                 {
-                    Monitor.Pulse(sync);
-
-                    while (loadAhead >= cacheDepth)
-                        Monitor.Wait(sync);
-
-                    while (index - removeIndex > 2 * cacheDepth)
+                    while (data.Count > dataHistory)
                     {
-                        removed = true;
-                        string s = assetsQueue.Dequeue();
-
-                        if (ReferenceEquals(s, SYNC))
-                            removeIndex++;
-                        else
-                        {
-                            loadBytes -= assets[s].Length;
-                            assets.Remove(s);
-                        }
+                        data.Remove(dataQueue.Dequeue());
+                        count++;
                     }
                 }
 
-                if (removed)
-                    Trace.Seq("Removed until", removeIndex, ":", assets.Count, "assets,", loadBytes, "bytes in memory");
+                if (count > 0)
+                    Trace.Seq("Removed", count, ":", data.Count, "assets");
             }
 
-            Trace.Seq("LoadWorker exits", assets.Count, assetsQueue.Count);
-            assetsQueue.Clear(); assetsQueue = null;
+            Trace.Seq("LoadWorker exits", data.Count, dataQueue.Count, dataCount, "/", q.Length);
+            mtQueue.SetCompleted();
+            dataQueue.Clear(); dataQueue = null;
+        }
+
+        internal Mesh GetMesh(string checksum, int ind)
+        {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            object obj;
+            int count;
+
+            lock (mutex)
+            {
+                data.TryGetValue(checksum, out obj);
+                count = data.Count;
+            }
+
+            MeshObj mo = obj as MeshObj;
+
+            if (mo != null)
+            {
+                Trace.Seq("Got mesh obj at index", Tester.instance.index, "Assets:", count);
+                Trace.meshMicros -= Profiling.Micros;
+                Mesh mesh = new Mesh();
+                mesh.name = mo.name;
+                mesh.vertices = mo.vertices;
+                mesh.colors = mo.colors;
+                mesh.uv = mo.uv;
+                mesh.normals = mo.normals;
+                mesh.tangents = mo.tangents;
+                mesh.boneWeights = mo.boneWeights;
+                mesh.bindposes = mo.bindposes;
+
+                for (int i = 0; i < mo.triangles.Length; i++)
+                    mesh.SetTriangles(mo.triangles[i], i);
+
+                Trace.meshMicros += Profiling.Micros;
+                Trace.Ind(ind, "Mesh", mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
+                return mesh;
+            }
+
+            Trace.Pr("MISS MESH OBJ:  Assets:", count);
+            return null;
+        }
+
+        void MTWorker()
+        {
+            int index = 0, count = 0;
+            KeyValuePair<Package.Asset, byte[]> elem;
+
+            while (mtQueue.Dequeue(out elem))
+            {
+                if (elem.Key == null)
+                {
+                    mtAhead.Increment();
+                    loadAhead.Decrement();
+                    Trace.Seq("MTWorker completed index", index++);
+                }
+                else if (elem.Key.type == Package.AssetType.StaticMesh)
+                {
+                    Trace.Seq("MTWorker going to work at index", index, elem.Key.fullName);
+                    DeserializeMeshObj(elem.Key, elem.Value);
+                    count++;
+                    Trace.Seq("MTWorker did that work at index", index, elem.Key.fullName);
+                }
+            }
+
+            Trace.Seq("MTWorker exits", index, mtQueue.Count, count);
+        }
+
+        void DeserializeMeshObj(Package.Asset asset, byte[] bytes)
+        {
+            MeshObj mo;
+
+            using (MemStream stream = new MemStream(bytes, 0))
+            using (MemReader reader = new MemReader(stream))
+            {
+                if (DeserializeHeader(reader) != typeof(Mesh))
+                {
+                    Util.DebugPrint("Asset error:", asset.fullName, "should be Mesh");
+                    return;
+                }
+
+                string name = reader.ReadString();
+                Vector3[] vertices = reader.ReadVector3Array();
+                Color[] colors = reader.ReadColorArray();
+                Vector2[] uv = reader.ReadVector2Array();
+                Vector3[] normals = reader.ReadVector3Array();
+                Vector4[] tangents = reader.ReadVector4Array();
+                BoneWeight[] boneWeights = reader.ReadBoneWeightsArray();
+                Matrix4x4[] bindposes = reader.ReadMatrix4x4Array();
+                int count = reader.ReadInt32();
+                int[][] triangles = new int[count][];
+
+                for (int i = 0; i < count; i++)
+                    triangles[i] = reader.ReadInt32Array();
+
+                mo = new MeshObj { name = name, vertices = vertices, colors = colors, uv = uv, normals = normals,
+                                    tangents = tangents, boneWeights = boneWeights, bindposes = bindposes, triangles = triangles };
+            }
+
+            lock (mutex)
+            {
+                data[asset.checksum] = mo;
+            }
+        }
+
+        static Type DeserializeHeader(MemReader reader)
+        {
+            if (reader.ReadBoolean())
+                return null;
+
+            return Type.GetType(reader.ReadString());
         }
 
         // Delegates can be used to call non-public methods. Delegates have about the same performance as regular method calls.
@@ -209,8 +315,9 @@ namespace LoadingScreenMod
             shareMeshes = Settings.settings.shareMeshes;
             isMain = false;
 
-            this.queue = queue;
+            assetsQueue = queue;
             new Thread(LoadWorker).Start();
+            new Thread(MTWorker).Start();
         }
 
         internal static UnityEngine.Object DeserializeGameObject(Package package, PackageReader reader)
@@ -353,5 +460,18 @@ namespace LoadingScreenMod
             this.material = m;
             this.textureCount = count;
         }
+    }
+
+    class MeshObj
+    {
+        internal string name;
+        internal Vector3[] vertices;
+        internal Color[] colors;
+        internal Vector2[] uv;
+        internal Vector3[] normals;
+        internal Vector4[] tangents;
+        internal BoneWeight[] boneWeights;
+        internal Matrix4x4[] bindposes;
+        internal int[][] triangles;
     }
 }
