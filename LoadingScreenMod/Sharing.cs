@@ -23,6 +23,7 @@ namespace LoadingScreenMod
 
         // Asset checksum to asset data.
         Dictionary<string, object> data = new Dictionary<string, object>(dataHistory + 30);
+        Dictionary<string, int> removed = new Dictionary<string, int>(512);
         int assetCount, totalBytes;
 
         // Meshes and textures from loadWorker to mtWorker.
@@ -123,10 +124,17 @@ namespace LoadingScreenMod
 
                 lock (mutex)
                 {
+                    int millis = Profiling.Millis;
+
                     while (data.Count > dataHistory)
                     {
-                        data.Remove(dataQueue.Dequeue());
-                        count++;
+                        string checksum = dataQueue.Dequeue();
+
+                        if (data.Remove(checksum))
+                        {
+                            removed[checksum] = millis;
+                            count++;
+                        }
                     }
                 }
 
@@ -213,11 +221,12 @@ namespace LoadingScreenMod
         internal Stream GetStream(Package.Asset asset)
         {
             object obj;
-            int count;
+            int count, removedMillis;
 
             lock (mutex)
             {
                 data.TryGetValue(asset.checksum, out obj);
+                removed.TryGetValue(asset.checksum, out removedMillis);
                 count = data.Count;
             }
 
@@ -226,19 +235,22 @@ namespace LoadingScreenMod
             if (bytes != null)
                 return new MemStream(bytes, 0);
 
-            Trace.Pr("MISS BYTES:", asset.fullName, asset.package.packagePath, " Assets:", count);
+            if (asset.type != UserAssetType.CustomAssetMetaData)
+                Trace.Seq("MISS BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+
+            Trace.Pr("MISS BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
             return asset.GetStream();
         }
 
         internal Mesh GetMesh(string checksum, Package package, int ind)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             object obj;
-            int count;
+            int count, removedMillis;
 
             lock (mutex)
             {
                 data.TryGetValue(checksum, out obj);
+                removed.TryGetValue(checksum, out removedMillis);
                 count = data.Count;
             }
 
@@ -269,7 +281,7 @@ namespace LoadingScreenMod
 
             if (bytes != null)
             {
-                Trace.Pr("MISS MESH OBJ BUT GOT BYTES:  Assets:", count, checksum);
+                Trace.Pr("MISS MESH OBJ BUT GOT BYTES:  Assets", count, checksum);
                 using (MemStream stream = new MemStream(bytes, 0))
                 using (PackageReader reader = new MemReader(stream))
                 {
@@ -279,7 +291,8 @@ namespace LoadingScreenMod
             }
 
             Package.Asset asset = package.FindByChecksum(checksum);
-            Trace.Pr("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets:", count);
+            Trace.Seq("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+            Trace.Pr("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
             return AssetDeserializer.Instantiate<Mesh>(asset, ind);
         }
 

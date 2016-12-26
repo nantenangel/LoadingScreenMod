@@ -124,8 +124,6 @@ namespace LoadingScreenMod
 
     internal static class Trace
     {
-        static Dictionary<string, int> methods = new Dictionary<string, int>(16);
-        static Dictionary<string, int> types = new Dictionary<string, int>(64);
         static List<string> seq = new List<string>(64);
         internal static long meshMicros, texBytes, texImage, texCreate;
 
@@ -148,41 +146,8 @@ namespace LoadingScreenMod
             }
         }
 
-        internal static void Tra(string name)
-        {
-            int count;
-
-            if (!methods.TryGetValue(name, out count))
-                count = 0;
-
-            methods[name] = count + 1;
-        }
-
-        internal static void Typ(Type type)
-        {
-            string name = type?.FullName ?? "null";
-            int count;
-
-            if (!types.TryGetValue(name, out count))
-                count = 0;
-
-            types[name] = count + 1;
-        }
-
         static void SaveAll()
         {
-            Newline();
-            Pr("Methods:");
-            foreach (var kvp in methods)
-                Pr(kvp.Key.PadRight(32), kvp.Value);
-
-            Newline();
-            Pr("Types:");
-            foreach (var kvp in types)
-                Pr(kvp.Key.PadRight(48), kvp.Value);
-
-            methods.Clear(); types.Clear();
-
             Newline();
             Pr("meshMicros", meshMicros);
             Pr("texBytes", texBytes);

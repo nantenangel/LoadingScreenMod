@@ -24,7 +24,7 @@ namespace LoadingScreenMod
             using (Stream stream = Sharing.instance.GetStream(asset))
             using (PackageReader reader = Sharing.instance.GetReader(stream))
             {
-                Trace.Ind(ind, "ASSET", asset.fullName);
+                Trace.Ind(ind, "ASSET", ind == 0 ? Tester.instance.index + ":" : string.Empty, asset.fullName);
                 return new AssetDeserializer(asset.package, reader, ind).Deserialize();
             }
         }
@@ -38,14 +38,11 @@ namespace LoadingScreenMod
 
         internal object Deserialize()
         {
-            Trace.Tra("Deserialize");
             ind++;
             Type type;
 
             if (!DeserializeHeader(out type))
                 return null;
-
-            Trace.Typ(type);
 
             if (type == typeof(GameObject))
                 return DeserializeGameObject();
@@ -63,9 +60,6 @@ namespace LoadingScreenMod
 
         object DeserializeSingleObject(Type type, Type expectedType)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
-            Trace.Typ(type);
-
             // Make the common case fast.
             if (type == typeof(float))
                 return reader.ReadSingle();
@@ -81,8 +75,6 @@ namespace LoadingScreenMod
             if (typeof(GameObject).IsAssignableFrom(type))
                 return Instantiate(FindAsset(reader.ReadString()), ind);
 
-            Trace.Tra("ReadUnityType");
-
             if (package.version < 3u && expectedType != null && expectedType == typeof(Package.Asset))
                 return reader.ReadUnityType(expectedType);
 
@@ -91,7 +83,6 @@ namespace LoadingScreenMod
 
         UnityEngine.Object DeserializeScriptableObject(Type type)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             object obj = CustomDeserialize(type);
 
             if (obj != null)
@@ -106,7 +97,6 @@ namespace LoadingScreenMod
 
         void DeserializeFields(object obj, Type type, bool resolveMember)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             int count = reader.ReadInt32();
             ind++;
 
@@ -127,10 +117,11 @@ namespace LoadingScreenMod
                     if (t.IsArray)
                     {
                         int n = reader.ReadInt32();
-                        Array array = Array.CreateInstance(t.GetElementType(), n);
+                        Type et = t.GetElementType();
+                        Array array = Array.CreateInstance(et, n);
 
                         for (int j = 0; j < n; j++)
-                            array.SetValue(DeserializeSingleObject(t.GetElementType(), expectedType), j);
+                            array.SetValue(DeserializeSingleObject(et, expectedType), j);
 
                         field?.SetValue(obj, array);
                     }
@@ -147,7 +138,6 @@ namespace LoadingScreenMod
 
         UnityEngine.Object DeserializeGameObject()
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string name = reader.ReadString();
             GameObject go = new GameObject(name);
             go.tag = reader.ReadString();
@@ -163,8 +153,6 @@ namespace LoadingScreenMod
 
                 if (!DeserializeHeader(out type))
                     continue;
-
-                Trace.Typ(type);
 
                 if (type == typeof(Transform))
                     DeserializeTransform(go.transform);
@@ -184,7 +172,6 @@ namespace LoadingScreenMod
 
         UnityEngine.Object DeserializeTexture()
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string name = reader.ReadString();
             bool linear = reader.ReadBoolean();
             int count = reader.ReadInt32();
@@ -212,7 +199,6 @@ namespace LoadingScreenMod
 
         UnityEngine.Object DeserializeMaterial()
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string name = reader.ReadString();
             string shader = reader.ReadString();
             Material material = new Material(Shader.Find(shader));
@@ -256,7 +242,6 @@ namespace LoadingScreenMod
 
         void DeserializeTransform(Transform transform)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             transform.localPosition = reader.ReadVector3();
             transform.localRotation = reader.ReadQuaternion();
             transform.localScale = reader.ReadVector3();
@@ -265,7 +250,6 @@ namespace LoadingScreenMod
 
         void DeserializeMeshFilter(MeshFilter meshFilter)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string checksum = reader.ReadString();
             Mesh mesh = Sharing.instance.GetMesh(checksum, package, ind);
             meshFilter.sharedMesh = mesh != null ? mesh : Instantiate<Mesh>(FindAsset(checksum), ind);
@@ -273,14 +257,12 @@ namespace LoadingScreenMod
 
         void DeserializeMonoBehaviour(MonoBehaviour behaviour)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             Trace.Ind(ind, behaviour.GetType().Name);
             DeserializeFields(behaviour, behaviour.GetType(), false);
         }
 
         object DeserializeObject(Type type)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             Trace.Ind(ind, "object", type.Name);
             object obj = CustomDeserialize(type);
 
@@ -295,7 +277,6 @@ namespace LoadingScreenMod
 
         void DeserializeMeshRenderer(MeshRenderer renderer)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             int num = reader.ReadInt32();
             Material[] array = new Material[num];
 
@@ -307,7 +288,6 @@ namespace LoadingScreenMod
 
         UnityEngine.Object DeserializeMesh()
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             Trace.meshMicros -= Profiling.Micros;
             Mesh mesh = new Mesh();
             mesh.name = reader.ReadString();
@@ -330,7 +310,6 @@ namespace LoadingScreenMod
 
         bool DeserializeHeader(out Type type)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             type = null;
 
             if (reader.ReadBoolean())
@@ -355,15 +334,10 @@ namespace LoadingScreenMod
             return true;
         }
 
-        Package.Asset FindAsset(string checksum)
-        {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
-            return package.FindByChecksum(checksum);
-        }
+        Package.Asset FindAsset(string checksum) => package.FindByChecksum(checksum);
 
         bool DeserializeHeader(out Type type, out string name)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             type = null;
             name = null;
 
@@ -392,7 +366,6 @@ namespace LoadingScreenMod
 
         int HandleUnknownType(string type)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             int num = PackageHelper.UnknownTypeHandler(type);
             CODebugBase<InternalLogChannel>.Warn(InternalLogChannel.Packer, string.Concat("Unexpected type '", type, "' detected. No resolver handled this type. Skipping ", num, " bytes."));
 
@@ -406,7 +379,6 @@ namespace LoadingScreenMod
 
         static string ResolveLegacyType(string type)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string text = PackageHelper.ResolveLegacyTypeHandler(type);
             CODebugBase<InternalLogChannel>.Warn(InternalLogChannel.Packer, string.Concat("Unkown type detected. Attempting to resolve from '", type, "' to '", text, "'"));
             return text;
@@ -414,7 +386,6 @@ namespace LoadingScreenMod
 
         static string ResolveLegacyMember(Type fieldType, Type classType, string member)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string text = PackageHelper.ResolveLegacyMemberHandler(classType, member);
             CODebugBase<InternalLogChannel>.Warn(InternalLogChannel.Packer, string.Concat("Unkown member detected of type ", fieldType.FullName, " in ", classType.FullName,
                 ". Attempting to resolve from '", member, "' to '", text, "'"));
@@ -423,8 +394,6 @@ namespace LoadingScreenMod
 
         object CustomDeserialize(Type type)
         {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
-
             if (type == typeof(Package.Asset))
                 return FindAsset(reader.ReadString());
 
