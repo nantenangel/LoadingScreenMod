@@ -94,24 +94,18 @@ namespace LoadingScreenMod
 
         public override string ReadString()
         {
-            Trace.stringRead -= Profiling.Micros;
             int len = ReadEncodedInt();
 
             if (len == 0)
-            {
-                Trace.stringRead += Profiling.Micros;
                 return string.Empty;
-            }
             if (len < 0 || len > 32767)
                 throw new IOException("Invalid binary file: string len " + len);
-
             if (charBuf.Length < len)
                 charBuf = new char[len];
 
             int n = utf.GetChars(stream.Buf, stream.Pos, len, charBuf, 0); // looks thread-safe to me
             stream.Skip(len);
             string s = new string(charBuf, 0, n);
-            Trace.stringRead += Profiling.Micros;
             return s;
         }
 

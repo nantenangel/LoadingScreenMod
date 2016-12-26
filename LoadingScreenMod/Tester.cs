@@ -9,7 +9,7 @@ namespace LoadingScreenMod
 {
     internal sealed class Tester
     {
-        const string dir = @"g:\testassets1\";
+        const string dir = @"g:\testassets3\";
         internal static Tester instance;
         Package[] packages;
         internal int index;
@@ -20,13 +20,13 @@ namespace LoadingScreenMod
             packages = CreatePackages(dir);
             PrintPackages();
 
-            Trace.Newline();
-            Trace.Ind(0, "GC");
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            Trace.Ind(0, "GC finished");
+            //Trace.Newline();
+            //Trace.Ind(0, "GC");
+            //GC.Collect();
+            //GC.WaitForPendingFinalizers();
+            //GC.Collect();
+            //GC.WaitForPendingFinalizers();
+            //Trace.Ind(0, "GC finished");
 
             Trace.Newline();
             Trace.Pr("CustomAssetMetaData:");
@@ -41,11 +41,14 @@ namespace LoadingScreenMod
             {
                 Sharing.instance.WaitForWorkers();
                 Package.Asset asset = queue[index];
+                Trace.Seq("starts asset   ", index, asset.fullName);
                 GameObject go = AssetDeserializer.Instantiate<GameObject>(asset);
                 go.name = asset.fullName;
                 Initialize(go);
+                Trace.Seq("completed asset", index, asset.fullName);
             }
 
+            Trace.Seq("done");
             Trace.Ind(0, "Done");
             packages = null; instance = null;
         }

@@ -12,7 +12,7 @@ namespace LoadingScreenMod
     {
         readonly Package package;
         readonly PackageReader reader;
-        int ind = 0;
+        int ind;
 
         public static T Instantiate<T>(Package.Asset asset, int ind = 0) where T : class
         {
@@ -24,23 +24,21 @@ namespace LoadingScreenMod
             using (Stream stream = Sharing.instance.GetStream(asset))
             using (PackageReader reader = Sharing.instance.GetReader(stream))
             {
-                AssetDeserializer d = new AssetDeserializer(asset, reader);
-                d.ind = ind;
-                Trace.Tra("Deserialize");
-                Trace.Typ(asset.GetType());
                 Trace.Ind(ind, "ASSET", asset.fullName);
-                return d.Deserialize();
+                return new AssetDeserializer(asset.package, reader, ind).Deserialize();
             }
         }
 
-        AssetDeserializer(Package.Asset asset, PackageReader reader)
+        internal AssetDeserializer(Package package, PackageReader reader, int ind)
         {
-            this.package = asset.package;
+            this.package = package;
             this.reader = reader;
+            this.ind = ind;
         }
 
-        object Deserialize()
+        internal object Deserialize()
         {
+            Trace.Tra("Deserialize");
             ind++;
             Type type;
 
@@ -108,7 +106,6 @@ namespace LoadingScreenMod
 
         void DeserializeFields(object obj, Type type, bool resolveMember)
         {
-            Trace.Seq("DeserializeFields", type.Name);
             Trace.Tra(MethodBase.GetCurrentMethod().Name);
             int count = reader.ReadInt32();
             ind++;
@@ -120,7 +117,6 @@ namespace LoadingScreenMod
 
                 if (DeserializeHeader(out t, out name))
                 {
-                    Trace.Seq(" Field", name);
                     FieldInfo field = type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
                     if (field == null && resolveMember)
@@ -146,7 +142,6 @@ namespace LoadingScreenMod
                 }
             }
 
-            Trace.Seq("DeserializeFields", type.Name, "done");
             ind--;
         }
 
@@ -272,7 +267,7 @@ namespace LoadingScreenMod
         {
             Trace.Tra(MethodBase.GetCurrentMethod().Name);
             string checksum = reader.ReadString();
-            Mesh mesh = Sharing.instance.GetMesh(checksum, ind);
+            Mesh mesh = Sharing.instance.GetMesh(checksum, package, ind);
             meshFilter.sharedMesh = mesh != null ? mesh : Instantiate<Mesh>(FindAsset(checksum), ind);
         }
 

@@ -12,8 +12,8 @@ namespace LoadingScreenMod
     {
         internal static Sharing instance;
 
-        const int cacheDepth = 4;
-        const int dataHistory = cacheDepth * 3 * 12;
+        const int cacheDepth = 3;
+        const int dataHistory = (cacheDepth * 3 + 2) * 12;
         ConcurrentCounter loadAhead = new ConcurrentCounter(0, 0, cacheDepth), mtAhead = new ConcurrentCounter(0, 0, cacheDepth);
         static bool Supports(Package.AssetType type) => type <= Package.UnityTypeEnd && type >= Package.UnityTypeStart;
 
@@ -22,23 +22,20 @@ namespace LoadingScreenMod
         object mutex = new object();
 
         // Asset checksum to asset data.
-        Dictionary<string, object> data = new Dictionary<string, object>(dataHistory + 16);
-        int dataCount = 0;
+        Dictionary<string, object> data = new Dictionary<string, object>(dataHistory + 30);
+        int assetCount, totalBytes;
 
         // Meshes and textures from loadWorker to mtWorker.
         ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>> mtQueue = new ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>>(32);
 
         // These are local to loadWorker.
-        Queue<string> dataQueue = new Queue<string>(dataHistory + 16);
+        Queue<string> dataQueue = new Queue<string>(dataHistory + 30);
         List<Package.Asset> loadList = new List<Package.Asset>(30);
         Dictionary<string, byte[]> loadMap = new Dictionary<string, byte[]>(30);
 
-        // These are managed by mtWorker.
-        // data, mtQueue, meshObj, meshes
-
         internal void WaitForWorkers() => mtAhead.Decrement();
 
-        void LoadPackage(Package package)
+        void LoadPackage(Package package, int index)
         {
             loadList.Clear(); loadMap.Clear();
 
@@ -57,7 +54,8 @@ namespace LoadingScreenMod
             }
 
             loadList.Sort((a, b) => (int) (a.offset - b.offset));
-            dataCount += loadList.Count;
+            assetCount += loadList.Count;
+            Trace.Seq("loads index ", index, package.packageName + "." + package.packageMainAsset);
 
             using (FileStream fs = File.OpenRead(package.packagePath))
                 for (int i = 0; i < loadList.Count; i++)
@@ -67,15 +65,19 @@ namespace LoadingScreenMod
                     string checksum = asset.checksum;
                     loadMap[checksum] = bytes;
                     dataQueue.Enqueue(checksum);
+                    totalBytes += bytes.Length;
 
                     if (asset.type == Package.AssetType.StaticMesh)
                         mtQueue.Enqueue(new KeyValuePair<Package.Asset, byte[]>(asset, bytes));
                 }
 
+            Trace.Seq("loaded index", index, package.packageName + "." + package.packageMainAsset);
+
             lock (mutex)
             {
                 foreach (var kvp in loadMap)
-                    data[kvp.Key] = kvp.Value; // TODO overwrites sometimes!
+                    if (!data.ContainsKey(kvp.Key))  // this check is necessary
+                        data[kvp.Key] = kvp.Value;
             }
         }
 
@@ -100,38 +102,9 @@ namespace LoadingScreenMod
             return bytes;
         }
 
-        internal Stream GetStream(Package.Asset asset)
-        {
-            object obj;
-            int count;
-            Trace.Seq("Get bytes at index", Tester.instance.index);
-
-            lock (mutex)
-            {
-                data.TryGetValue(asset.checksum, out obj);
-                count = data.Count;
-            }
-
-            byte[] bytes = obj as byte[];
-
-            if (bytes != null)
-            {
-                Trace.Seq("Got bytes at index", Tester.instance.index, "Assets:", count);
-                return new MemStream(bytes, 0);
-            }
-
-            Trace.Pr("MISS BYTES:", asset.fullName, asset.package.packagePath, " Assets:", count);
-            return asset.GetStream();
-        }
-
-        internal PackageReader GetReader(Stream stream)
-        {
-            MemStream ms = stream as MemStream;
-            return ms != null ? new MemReader(ms) : new PackageReader(stream);
-        }
-
         void LoadWorker()
         {
+            Thread.CurrentThread.Name = "LoadWorker";
             Package.Asset[] q = assetsQueue;
             Package prevPackage = null;
 
@@ -140,11 +113,11 @@ namespace LoadingScreenMod
                 Package p = q[index].package;
 
                 if (!ReferenceEquals(p, prevPackage))
-                    LoadPackage(p);
+                    LoadPackage(p, index);
 
                 mtQueue.Enqueue(default(KeyValuePair<Package.Asset, byte[]>)); // end-of-asset marker
                 loadAhead.Increment();
-                Trace.Seq("Loaded index", index, ":", data.Count, "assets");
+                Trace.Seq("done with   ", index, p.packageName + "." + p.packageMainAsset, ":", data.Count, "assets");
                 prevPackage = p;
                 int count = 0;
 
@@ -158,56 +131,17 @@ namespace LoadingScreenMod
                 }
 
                 if (count > 0)
-                    Trace.Seq("Removed", count, ":", data.Count, "assets");
+                    Trace.Seq("removed", count, ":", data.Count, "assets");
             }
 
-            Trace.Seq("LoadWorker exits", data.Count, dataQueue.Count, dataCount, "/", q.Length);
+            Trace.Seq("exits", data.Count, dataQueue.Count, assetCount, "/", q.Length, totalBytes, "/", assetCount);
             mtQueue.SetCompleted();
             dataQueue.Clear(); dataQueue = null;
         }
 
-        internal Mesh GetMesh(string checksum, int ind)
-        {
-            Trace.Tra(MethodBase.GetCurrentMethod().Name);
-            object obj;
-            int count;
-
-            lock (mutex)
-            {
-                data.TryGetValue(checksum, out obj);
-                count = data.Count;
-            }
-
-            MeshObj mo = obj as MeshObj;
-
-            if (mo != null)
-            {
-                Trace.Seq("Got mesh obj at index", Tester.instance.index, "Assets:", count);
-                Trace.meshMicros -= Profiling.Micros;
-                Mesh mesh = new Mesh();
-                mesh.name = mo.name;
-                mesh.vertices = mo.vertices;
-                mesh.colors = mo.colors;
-                mesh.uv = mo.uv;
-                mesh.normals = mo.normals;
-                mesh.tangents = mo.tangents;
-                mesh.boneWeights = mo.boneWeights;
-                mesh.bindposes = mo.bindposes;
-
-                for (int i = 0; i < mo.triangles.Length; i++)
-                    mesh.SetTriangles(mo.triangles[i], i);
-
-                Trace.meshMicros += Profiling.Micros;
-                Trace.Ind(ind, "Mesh", mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
-                return mesh;
-            }
-
-            Trace.Pr("MISS MESH OBJ:  Assets:", count);
-            return null;
-        }
-
         void MTWorker()
         {
+            Thread.CurrentThread.Name = "MTWorker A";
             int index = 0, count = 0;
             KeyValuePair<Package.Asset, byte[]> elem;
 
@@ -217,18 +151,18 @@ namespace LoadingScreenMod
                 {
                     mtAhead.Increment();
                     loadAhead.Decrement();
-                    Trace.Seq("MTWorker completed index", index++);
+                    Trace.Seq("done with", index++);
                 }
                 else if (elem.Key.type == Package.AssetType.StaticMesh)
                 {
-                    Trace.Seq("MTWorker going to work at index", index, elem.Key.fullName);
+                    Trace.Seq("starts mesh   ", index, elem.Key.fullName);
                     DeserializeMeshObj(elem.Key, elem.Value);
                     count++;
-                    Trace.Seq("MTWorker did that work at index", index, elem.Key.fullName);
+                    Trace.Seq("completed mesh", index, elem.Key.fullName);
                 }
             }
 
-            Trace.Seq("MTWorker exits", index, mtQueue.Count, count);
+            Trace.Seq("exits", index, mtQueue.Count, count);
         }
 
         void DeserializeMeshObj(Package.Asset asset, byte[] bytes)
@@ -274,6 +208,85 @@ namespace LoadingScreenMod
                 return null;
 
             return Type.GetType(reader.ReadString());
+        }
+
+        internal Stream GetStream(Package.Asset asset)
+        {
+            object obj;
+            int count;
+
+            lock (mutex)
+            {
+                data.TryGetValue(asset.checksum, out obj);
+                count = data.Count;
+            }
+
+            byte[] bytes = obj as byte[];
+
+            if (bytes != null)
+                return new MemStream(bytes, 0);
+
+            Trace.Pr("MISS BYTES:", asset.fullName, asset.package.packagePath, " Assets:", count);
+            return asset.GetStream();
+        }
+
+        internal Mesh GetMesh(string checksum, Package package, int ind)
+        {
+            Trace.Tra(MethodBase.GetCurrentMethod().Name);
+            object obj;
+            int count;
+
+            lock (mutex)
+            {
+                data.TryGetValue(checksum, out obj);
+                count = data.Count;
+            }
+
+            MeshObj mo = obj as MeshObj;
+
+            if (mo != null)
+            {
+                Trace.meshMicros -= Profiling.Micros;
+                Mesh mesh = new Mesh();
+                mesh.name = mo.name;
+                mesh.vertices = mo.vertices;
+                mesh.colors = mo.colors;
+                mesh.uv = mo.uv;
+                mesh.normals = mo.normals;
+                mesh.tangents = mo.tangents;
+                mesh.boneWeights = mo.boneWeights;
+                mesh.bindposes = mo.bindposes;
+
+                for (int i = 0; i < mo.triangles.Length; i++)
+                    mesh.SetTriangles(mo.triangles[i], i);
+
+                Trace.meshMicros += Profiling.Micros;
+                Trace.Ind(ind, "Mesh", mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
+                return mesh;
+            }
+
+            byte[] bytes = obj as byte[];
+
+            if (bytes != null)
+            {
+                Trace.Pr("MISS MESH OBJ BUT GOT BYTES:  Assets:", count, checksum);
+                using (MemStream stream = new MemStream(bytes, 0))
+                using (PackageReader reader = new MemReader(stream))
+                {
+                    Trace.Ind(ind, "ASSET");
+                    return (Mesh) new AssetDeserializer(package, reader, ind).Deserialize();
+                }
+            }
+
+            Package.Asset asset = package.FindByChecksum(checksum);
+            Trace.Pr("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets:", count);
+            return AssetDeserializer.Instantiate<Mesh>(asset, ind);
+        }
+
+        internal PackageReader GetReader(Stream stream)
+        {
+            MemStream ms = stream as MemStream;
+            return ms != null ? new MemReader(ms) : new PackageReader(stream);
         }
 
         // Delegates can be used to call non-public methods. Delegates have about the same performance as regular method calls.
