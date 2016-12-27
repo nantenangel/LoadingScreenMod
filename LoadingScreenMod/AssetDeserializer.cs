@@ -175,25 +175,10 @@ namespace LoadingScreenMod
             string name = reader.ReadString();
             bool linear = reader.ReadBoolean();
             int count = reader.ReadInt32();
-
-            Trace.texBytes -= Profiling.Micros;
-            byte[] fileByte = reader.ReadBytes(count);
-
-            long m = Profiling.Micros;
-            Trace.texBytes += m;
-            Trace.texImage -= m;
-
-            Image image = new Image(fileByte);
-
-            m = Profiling.Micros;
-            Trace.texImage += m;
-            Trace.texCreate -= m;
-
+            Image image = new Image(reader.ReadBytes(count));
             Texture2D texture2D = image.CreateTexture(linear);
-            Trace.texCreate += Profiling.Micros;
-
             texture2D.name = name;
-            Trace.Ind(ind, "Texture2D", name, texture2D.width, "x", texture2D.height);
+            Trace.Ind(ind, "Texture2D!", name, texture2D.width, "x", texture2D.height);
             return texture2D;
         }
 
@@ -225,9 +210,11 @@ namespace LoadingScreenMod
                 else if (num2 == 3)
                 {
                     string propertyName = reader.ReadString();
+
                     if (!reader.ReadBoolean())
                     {
-                        material.SetTexture(propertyName, Instantiate<Texture>(FindAsset(reader.ReadString()), ind));
+                        string checksum = reader.ReadString();
+                        material.SetTexture(propertyName, Sharing.instance.GetTexture(checksum, package, ind));
                     }
                     else
                     {
@@ -251,8 +238,7 @@ namespace LoadingScreenMod
         void DeserializeMeshFilter(MeshFilter meshFilter)
         {
             string checksum = reader.ReadString();
-            Mesh mesh = Sharing.instance.GetMesh(checksum, package, ind);
-            meshFilter.sharedMesh = mesh != null ? mesh : Instantiate<Mesh>(FindAsset(checksum), ind);
+            meshFilter.sharedMesh = Sharing.instance.GetMesh(checksum, package, ind);
         }
 
         void DeserializeMonoBehaviour(MonoBehaviour behaviour)
@@ -288,7 +274,6 @@ namespace LoadingScreenMod
 
         UnityEngine.Object DeserializeMesh()
         {
-            Trace.meshMicros -= Profiling.Micros;
             Mesh mesh = new Mesh();
             mesh.name = reader.ReadString();
             mesh.vertices = reader.ReadVector3Array();
@@ -303,8 +288,7 @@ namespace LoadingScreenMod
             for (int i = 0; i < mesh.subMeshCount; i++)
                 mesh.SetTriangles(reader.ReadInt32Array(), i);
 
-            Trace.meshMicros += Profiling.Micros;
-            Trace.Ind(ind, "Mesh", mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
+            Trace.Ind(ind, "Mesh!", mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
             return mesh;
         }
 
@@ -315,17 +299,17 @@ namespace LoadingScreenMod
             if (reader.ReadBoolean())
                 return false;
 
-            string text = reader.ReadString();
-            type = Type.GetType(text);
+            string typeName = reader.ReadString();
+            type = Type.GetType(typeName);
 
             if (type == null)
             {
-                type = Type.GetType(ResolveLegacyType(text));
+                type = Type.GetType(ResolveLegacyType(typeName));
 
                 if (type == null)
                 {
-                    if (HandleUnknownType(text) < 0)
-                        throw new InvalidDataException("Unknown type to deserialize " + text);
+                    if (HandleUnknownType(typeName) < 0)
+                        throw new InvalidDataException("Unknown type to deserialize " + typeName);
 
                     return false;
                 }
@@ -344,18 +328,18 @@ namespace LoadingScreenMod
             if (reader.ReadBoolean())
                 return false;
 
-            string text = reader.ReadString();
-            type = Type.GetType(text);
+            string typeName = reader.ReadString();
+            type = Type.GetType(typeName);
             name = reader.ReadString();
 
             if (type == null)
             {
-                type = Type.GetType(ResolveLegacyType(text));
+                type = Type.GetType(ResolveLegacyType(typeName));
 
                 if (type == null)
                 {
-                    if (HandleUnknownType(text) < 0)
-                        throw new InvalidDataException("Unknown type to deserialize " + text);
+                    if (HandleUnknownType(typeName) < 0)
+                        throw new InvalidDataException("Unknown type to deserialize " + typeName);
 
                     return false;
                 }

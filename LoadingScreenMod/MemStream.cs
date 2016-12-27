@@ -39,20 +39,15 @@ namespace LoadingScreenMod
             return I8() | I8() << 8 | I8() << 16 | I8() << 24;
         }
 
-        internal float ReadSingle()
+        internal unsafe float ReadSingle()
         {
             float f;
-
-            unsafe
-            {
-                byte* p = (byte*) &f;
-                byte[] b = buf;
-                *p = b[pos++];
-                p[1] = b[pos++];
-                p[2] = b[pos++];
-                p[3] = b[pos++];
-            }
-
+            byte* p = (byte*) &f;
+            byte[] b = buf;
+            *p = b[pos++];
+            p[1] = b[pos++];
+            p[2] = b[pos++];
+            p[3] = b[pos++];
             return f;
         }
 
@@ -105,8 +100,7 @@ namespace LoadingScreenMod
 
             int n = utf.GetChars(stream.Buf, stream.Pos, len, charBuf, 0); // looks thread-safe to me
             stream.Skip(len);
-            string s = new string(charBuf, 0, n);
-            return s;
+            return new string(charBuf, 0, n);
         }
 
         int ReadEncodedInt()

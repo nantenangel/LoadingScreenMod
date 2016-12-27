@@ -125,7 +125,7 @@ namespace LoadingScreenMod
     internal static class Trace
     {
         static List<string> seq = new List<string>(64);
-        internal static long meshMicros, texBytes, texImage, texCreate;
+        internal static long meshMicros, texImage, texCreate;
 
         static StreamWriter w;
         internal static void Start() => w = new StreamWriter(Util.GetFileName("trace", "txt"));
@@ -150,7 +150,6 @@ namespace LoadingScreenMod
         {
             Newline();
             Pr("meshMicros", meshMicros);
-            Pr("texBytes", texBytes);
             Pr("texImage", texImage);
             Pr("texCreate", texCreate);
 

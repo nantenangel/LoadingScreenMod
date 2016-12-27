@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading;
+using ColossalFramework.Importers;
 using ColossalFramework.Packaging;
 using UnityEngine;
 
@@ -27,7 +28,7 @@ namespace LoadingScreenMod
         int assetCount, totalBytes;
 
         // Meshes and textures from loadWorker to mtWorker.
-        ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>> mtQueue = new ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>>(32);
+        ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>> mtQueue = new ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>>(48);
 
         // These are local to loadWorker.
         Queue<string> dataQueue = new Queue<string>(dataHistory + 30);
@@ -68,7 +69,7 @@ namespace LoadingScreenMod
                     dataQueue.Enqueue(checksum);
                     totalBytes += bytes.Length;
 
-                    if (asset.type == Package.AssetType.StaticMesh)
+                    if (asset.type == Package.AssetType.StaticMesh || asset.type == Package.AssetType.Texture)
                         mtQueue.Enqueue(new KeyValuePair<Package.Asset, byte[]>(asset, bytes));
                 }
 
@@ -150,7 +151,7 @@ namespace LoadingScreenMod
         void MTWorker()
         {
             Thread.CurrentThread.Name = "MTWorker A";
-            int index = 0, count = 0;
+            int index = 0, countm = 0, countt = 0;
             KeyValuePair<Package.Asset, byte[]> elem;
 
             while (mtQueue.Dequeue(out elem))
@@ -161,16 +162,23 @@ namespace LoadingScreenMod
                     loadAhead.Decrement();
                     Trace.Seq("done with", index++);
                 }
+                else if (elem.Key.type == Package.AssetType.Texture)
+                {
+                    Trace.Seq("starts text   ", index, elem.Key.fullName);
+                    DeserializeTextObj(elem.Key, elem.Value);
+                    countt++;
+                    Trace.Seq("completed text", index, elem.Key.fullName);
+                }
                 else if (elem.Key.type == Package.AssetType.StaticMesh)
                 {
                     Trace.Seq("starts mesh   ", index, elem.Key.fullName);
                     DeserializeMeshObj(elem.Key, elem.Value);
-                    count++;
+                    countm++;
                     Trace.Seq("completed mesh", index, elem.Key.fullName);
                 }
             }
 
-            Trace.Seq("exits", index, mtQueue.Count, count);
+            Trace.Seq("exits", index, mtQueue.Count, countm, countt);
         }
 
         void DeserializeMeshObj(Package.Asset asset, byte[] bytes)
@@ -201,12 +209,46 @@ namespace LoadingScreenMod
                     triangles[i] = reader.ReadInt32Array();
 
                 mo = new MeshObj { name = name, vertices = vertices, colors = colors, uv = uv, normals = normals,
-                                    tangents = tangents, boneWeights = boneWeights, bindposes = bindposes, triangles = triangles };
+                                   tangents = tangents, boneWeights = boneWeights, bindposes = bindposes, triangles = triangles };
             }
 
             lock (mutex)
             {
                 data[asset.checksum] = mo;
+            }
+        }
+
+        void DeserializeTextObj(Package.Asset asset, byte[] bytes)
+        {
+            TextObj to;
+
+            using (MemStream stream = new MemStream(bytes, 0))
+            using (MemReader reader = new MemReader(stream))
+            {
+                Type t = DeserializeHeader(reader);
+
+                if (t != typeof(Texture2D) && t != typeof(Image))
+                {
+                    Util.DebugPrint("Asset error:", asset.fullName, "should be Texture2D or Image");
+                    return;
+                }
+
+                string name = reader.ReadString();
+                bool linear = reader.ReadBoolean();
+                int count = reader.ReadInt32();
+                Trace.texImage -= Profiling.Micros;
+                Image image = new Image(reader.ReadBytes(count));
+
+                to = new TextObj { name = name, pixels = image.GetAllPixels(), width = image.width, height = image.height,
+                                   format = image.format, mipmap = image.mipmapCount > 1, linear = linear };
+
+                image.Clear(); image = null;
+                Trace.texImage += Profiling.Micros;
+            }
+
+            lock (mutex)
+            {
+                data[asset.checksum] = to;
             }
         }
 
@@ -294,6 +336,51 @@ namespace LoadingScreenMod
             Trace.Seq("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
             Trace.Pr("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
             return AssetDeserializer.Instantiate<Mesh>(asset, ind);
+        }
+
+        internal Texture2D GetTexture(string checksum, Package package, int ind)
+        {
+            object obj;
+            int count, removedMillis;
+
+            lock (mutex)
+            {
+                data.TryGetValue(checksum, out obj);
+                removed.TryGetValue(checksum, out removedMillis);
+                count = data.Count;
+            }
+
+            TextObj to = obj as TextObj;
+
+            if (to != null)
+            {
+                Trace.texCreate -= Profiling.Micros;
+                Texture2D texture2D = new Texture2D(to.width, to.height, to.format, to.mipmap, to.linear);
+                texture2D.LoadRawTextureData(to.pixels);
+                texture2D.Apply();
+                texture2D.name = to.name;
+                Trace.texCreate += Profiling.Micros;
+                Trace.Ind(ind, "Texture2D", texture2D.name, texture2D.width, "x", texture2D.height);
+                return texture2D;
+            }
+
+            byte[] bytes = obj as byte[];
+
+            if (bytes != null)
+            {
+                Trace.Pr("MISS TEXT OBJ BUT GOT BYTES:  Assets", count, checksum);
+                using (MemStream stream = new MemStream(bytes, 0))
+                using (PackageReader reader = new MemReader(stream))
+                {
+                    Trace.Ind(ind, "ASSET");
+                    return (Texture2D) new AssetDeserializer(package, reader, ind).Deserialize();
+                }
+            }
+
+            Package.Asset asset = package.FindByChecksum(checksum);
+            Trace.Seq("MISS TEXT OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+            Trace.Pr("MISS TEXT OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+            return AssetDeserializer.Instantiate<Texture2D>(asset, ind);
         }
 
         internal PackageReader GetReader(Stream stream)
@@ -499,5 +586,16 @@ namespace LoadingScreenMod
         internal BoneWeight[] boneWeights;
         internal Matrix4x4[] bindposes;
         internal int[][] triangles;
+    }
+
+    class TextObj
+    {
+        internal string name;
+        internal byte[] pixels;
+        internal int width;
+        internal int height;
+        internal TextureFormat format;
+        internal bool mipmap;
+        internal bool linear;
     }
 }
