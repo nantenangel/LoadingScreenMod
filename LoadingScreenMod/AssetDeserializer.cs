@@ -61,10 +61,10 @@ namespace LoadingScreenMod
         object DeserializeSingleObject(Type type, Type expectedType)
         {
             // Make the common case fast.
-            if (type == typeof(float))
-                return reader.ReadSingle();
-            if (type == typeof(Vector2))
-                return reader.ReadVector2();
+            //if (type == typeof(float))
+            //    return reader.ReadSingle();
+            //if (type == typeof(Vector2))
+            //    return reader.ReadVector2();
 
             object obj = CustomDeserialize(type);
 
@@ -113,23 +113,52 @@ namespace LoadingScreenMod
                         field = type.GetField(ResolveLegacyMember(t, type, name), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
                     Type expectedType = field?.FieldType;
+                    object value;
 
                     if (t.IsArray)
                     {
                         int n = reader.ReadInt32();
-                        Type et = t.GetElementType();
-                        Array array = Array.CreateInstance(et, n);
+                        Type elementType = t.GetElementType();
 
-                        for (int j = 0; j < n; j++)
-                            array.SetValue(DeserializeSingleObject(et, expectedType), j);
+                        // Make the common case fast.
+                        if (elementType == typeof(float))
+                        {
+                            float[] array = new float[n]; value = array;
 
-                        field?.SetValue(obj, array);
+                            for (int j = 0; j < n; j++)
+                                array[j] = reader.ReadSingle();
+                        }
+                        else if (elementType == typeof(Vector2))
+                        {
+                            Vector2[] array = new Vector2[n]; value = array;
+
+                            for (int j = 0; j < n; j++)
+                                array[j] = reader.ReadVector2();
+                        }
+                        else
+                        {
+                            Array array = Array.CreateInstance(elementType, n); value = array;
+
+                            for (int j = 0; j < n; j++)
+                                array.SetValue(DeserializeSingleObject(elementType, expectedType), j);
+                        }
                     }
                     else
                     {
-                        object value = DeserializeSingleObject(t, expectedType);
-                        field?.SetValue(obj, value);
+                        // Make the common case fast.
+                        if (t == typeof(int))
+                            value = reader.ReadInt32();
+                        else if (t == typeof(bool))
+                            value = reader.ReadBoolean();
+                        else if (t == typeof(string))
+                            value = reader.ReadString();
+                        else if (t == typeof(float))
+                            value = reader.ReadSingle();
+                        else
+                            value = DeserializeSingleObject(t, expectedType);
                     }
+
+                    field?.SetValue(obj, value);
                 }
             }
 
@@ -378,6 +407,9 @@ namespace LoadingScreenMod
 
         object CustomDeserialize(Type type)
         {
+            Trace.customFields++;
+            Trace.Typ(type, 1);
+
             if (type == typeof(Package.Asset))
                 return FindAsset(reader.ReadString());
 

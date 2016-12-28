@@ -126,6 +126,8 @@ namespace LoadingScreenMod
     {
         static List<string> seq = new List<string>(64);
         internal static long meshMicros, texImage, texCreate;
+        internal static int customFields;
+        static Dictionary<string, int> types = new Dictionary<string, int>(64);
 
         static StreamWriter w;
         internal static void Start() => w = new StreamWriter(Util.GetFileName("trace", "txt"));
@@ -133,12 +135,12 @@ namespace LoadingScreenMod
         internal static void Newline() { w.WriteLine(); w.Flush(); }
         internal static void Flush() => w.Flush();
         internal static void Pr(params object[] args) => w.WriteLine(" ".OnJoin(args));
-        internal static void Ind(int n, params object[] args) => w.WriteLine((new string(' ', n + n) + " ".OnJoin(args)).PadRight(110) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")");
+        internal static void Ind(int n, params object[] args) => w.WriteLine((new string(' ', n + n) + " ".OnJoin(args)).PadRight(114) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")");
 
         internal static void Seq(params object[] args)
         {
             string name = Thread.CurrentThread.Name ?? "MainThread";
-            string s = name + " " + (" ".OnJoin(args)).PadRight(110) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")";
+            string s = name + " " + (" ".OnJoin(args)).PadRight(114) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")";
 
             lock (seq)
             {
@@ -146,12 +148,28 @@ namespace LoadingScreenMod
             }
         }
 
+        internal static void Typ(Type type, int n)
+        {
+            string name = type?.FullName ?? "null";
+            int count;
+            types.TryGetValue(name, out count);
+            types[name] = count + n;
+        }
+
         static void SaveAll()
         {
+            Newline();
+            Pr("Types:");
+            foreach (var kvp in types)
+                Pr(kvp.Key.PadRight(48), kvp.Value);
+
+            types.Clear();
+
             Newline();
             Pr("meshMicros", meshMicros);
             Pr("texImage", texImage);
             Pr("texCreate", texCreate);
+            Pr("customFields", customFields);
 
             Newline();
             Pr("Seq:");

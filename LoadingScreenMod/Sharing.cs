@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using System.Threading;
 using ColossalFramework.Importers;
 using ColossalFramework.Packaging;
@@ -16,6 +15,7 @@ namespace LoadingScreenMod
         const int cacheDepth = 3;
         const int dataHistory = (cacheDepth * 3 + 2) * 12;
         ConcurrentCounter loadAhead = new ConcurrentCounter(0, 0, cacheDepth), mtAhead = new ConcurrentCounter(0, 0, cacheDepth);
+        internal void WaitForWorkers() => mtAhead.Decrement();
         static bool Supports(Package.AssetType type) => type <= Package.UnityTypeEnd && type >= Package.UnityTypeStart;
 
         // The assets to load, ordered for maximum performance.
@@ -23,7 +23,7 @@ namespace LoadingScreenMod
         object mutex = new object();
 
         // Asset checksum to asset data.
-        Dictionary<string, object> data = new Dictionary<string, object>(dataHistory + 30);
+        LinkedHashMap<string, object> data = new LinkedHashMap<string, object>(dataHistory + 30);
         Dictionary<string, int> removed = new Dictionary<string, int>(512);
         int assetCount, totalBytes;
 
@@ -31,15 +31,13 @@ namespace LoadingScreenMod
         ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>> mtQueue = new ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>>(48);
 
         // These are local to loadWorker.
-        Queue<string> dataQueue = new Queue<string>(dataHistory + 30);
         List<Package.Asset> loadList = new List<Package.Asset>(30);
         Dictionary<string, byte[]> loadMap = new Dictionary<string, byte[]>(30);
-
-        internal void WaitForWorkers() => mtAhead.Decrement();
 
         void LoadPackage(Package package, int index)
         {
             loadList.Clear(); loadMap.Clear();
+            int re = 0;
 
             lock (mutex)
             {
@@ -47,10 +45,15 @@ namespace LoadingScreenMod
                 {
                     string name = asset.name;
 
-                    if (name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot"))
+                    if (!Supports(asset.type) || name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot"))
                         continue;
 
-                    if (Supports(asset.type) && !data.ContainsKey(asset.checksum))
+                    if (data.ContainsKey(asset.checksum))
+                    {
+                        data.Reinsert(asset.checksum);
+                        re++;
+                    }
+                    else
                         loadList.Add(asset);
                 }
             }
@@ -64,21 +67,19 @@ namespace LoadingScreenMod
                 {
                     Package.Asset asset = loadList[i];
                     byte[] bytes = LoadAsset(fs, asset);
-                    string checksum = asset.checksum;
-                    loadMap[checksum] = bytes;
-                    dataQueue.Enqueue(checksum);
+                    loadMap[asset.checksum] = bytes;
                     totalBytes += bytes.Length;
 
                     if (asset.type == Package.AssetType.StaticMesh || asset.type == Package.AssetType.Texture)
                         mtQueue.Enqueue(new KeyValuePair<Package.Asset, byte[]>(asset, bytes));
                 }
 
-            Trace.Seq("loaded index", index, package.packageName + "." + package.packageMainAsset);
+            Trace.Seq("loaded index", index, package.packageName + "." + package.packageMainAsset, " Touched", loadList.Count + re);
 
             lock (mutex)
             {
                 foreach (var kvp in loadMap)
-                    if (!data.ContainsKey(kvp.Key))  // this check is necessary
+                    if (!data.ContainsKey(kvp.Key)) // this check is necessary
                         data[kvp.Key] = kvp.Value;
             }
         }
@@ -129,13 +130,10 @@ namespace LoadingScreenMod
 
                     while (data.Count > dataHistory)
                     {
-                        string checksum = dataQueue.Dequeue();
-
-                        if (data.Remove(checksum))
-                        {
-                            removed[checksum] = millis;
-                            count++;
-                        }
+                        string checksum = data.EldestKey;
+                        data.RemoveEldest();
+                        removed[checksum] = millis;
+                        count++;
                     }
                 }
 
@@ -143,9 +141,9 @@ namespace LoadingScreenMod
                     Trace.Seq("removed", count, ":", data.Count, "assets");
             }
 
-            Trace.Seq("exits", data.Count, dataQueue.Count, assetCount, "/", q.Length, totalBytes, "/", assetCount);
+            Trace.Seq("exits", data.Count, assetCount, "/", q.Length, totalBytes, "/", assetCount);
             mtQueue.SetCompleted();
-            dataQueue.Clear(); dataQueue = null;
+            loadList.Clear(); loadList = null; loadMap.Clear(); loadMap = null;
         }
 
         void MTWorker()
@@ -323,6 +321,7 @@ namespace LoadingScreenMod
 
             if (bytes != null)
             {
+                Trace.Seq("MISS MESH OBJ BUT GOT BYTES:  Assets", count, checksum);
                 Trace.Pr("MISS MESH OBJ BUT GOT BYTES:  Assets", count, checksum);
                 using (MemStream stream = new MemStream(bytes, 0))
                 using (PackageReader reader = new MemReader(stream))
@@ -368,6 +367,7 @@ namespace LoadingScreenMod
 
             if (bytes != null)
             {
+                Trace.Seq("MISS TEXT OBJ BUT GOT BYTES:  Assets", count, checksum);
                 Trace.Pr("MISS TEXT OBJ BUT GOT BYTES:  Assets", count, checksum);
                 using (MemStream stream = new MemStream(bytes, 0))
                 using (PackageReader reader = new MemReader(stream))
@@ -417,6 +417,13 @@ namespace LoadingScreenMod
             Util.DebugPrint("Textures / Materials / Meshes loaded:", texload, "/", matload, "/", mesload, "referenced:", texhit, "/", mathit, "/", meshit);
             Revert();
             base.Dispose();
+
+            lock (mutex)
+            {
+                data.Clear(); removed.Clear();
+                data = null; removed = null;
+            }
+
             textures.Clear(); materials.Clear(); meshes.Clear();
             textures = null; materials = null; meshes = null; instance = null;
         }

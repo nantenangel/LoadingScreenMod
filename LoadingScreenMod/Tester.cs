@@ -9,7 +9,7 @@ namespace LoadingScreenMod
 {
     internal sealed class Tester
     {
-        const string dir = @"g:\testassets3\";
+        const string dir = @"c:\testassets3\";
         internal static Tester instance;
         Package[] packages;
         internal int index;
@@ -17,6 +17,8 @@ namespace LoadingScreenMod
         internal void Test()
         {
             instance = this;
+            Trace.Pr("Loading from", dir);
+            Trace.Newline();
             packages = CreatePackages(dir);
             PrintPackages();
 
