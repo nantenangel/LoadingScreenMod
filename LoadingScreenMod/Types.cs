@@ -100,7 +100,7 @@ namespace LoadingScreenMod
     }
 
     /// <summary>
-    /// A dictionary that maintains insertion (including re-insertion) order. Inspired by Java's LinkedHashMap.
+    /// A dictionary that maintains insertion order. Inspired by Java's LinkedHashMap.
     /// This implementation is very minimal.
     /// </summary>
     public sealed class LinkedHashMap<K, V>
@@ -130,22 +130,20 @@ namespace LoadingScreenMod
                 Node n;
 
                 if (map.TryGetValue(key, out n))
-                {
-                    n.prev.next = n.next;
-                    n.next.prev = n.prev;
                     n.val = value;
-                }
                 else
-                {
-                    n = CreateNode(key, value);
-                    map.Add(key, n);
-                }
-
-                n.prev = head.prev;
-                n.next = head;
-                head.prev.next = n;
-                head.prev = n;
+                    Add(key, value);
             }
+        }
+
+        public void Add(K key, V val)
+        {
+            Node n = CreateNode(key, val);
+            map.Add(key, n);
+            n.prev = head.prev;
+            n.next = head;
+            head.prev.next = n;
+            head.prev = n;
         }
 
         public bool TryGetValue(K key, out V val)

@@ -17,7 +17,7 @@ namespace LoadingScreenMod
         internal void Test()
         {
             instance = this;
-            Trace.Pr("Loading from", dir);
+            Trace.Pr("No texture backend. Loading from", dir);
             Trace.Newline();
             packages = CreatePackages(dir);
             PrintPackages();
@@ -46,7 +46,7 @@ namespace LoadingScreenMod
                 Trace.Seq("starts asset   ", index, asset.fullName);
                 GameObject go = AssetDeserializer.Instantiate<GameObject>(asset);
                 go.name = asset.fullName;
-                Initialize(go);
+                // Initialize(go);
                 Trace.Seq("completed asset", index, asset.fullName);
             }
 

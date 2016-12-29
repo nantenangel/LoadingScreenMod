@@ -105,6 +105,15 @@ namespace LoadingScreenMod
             return (Action<P, Q, R>) Delegate.CreateDelegate(typeof(Action<P, Q, R>), m);
         }
 
+        /// <summary>
+        /// Creates a delegate for a non-public void method in class T that takes no parameters.
+        /// </summary>
+        public static Action<T> CreateAction<T>(string methodName) where T : class
+        {
+            MethodInfo m = typeof(T).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
+            return (Action<T>) Delegate.CreateDelegate(typeof(Action<T>), m);
+        }
+
         public static List<T> ToList<T>(this T[] array, int count)
         {
             List<T> ret = new List<T>(count + 5);
@@ -126,8 +135,8 @@ namespace LoadingScreenMod
     {
         static List<string> seq = new List<string>(64);
         internal static long meshMicros, texImage, texCreate;
-        internal static int customFields;
-        static Dictionary<string, int> types = new Dictionary<string, int>(64);
+        internal static long texBytes, texPixels;
+        internal static int imgFinalizes;
 
         static StreamWriter w;
         internal static void Start() => w = new StreamWriter(Util.GetFileName("trace", "txt"));
@@ -148,28 +157,15 @@ namespace LoadingScreenMod
             }
         }
 
-        internal static void Typ(Type type, int n)
-        {
-            string name = type?.FullName ?? "null";
-            int count;
-            types.TryGetValue(name, out count);
-            types[name] = count + n;
-        }
-
         static void SaveAll()
         {
-            Newline();
-            Pr("Types:");
-            foreach (var kvp in types)
-                Pr(kvp.Key.PadRight(48), kvp.Value);
-
-            types.Clear();
-
             Newline();
             Pr("meshMicros", meshMicros);
             Pr("texImage", texImage);
             Pr("texCreate", texCreate);
-            Pr("customFields", customFields);
+            Pr("texBytes", texBytes);
+            Pr("texPixels", texPixels);
+            Pr("imgFinalizes", imgFinalizes);
 
             Newline();
             Pr("Seq:");

@@ -243,7 +243,8 @@ namespace LoadingScreenMod
                     if (!reader.ReadBoolean())
                     {
                         string checksum = reader.ReadString();
-                        material.SetTexture(propertyName, Sharing.instance.GetTexture(checksum, package, ind));
+                        material.SetTexture(propertyName, null);
+                        // material.SetTexture(propertyName, Sharing.instance.GetTexture(checksum, package, ind));
                     }
                     else
                     {
@@ -407,9 +408,6 @@ namespace LoadingScreenMod
 
         object CustomDeserialize(Type type)
         {
-            Trace.customFields++;
-            Trace.Typ(type, 1);
-
             if (type == typeof(Package.Asset))
                 return FindAsset(reader.ReadString());
 

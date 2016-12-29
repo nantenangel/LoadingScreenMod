@@ -30,9 +30,12 @@ namespace LoadingScreenMod
         // Meshes and textures from loadWorker to mtWorker.
         ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>> mtQueue = new ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>>(48);
 
-        // These are local to loadWorker.
+        // These are local to LoadWorker.
         List<Package.Asset> loadList = new List<Package.Asset>(30);
         Dictionary<string, byte[]> loadMap = new Dictionary<string, byte[]>(30);
+
+        // These are local to MTWorker.
+        // List<Image> trash = new List<Image>(256);
 
         void LoadPackage(Package package, int index)
         {
@@ -80,7 +83,7 @@ namespace LoadingScreenMod
             {
                 foreach (var kvp in loadMap)
                     if (!data.ContainsKey(kvp.Key)) // this check is necessary
-                        data[kvp.Key] = kvp.Value;
+                        data.Add(kvp.Key, kvp.Value);
             }
         }
 
@@ -122,18 +125,17 @@ namespace LoadingScreenMod
                 loadAhead.Increment();
                 Trace.Seq("done with   ", index, p.packageName + "." + p.packageMainAsset, ":", data.Count, "assets");
                 prevPackage = p;
-                int count = 0;
+                int count;
 
                 lock (mutex)
                 {
                     int millis = Profiling.Millis;
 
-                    while (data.Count > dataHistory)
+                    for (count = 0; count < 20 && data.Count > dataHistory; count++)
                     {
                         string checksum = data.EldestKey;
                         data.RemoveEldest();
                         removed[checksum] = millis;
-                        count++;
                     }
                 }
 
@@ -177,6 +179,7 @@ namespace LoadingScreenMod
             }
 
             Trace.Seq("exits", index, mtQueue.Count, countm, countt);
+            // trash.Clear(); trash = null;
         }
 
         void DeserializeMeshObj(Package.Asset asset, byte[] bytes)
@@ -236,11 +239,15 @@ namespace LoadingScreenMod
                 int count = reader.ReadInt32();
                 Trace.texImage -= Profiling.Micros;
                 Image image = new Image(reader.ReadBytes(count));
+                byte[] pix = image.GetAllPixels();
+                Trace.texBytes += bytes.Length;
+                Trace.texPixels += pix.Length;
 
-                to = new TextObj { name = name, pixels = image.GetAllPixels(), width = image.width, height = image.height,
+                to = new TextObj { name = name, pixels = pix, width = image.width, height = image.height,
                                    format = image.format, mipmap = image.mipmapCount > 1, linear = linear };
 
-                image.Clear(); image = null;
+                // image.Clear();
+                image = null;
                 Trace.texImage += Profiling.Micros;
             }
 

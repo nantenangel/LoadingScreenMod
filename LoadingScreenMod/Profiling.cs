@@ -29,7 +29,7 @@ namespace LoadingScreenMod
         {
             Sink.builder.Length = 0; Sink.builder.Capacity = 0;
             customAssetEvents = null;
-            stopWatch.Reset();
+            // stopWatch.Reset();
         }
 
         internal static int Millis => (int) stopWatch.ElapsedMilliseconds;

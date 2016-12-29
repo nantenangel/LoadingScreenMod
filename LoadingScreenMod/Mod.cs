@@ -25,6 +25,7 @@ namespace LoadingScreenMod
                 Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
 
             Settings.helper = null;
+            Util.DebugPrint("OnLevelLoaded at", Profiling.Millis);
         }
 
         void Create()
@@ -34,7 +35,7 @@ namespace LoadingScreenMod
                 Stopping();
                 Trace.Start();
                 new LevelLoader().Deploy();
-                // new PackageManagerFix().Deploy();
+                new Bugfix().Deploy();
                 created = true;
             }
         }
@@ -45,7 +46,7 @@ namespace LoadingScreenMod
                 Trace.Stop();
 
             LevelLoader.instance?.Dispose();
-            // PackageManagerFix.instance?.Dispose();
+            Bugfix.instance?.Dispose();
             created = false;
         }
     }
