@@ -247,7 +247,7 @@ namespace LoadingScreenMod
             {
                 stack.Push(fullName);
                 LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(assetRef.name));
-                GameObject go = AssetDeserializer.Instantiate<GameObject>(assetRef);
+                GameObject go = AssetDeserializer.Instantiate(assetRef) as GameObject;
                 go.name = fullName;
                 go.SetActive(false);
                 PrefabInfo info = go.GetComponent<PrefabInfo>();

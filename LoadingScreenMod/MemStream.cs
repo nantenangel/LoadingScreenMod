@@ -68,7 +68,12 @@ namespace LoadingScreenMod
     {
         MemStream stream;
         char[] charBuf = new char[96];
-        static readonly UTF8Encoding utf = new UTF8Encoding(false, false);
+        static readonly UTF8Encoding utf;
+
+        static MemReader()
+        {
+            utf = new UTF8Encoding(false, false);
+        }
 
         protected override void Dispose(bool b) { stream = null; charBuf = null; base.Dispose(b); }
         public override float ReadSingle() => stream.ReadSingle();

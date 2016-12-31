@@ -1,8 +1,5 @@
 ﻿using ICities;
 using ColossalFramework;
-using System.IO;
-using UnityEngine;
-using ColossalFramework.Packaging;
 
 namespace LoadingScreenMod
 {
@@ -35,7 +32,7 @@ namespace LoadingScreenMod
                 Stopping();
                 Trace.Start();
                 new LevelLoader().Deploy();
-                new Bugfix().Deploy();
+                // new PackageManagerFix().Deploy();
                 created = true;
             }
         }
@@ -46,7 +43,7 @@ namespace LoadingScreenMod
                 Trace.Stop();
 
             LevelLoader.instance?.Dispose();
-            Bugfix.instance?.Dispose();
+            // PackageManagerFix.instance?.Dispose();
             created = false;
         }
     }

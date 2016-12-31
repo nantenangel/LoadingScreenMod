@@ -1,34 +1,21 @@
-﻿using System;
-using ColossalFramework.Importers;
-
-namespace LoadingScreenMod
+﻿namespace LoadingScreenMod
 {
-    public sealed class Bugfix : DetourUtility
+    public sealed class PackageManagerFix : DetourUtility
     {
-        public static Bugfix instance;
+        //public static PackageManagerFix instance;
 
-        // Delegates can be used to call non-public methods. Delegates have about the same performance as regular method calls.
-        static readonly Action<Image> Dizpose = Util.CreateAction<Image>("Dispose");
+        //public PackageManagerFix()
+        //{
+        //    instance = this;
+        //    init(typeof(PackageManager), "FindAssetByName");
+        //}
 
-        public Bugfix()
-        {
-            instance = this;
-            // init(typeof(PackageManager), "FindAssetByName");
-            init(typeof(Image), "Finalize", "Fnalize");
-        }
-
-        internal override void Dispose()
-        {
-            Revert();
-            base.Dispose();
-            instance = null;
-        }
-
-        static void Fnalize(Image image)
-        {
-            Dizpose(image);
-            Trace.imgFinalizes++;
-        }
+        //internal override void Dispose()
+        //{
+        //    Revert();
+        //    base.Dispose();
+        //    instance = null;
+        //}
 
         /// <summary>
         /// Fix for the bug that is still in the base game: asset search stops when a package with the correct name is found.

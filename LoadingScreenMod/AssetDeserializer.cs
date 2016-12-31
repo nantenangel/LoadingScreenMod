@@ -12,27 +12,36 @@ namespace LoadingScreenMod
     {
         readonly Package package;
         readonly PackageReader reader;
+        string checksum;
+        bool isMain;
         int ind;
 
-        public static T Instantiate<T>(Package.Asset asset, int ind = 0) where T : class
-        {
-            return Instantiate(asset, ind) as T;
-        }
-
-        public static object Instantiate(Package.Asset asset, int ind = 0)
+        public static object Instantiate(Package.Asset asset, bool isMain = true, int ind = 0)
         {
             using (Stream stream = Sharing.instance.GetStream(asset))
             using (PackageReader reader = Sharing.instance.GetReader(stream))
             {
                 Trace.Ind(ind, "ASSET", ind == 0 ? Tester.instance.index + ":" : string.Empty, asset.fullName);
-                return new AssetDeserializer(asset.package, reader, ind).Deserialize();
+                return new AssetDeserializer(asset.package, reader, asset.checksum, isMain, ind).Deserialize();
             }
         }
 
-        internal AssetDeserializer(Package package, PackageReader reader, int ind)
+        internal static object Instantiate(Package package, byte[] bytes, string checksum, bool isMain, int ind)
+        {
+            using (MemStream stream = new MemStream(bytes, 0))
+            using (PackageReader reader = new MemReader(stream))
+            {
+                Trace.Ind(ind, "ASSET", ind == 0 ? Tester.instance.index + ":" : string.Empty, package.packageName);
+                return new AssetDeserializer(package, reader, checksum, isMain, ind).Deserialize();
+            }
+        }
+
+        internal AssetDeserializer(Package package, PackageReader reader, string checksum, bool isMain, int ind)
         {
             this.package = package;
             this.reader = reader;
+            this.checksum = checksum;
+            this.isMain = isMain;
             this.ind = ind;
         }
 
@@ -71,9 +80,9 @@ namespace LoadingScreenMod
             if (obj != null)
                 return obj;
             if (typeof(ScriptableObject).IsAssignableFrom(type))
-                return Instantiate(FindAsset(reader.ReadString()), ind);
+                return Instantiate(FindAsset(reader.ReadString()), isMain, ind);
             if (typeof(GameObject).IsAssignableFrom(type))
-                return Instantiate(FindAsset(reader.ReadString()), ind);
+                return Instantiate(FindAsset(reader.ReadString()), isMain, ind);
 
             if (package.version < 3u && expectedType != null && expectedType == typeof(Package.Asset))
                 return reader.ReadUnityType(expectedType);
@@ -173,9 +182,10 @@ namespace LoadingScreenMod
             go.layer = reader.ReadInt32();
             go.SetActive(reader.ReadBoolean());
             int count = reader.ReadInt32();
+            isMain = count > 3;
             Trace.Ind(ind, "GO", go.name + ", " + count);
-
             ind++;
+
             for (int i = 0; i < count; i++)
             {
                 Type type;
@@ -207,54 +217,48 @@ namespace LoadingScreenMod
             Image image = new Image(reader.ReadBytes(count));
             Texture2D texture2D = image.CreateTexture(linear);
             texture2D.name = name;
-            Trace.Ind(ind, "Texture2D!", name, texture2D.width, "x", texture2D.height);
+            Trace.Ind(ind, "Texture", reader.BaseStream is MemStream ? "(pre)" : "(load)", checksum, name, texture2D.width, "x", texture2D.height);
             return texture2D;
         }
 
-        UnityEngine.Object DeserializeMaterial()
+        MaterialData DeserializeMaterial()
         {
             string name = reader.ReadString();
             string shader = reader.ReadString();
             Material material = new Material(Shader.Find(shader));
             material.name = name;
             int count = reader.ReadInt32();
-            Trace.Ind(ind, "Material", name + ", " + shader);
+            int textureCount = 0;
+            Trace.Ind(ind, "Material", reader.BaseStream is MemStream ? "(pre)" : "(load)", checksum, name);
             ind++;
 
             for (int i = 0; i < count; i++)
             {
-                int num2 = reader.ReadInt32();
-                if (num2 == 0)
-                {
+                int kind = reader.ReadInt32();
+
+                if (kind == 0)
                     material.SetColor(reader.ReadString(), reader.ReadColor());
-                }
-                else if (num2 == 1)
-                {
+                else if (kind == 1)
                     material.SetVector(reader.ReadString(), reader.ReadVector4());
-                }
-                else if (num2 == 2)
-                {
+                else if (kind == 2)
                     material.SetFloat(reader.ReadString(), reader.ReadSingle());
-                }
-                else if (num2 == 3)
+                else if (kind == 3)
                 {
                     string propertyName = reader.ReadString();
 
                     if (!reader.ReadBoolean())
                     {
                         string checksum = reader.ReadString();
-                        material.SetTexture(propertyName, null);
-                        // material.SetTexture(propertyName, Sharing.instance.GetTexture(checksum, package, ind));
+                        material.SetTexture(propertyName, Sharing.instance.GetTexture(checksum, package, isMain, ind));
+                        textureCount++;
                     }
                     else
-                    {
                         material.SetTexture(propertyName, null);
-                    }
                 }
             }
 
             ind--;
-            return material;
+            return new MaterialData(material, textureCount); ;
         }
 
         void DeserializeTransform(Transform transform)
@@ -268,7 +272,7 @@ namespace LoadingScreenMod
         void DeserializeMeshFilter(MeshFilter meshFilter)
         {
             string checksum = reader.ReadString();
-            meshFilter.sharedMesh = Sharing.instance.GetMesh(checksum, package, ind);
+            meshFilter.sharedMesh = Sharing.instance.GetMesh(checksum, package, isMain, ind);
         }
 
         void DeserializeMonoBehaviour(MonoBehaviour behaviour)
@@ -293,11 +297,11 @@ namespace LoadingScreenMod
 
         void DeserializeMeshRenderer(MeshRenderer renderer)
         {
-            int num = reader.ReadInt32();
-            Material[] array = new Material[num];
+            int count = reader.ReadInt32();
+            Material[] array = new Material[count];
 
-            for (int i = 0; i < num; i++)
-                array[i] = Instantiate<Material>(FindAsset(reader.ReadString()), ind);
+            for (int i = 0; i < count; i++)
+                array[i] = Sharing.instance.GetMaterial(reader.ReadString(), package, isMain, ind);
 
             renderer.sharedMaterials = array;
         }
@@ -318,7 +322,7 @@ namespace LoadingScreenMod
             for (int i = 0; i < mesh.subMeshCount; i++)
                 mesh.SetTriangles(reader.ReadInt32Array(), i);
 
-            Trace.Ind(ind, "Mesh!", mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
+            Trace.Ind(ind, "Mesh", reader.BaseStream is MemStream ? "(pre)" : "(load)", checksum, mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
             return mesh;
         }
 
@@ -412,6 +416,18 @@ namespace LoadingScreenMod
                 return FindAsset(reader.ReadString());
 
             return PackageHelper.CustomDeserialize(package, type, reader);
+        }
+    }
+
+    internal struct MaterialData
+    {
+        internal Material material;
+        internal int textureCount;
+
+        internal MaterialData(Material m, int count)
+        {
+            this.material = m;
+            this.textureCount = count;
         }
     }
 }

@@ -13,29 +13,26 @@ namespace LoadingScreenMod
         internal static Sharing instance;
 
         const int cacheDepth = 3;
-        const int dataHistory = (cacheDepth * 3 + 2) * 12;
+        const int dataHistory = cacheDepth * 44;
         ConcurrentCounter loadAhead = new ConcurrentCounter(0, 0, cacheDepth), mtAhead = new ConcurrentCounter(0, 0, cacheDepth);
         internal void WaitForWorkers() => mtAhead.Decrement();
         static bool Supports(Package.AssetType type) => type <= Package.UnityTypeEnd && type >= Package.UnityTypeStart;
 
         // The assets to load, ordered for maximum performance.
-        Package.Asset[] assetsQueue;
+        volatile Package.Asset[] assetsQueue;
         object mutex = new object();
 
         // Asset checksum to asset data.
-        LinkedHashMap<string, object> data = new LinkedHashMap<string, object>(dataHistory + 30);
+        LinkedHashMap<string, object> data = new LinkedHashMap<string, object>(dataHistory + 64);
         Dictionary<string, int> removed = new Dictionary<string, int>(512);
         int assetCount, totalBytes;
 
-        // Meshes and textures from loadWorker to mtWorker.
+        // Meshes and textures from LoadWorker to MTWorker.
         ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>> mtQueue = new ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>>(48);
 
         // These are local to LoadWorker.
-        List<Package.Asset> loadList = new List<Package.Asset>(30);
-        Dictionary<string, byte[]> loadMap = new Dictionary<string, byte[]>(30);
-
-        // These are local to MTWorker.
-        // List<Image> trash = new List<Image>(256);
+        List<Package.Asset> loadList = new List<Package.Asset>(32);
+        Dictionary<string, byte[]> loadMap = new Dictionary<string, byte[]>(32);
 
         void LoadPackage(Package package, int index)
         {
@@ -46,14 +43,23 @@ namespace LoadingScreenMod
             {
                 foreach (Package.Asset asset in package)
                 {
-                    string name = asset.name;
+                    string name = asset.name, checksum = asset.checksum;
+                    Package.AssetType type = asset.type;
 
-                    if (!Supports(asset.type) || name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot"))
+                    if (!Supports(type) || name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot"))
                         continue;
 
-                    if (data.ContainsKey(asset.checksum))
+                    if (type == Package.AssetType.Texture && (texturesMain.ContainsKey(checksum) || texturesLod.ContainsKey(checksum)) ||
+                        type == Package.AssetType.StaticMesh && meshes.ContainsKey(checksum) ||
+                        type == Package.AssetType.Material && (materialsMain.ContainsKey(checksum) || materialsLod.ContainsKey(checksum)))
                     {
-                        data.Reinsert(asset.checksum);
+                        Trace.loadHits++;
+                        continue;
+                    }
+
+                    if (data.ContainsKey(checksum))
+                    {
+                        data.Reinsert(checksum);
                         re++;
                     }
                     else
@@ -73,7 +79,7 @@ namespace LoadingScreenMod
                     loadMap[asset.checksum] = bytes;
                     totalBytes += bytes.Length;
 
-                    if (asset.type == Package.AssetType.StaticMesh || asset.type == Package.AssetType.Texture)
+                    if (asset.type == Package.AssetType.Texture || asset.type == Package.AssetType.StaticMesh)
                         mtQueue.Enqueue(new KeyValuePair<Package.Asset, byte[]>(asset, bytes));
                 }
 
@@ -131,7 +137,7 @@ namespace LoadingScreenMod
                 {
                     int millis = Profiling.Millis;
 
-                    for (count = 0; count < 20 && data.Count > dataHistory; count++)
+                    for (count = 0; count < 18 && data.Count > dataHistory; count++)
                     {
                         string checksum = data.EldestKey;
                         data.RemoveEldest();
@@ -145,7 +151,7 @@ namespace LoadingScreenMod
 
             Trace.Seq("exits", data.Count, assetCount, "/", q.Length, totalBytes, "/", assetCount);
             mtQueue.SetCompleted();
-            loadList.Clear(); loadList = null; loadMap.Clear(); loadMap = null;
+            loadList.Clear(); loadList = null; loadMap.Clear(); loadMap = null; assetsQueue = null;
         }
 
         void MTWorker()
@@ -179,7 +185,6 @@ namespace LoadingScreenMod
             }
 
             Trace.Seq("exits", index, mtQueue.Count, countm, countt);
-            // trash.Clear(); trash = null;
         }
 
         void DeserializeMeshObj(Package.Asset asset, byte[] bytes)
@@ -189,6 +194,8 @@ namespace LoadingScreenMod
             using (MemStream stream = new MemStream(bytes, 0))
             using (MemReader reader = new MemReader(stream))
             {
+                Trace.meshWorker -= Profiling.Micros;
+
                 if (DeserializeHeader(reader) != typeof(Mesh))
                 {
                     Util.DebugPrint("Asset error:", asset.fullName, "should be Mesh");
@@ -211,6 +218,7 @@ namespace LoadingScreenMod
 
                 mo = new MeshObj { name = name, vertices = vertices, colors = colors, uv = uv, normals = normals,
                                    tangents = tangents, boneWeights = boneWeights, bindposes = bindposes, triangles = triangles };
+                Trace.meshWorker += Profiling.Micros;
             }
 
             lock (mutex)
@@ -226,6 +234,7 @@ namespace LoadingScreenMod
             using (MemStream stream = new MemStream(bytes, 0))
             using (MemReader reader = new MemReader(stream))
             {
+                Trace.texWorker -= Profiling.Micros;
                 Type t = DeserializeHeader(reader);
 
                 if (t != typeof(Texture2D) && t != typeof(Image))
@@ -237,7 +246,6 @@ namespace LoadingScreenMod
                 string name = reader.ReadString();
                 bool linear = reader.ReadBoolean();
                 int count = reader.ReadInt32();
-                Trace.texImage -= Profiling.Micros;
                 Image image = new Image(reader.ReadBytes(count));
                 byte[] pix = image.GetAllPixels();
                 Trace.texBytes += bytes.Length;
@@ -248,7 +256,7 @@ namespace LoadingScreenMod
 
                 // image.Clear();
                 image = null;
-                Trace.texImage += Profiling.Micros;
+                Trace.texWorker += Profiling.Micros;
             }
 
             lock (mutex)
@@ -289,24 +297,33 @@ namespace LoadingScreenMod
             return asset.GetStream();
         }
 
-        internal Mesh GetMesh(string checksum, Package package, int ind)
+        internal Mesh GetMesh(string checksum, Package package, bool isMain, int ind)
         {
+            Mesh mesh;
             object obj;
             int count, removedMillis;
 
             lock (mutex)
             {
+                if (meshes.TryGetValue(checksum, out mesh))
+                {
+                    Trace.Ind(ind, "Mesh (hit)", checksum);
+                    meshit++;
+                    return mesh;
+                }
+
                 data.TryGetValue(checksum, out obj);
                 removed.TryGetValue(checksum, out removedMillis);
                 count = data.Count;
             }
 
             MeshObj mo = obj as MeshObj;
+            byte[] bytes;
 
             if (mo != null)
             {
-                Trace.meshMicros -= Profiling.Micros;
-                Mesh mesh = new Mesh();
+                Trace.meshMain -= Profiling.Micros;
+                mesh = new Mesh();
                 mesh.name = mo.name;
                 mesh.vertices = mo.vertices;
                 mesh.colors = mo.colors;
@@ -319,75 +336,161 @@ namespace LoadingScreenMod
                 for (int i = 0; i < mo.triangles.Length; i++)
                     mesh.SetTriangles(mo.triangles[i], i);
 
-                Trace.meshMicros += Profiling.Micros;
-                Trace.Ind(ind, "Mesh", mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
-                return mesh;
+                Trace.meshMain += Profiling.Micros;
+                Trace.Ind(ind, "Mesh (obj)", checksum, mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
+                mespre++;
             }
-
-            byte[] bytes = obj as byte[];
-
-            if (bytes != null)
+            else if ((bytes = obj as byte[]) != null)
             {
-                Trace.Seq("MISS MESH OBJ BUT GOT BYTES:  Assets", count, checksum);
-                Trace.Pr("MISS MESH OBJ BUT GOT BYTES:  Assets", count, checksum);
-                using (MemStream stream = new MemStream(bytes, 0))
-                using (PackageReader reader = new MemReader(stream))
-                {
-                    Trace.Ind(ind, "ASSET");
-                    return (Mesh) new AssetDeserializer(package, reader, ind).Deserialize();
-                }
+                Trace.Seq("MISS MESH OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
+                Trace.Pr("MISS MESH OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
+                mesh = AssetDeserializer.Instantiate(package, bytes, checksum, isMain, ind) as Mesh;
+                mespre++;
+            }
+            else
+            {
+                Package.Asset asset = package.FindByChecksum(checksum);
+                Trace.Seq("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                Trace.Pr("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                mesh = AssetDeserializer.Instantiate(asset, isMain, ind) as Mesh;
+                mesload++;
             }
 
-            Package.Asset asset = package.FindByChecksum(checksum);
-            Trace.Seq("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
-            Trace.Pr("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
-            return AssetDeserializer.Instantiate<Mesh>(asset, ind);
+            if (shareMeshes)
+                lock (mutex)
+                {
+                    meshes[checksum] = mesh;
+                    data.Remove(checksum);
+                }
+
+            return mesh;
         }
 
-        internal Texture2D GetTexture(string checksum, Package package, int ind)
+        internal Texture2D GetTexture(string checksum, Package package, bool isMain, int ind)
         {
+            Texture2D texture2D;
             object obj;
             int count, removedMillis;
 
             lock (mutex)
             {
+                if (isMain && texturesMain.TryGetValue(checksum, out texture2D))
+                {
+                    Trace.Ind(ind, "Texture (hit)", checksum);
+                    texhit++;
+                    return texture2D;
+                }
+                else if (!isMain && texturesLod.TryGetValue(checksum, out texture2D))
+                {
+                    Trace.Ind(ind, "Texture (copy)", checksum);
+                    texpre++;
+                    return UnityEngine.Object.Instantiate(texture2D);
+                }
+
                 data.TryGetValue(checksum, out obj);
                 removed.TryGetValue(checksum, out removedMillis);
                 count = data.Count;
             }
 
             TextObj to = obj as TextObj;
+            byte[] bytes;
 
             if (to != null)
             {
-                Trace.texCreate -= Profiling.Micros;
-                Texture2D texture2D = new Texture2D(to.width, to.height, to.format, to.mipmap, to.linear);
+                Trace.texMain -= Profiling.Micros;
+                texture2D = new Texture2D(to.width, to.height, to.format, to.mipmap, to.linear);
                 texture2D.LoadRawTextureData(to.pixels);
                 texture2D.Apply();
                 texture2D.name = to.name;
-                Trace.texCreate += Profiling.Micros;
-                Trace.Ind(ind, "Texture2D", texture2D.name, texture2D.width, "x", texture2D.height);
-                return texture2D;
+                Trace.texMain += Profiling.Micros;
+                Trace.Ind(ind, "Texture (obj)", checksum, texture2D.name, texture2D.width, "x", texture2D.height);
+                texpre++;
+            }
+            else if ((bytes = obj as byte[]) != null)
+            {
+                Trace.Seq("MISS TEXT OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
+                Trace.Pr("MISS TEXT OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
+                texture2D = AssetDeserializer.Instantiate(package, bytes, checksum, isMain, ind) as Texture2D;
+                texpre++;
+            }
+            else
+            {
+                Package.Asset asset = package.FindByChecksum(checksum);
+                Trace.Seq("MISS TEXT OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                Trace.Pr("MISS TEXT OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                texture2D = AssetDeserializer.Instantiate(asset, isMain, ind) as Texture2D;
+                texload++;
+            }
+
+            if (shareTextures)
+                lock (mutex)
+                {
+                    if (isMain)
+                        texturesMain[checksum] = texture2D;
+                    else
+                        texturesLod[checksum] = texture2D;
+
+                    data.Remove(checksum);
+                }
+
+            return texture2D;
+        }
+
+        internal Material GetMaterial(string checksum, Package package, bool isMain, int ind)
+        {
+            MaterialData mat;
+            object obj;
+            int count, removedMillis;
+
+            lock (mutex)
+            {
+                if (isMain && materialsMain.TryGetValue(checksum, out mat))
+                {
+                    Trace.Ind(ind, "Material (hit)", checksum);
+                    mathit++;
+                    texhit += mat.textureCount;
+                    return mat.material;
+                }
+                else if (!isMain && materialsLod.TryGetValue(checksum, out mat))
+                {
+                    Trace.Ind(ind, "Material (copy)", checksum);
+                    matpre++;
+                    return new Material(mat.material);
+                }
+
+                data.TryGetValue(checksum, out obj);
+                removed.TryGetValue(checksum, out removedMillis);
+                count = data.Count;
             }
 
             byte[] bytes = obj as byte[];
 
             if (bytes != null)
             {
-                Trace.Seq("MISS TEXT OBJ BUT GOT BYTES:  Assets", count, checksum);
-                Trace.Pr("MISS TEXT OBJ BUT GOT BYTES:  Assets", count, checksum);
-                using (MemStream stream = new MemStream(bytes, 0))
-                using (PackageReader reader = new MemReader(stream))
-                {
-                    Trace.Ind(ind, "ASSET");
-                    return (Texture2D) new AssetDeserializer(package, reader, ind).Deserialize();
-                }
+                mat = (MaterialData) AssetDeserializer.Instantiate(package, bytes, checksum, isMain, ind);
+                matpre++;
+            }
+            else
+            {
+                Package.Asset asset = package.FindByChecksum(checksum);
+                Trace.Seq("MISS MATERIAL BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                Trace.Pr("MISS MATERIAL BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                mat = (MaterialData) AssetDeserializer.Instantiate(asset, isMain, ind);
+                matload++;
             }
 
-            Package.Asset asset = package.FindByChecksum(checksum);
-            Trace.Seq("MISS TEXT OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
-            Trace.Pr("MISS TEXT OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
-            return AssetDeserializer.Instantiate<Texture2D>(asset, ind);
+            if (shareMaterials)
+                lock (mutex)
+                {
+                    if (isMain)
+                        materialsMain[checksum] = mat;
+                    else
+                        materialsLod[checksum] = mat;
+
+                    data.Remove(checksum);
+                }
+
+            return mat.material;
         }
 
         internal PackageReader GetReader(Stream stream)
@@ -401,11 +504,13 @@ namespace LoadingScreenMod
         readonly Action<Package, GameObject, PackageReader> DeserializeComponent =
             Util.CreateStaticAction<Package, GameObject, PackageReader>(typeof(PackageDeserializer), "DeserializeComponent");
 
-        int texhit, mathit, meshit, texload, matload, mesload, textureCount;
-        Dictionary<string, Texture> textures = new Dictionary<string, Texture>();
-        Dictionary<string, MaterialData> materials = new Dictionary<string, MaterialData>();
-        Dictionary<string, Mesh> meshes = new Dictionary<string, Mesh>();
-        bool shareTextures, shareMaterials, shareMeshes, isMain;
+        int texhit, texpre, texload, mathit, matpre, matload, meshit, mespre, mesload;
+        Dictionary<string, Texture2D> texturesMain = new Dictionary<string, Texture2D>(128);
+        Dictionary<string, Texture2D> texturesLod = new Dictionary<string, Texture2D>(128);
+        Dictionary<string, MaterialData> materialsMain = new Dictionary<string, MaterialData>(64);
+        Dictionary<string, MaterialData> materialsLod = new Dictionary<string, MaterialData>(64);
+        Dictionary<string, Mesh> meshes = new Dictionary<string, Mesh>(128);
+        bool shareTextures, shareMaterials, shareMeshes;
 
         internal Sharing()
         {
@@ -421,7 +526,8 @@ namespace LoadingScreenMod
 
         internal override void Dispose()
         {
-            Util.DebugPrint("Textures / Materials / Meshes loaded:", texload, "/", matload, "/", mesload, "referenced:", texhit, "/", mathit, "/", meshit);
+            Util.DebugPrint("Textures / Materials / Meshes shared:", texhit, "/", mathit, "/", meshit, "pre-loaded:", texpre, "/", matpre, "/", mespre,
+                            "loaded:", texload, "/", matload, "/", mesload);
             Revert();
             base.Dispose();
 
@@ -429,167 +535,24 @@ namespace LoadingScreenMod
             {
                 data.Clear(); removed.Clear();
                 data = null; removed = null;
+                texturesMain.Clear(); texturesLod.Clear(); materialsMain.Clear(); materialsLod.Clear();  meshes.Clear();
+                texturesMain = null; texturesLod = null; materialsMain = null; materialsLod = null; meshes = null; instance = null;
             }
-
-            textures.Clear(); materials.Clear(); meshes.Clear();
-            textures = null; materials = null; meshes = null; instance = null;
         }
 
         internal void Start(Package.Asset[] queue)
         {
+            assetsQueue = queue;
             shareTextures = Settings.settings.shareTextures;
             shareMaterials = Settings.settings.shareMaterials;
             shareMeshes = Settings.settings.shareMeshes;
-            isMain = false;
 
-            assetsQueue = queue;
             new Thread(LoadWorker).Start();
             new Thread(MTWorker).Start();
         }
-
-        internal static UnityEngine.Object DeserializeGameObject(Package package, PackageReader reader)
-        {
-            string name = reader.ReadString();
-            GameObject gameObject = new GameObject(name);
-            gameObject.tag = reader.ReadString();
-            gameObject.layer = reader.ReadInt32();
-            gameObject.SetActive(reader.ReadBoolean());
-            int num = reader.ReadInt32();
-            Sharing.instance.isMain = num > 3;
-
-            for (int i = 0; i < num; i++)
-                Sharing.instance.DeserializeComponent(package, gameObject, reader);
-
-            return gameObject;
-        }
-
-        internal static UnityEngine.Object DeserializeMaterial(Package package, PackageReader reader)
-        {
-            string materialName = reader.ReadString();
-            string shaderName = reader.ReadString();
-            Material material = new Material(Shader.Find(shaderName));
-            material.name = materialName;
-            int numProperties = reader.ReadInt32();
-            bool share = Sharing.instance.shareTextures && Sharing.instance.isMain;
-
-            for (int i = 0; i < numProperties; i++)
-            {
-                int kind = reader.ReadInt32();
-
-                if (kind == 0)
-                {
-                    string s = reader.ReadString();
-                    material.SetColor(s, reader.ReadColor());
-                }
-                else if (kind == 1)
-                {
-                    string s = reader.ReadString();
-                    material.SetVector(s, reader.ReadVector4());
-                }
-                else if (kind == 2)
-                {
-                    string s = reader.ReadString();
-                    material.SetFloat(s, reader.ReadSingle());
-                }
-                else if (kind == 3)
-                {
-                    string propertyName = reader.ReadString();
-
-                    if (!reader.ReadBoolean())
-                    {
-                        string checksum = reader.ReadString();
-                        Texture texture;
-
-                        if (share && Sharing.instance.textures.TryGetValue(checksum, out texture))
-                            Sharing.instance.texhit++;
-                        else
-                        {
-                            texture = PackageManager.FindAssetByChecksum(checksum).Instantiate<Texture>();
-                            Sharing.instance.texload++;
-
-                            if (share)
-                                Sharing.instance.textures[checksum] = texture;
-                        }
-
-                        material.SetTexture(propertyName, texture);
-                        Sharing.instance.textureCount++;
-                    }
-                    else
-                        material.SetTexture(propertyName, null);
-                }
-            }
-
-            return material;
-        }
-
-        internal static void DeserializeMeshRenderer(Package package, MeshRenderer renderer, PackageReader reader)
-        {
-            int count = reader.ReadInt32();
-            Material[] materials = new Material[count];
-            bool share = Sharing.instance.shareMaterials && Sharing.instance.isMain;
-
-            for (int i = 0; i < count; i++)
-            {
-                string checksum = reader.ReadString();
-                Material material;
-                MaterialData mat;
-
-                if (share && Sharing.instance.materials.TryGetValue(checksum, out mat))
-                {
-                    material = mat.material;
-                    Sharing.instance.mathit++;
-                    Sharing.instance.texhit += mat.textureCount;
-                }
-                else
-                {
-                    Sharing.instance.textureCount = 0;
-                    material = PackageManager.FindAssetByChecksum(checksum).Instantiate<Material>();
-                    Sharing.instance.matload++;
-
-                    if (share)
-                        Sharing.instance.materials[checksum] = new MaterialData(material, Sharing.instance.textureCount);
-                }
-
-                materials[i] = material;
-            }
-
-            renderer.sharedMaterials = materials;
-        }
-
-        internal static void DeserializeMeshFilter(Package package, MeshFilter meshFilter, PackageReader reader)
-        {
-            bool share = Sharing.instance.shareMeshes;
-            string checksum = reader.ReadString();
-            Mesh mesh;
-
-            if (share && Sharing.instance.meshes.TryGetValue(checksum, out mesh))
-                Sharing.instance.meshit++;
-            else
-            {
-                mesh = PackageManager.FindAssetByChecksum(checksum).Instantiate<Mesh>();
-                Sharing.instance.mesload++;
-
-                if (share)
-                    Sharing.instance.meshes[checksum] = mesh;
-            }
-
-            meshFilter.sharedMesh = mesh;
-        }
     }
 
-    struct MaterialData
-    {
-        internal Material material;
-        internal int textureCount;
-
-        internal MaterialData(Material m, int count)
-        {
-            this.material = m;
-            this.textureCount = count;
-        }
-    }
-
-    class MeshObj
+    sealed class MeshObj
     {
         internal string name;
         internal Vector3[] vertices;
@@ -602,7 +565,7 @@ namespace LoadingScreenMod
         internal int[][] triangles;
     }
 
-    class TextObj
+    sealed class TextObj
     {
         internal string name;
         internal byte[] pixels;
@@ -611,5 +574,37 @@ namespace LoadingScreenMod
         internal TextureFormat format;
         internal bool mipmap;
         internal bool linear;
+    }
+
+    internal sealed class ImageFix : DetourUtility
+    {
+        public static ImageFix instance;
+
+        // Delegates can be used to call non-public methods. Delegates have about the same performance as regular method calls.
+        static readonly Action<Image> Dispoze;
+
+        static ImageFix()
+        {
+            Dispoze = Util.CreateAction<Image>("Dispose");
+        }
+
+        internal ImageFix()
+        {
+            instance = this;
+            init(typeof(Image), "Finalize", "Fnalize");
+        }
+
+        internal override void Dispose()
+        {
+            Revert();
+            base.Dispose();
+            instance = null;
+        }
+
+        static void Fnalize(Image image)
+        {
+            Dispoze(image);
+            Trace.imgFinalizes++;
+        }
     }
 }

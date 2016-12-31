@@ -9,7 +9,7 @@ namespace LoadingScreenMod
 {
     internal sealed class Tester
     {
-        const string dir = @"c:\testassets3\";
+        const string dir = @"g:\testassets4\";
         internal static Tester instance;
         Package[] packages;
         internal int index;
@@ -17,7 +17,7 @@ namespace LoadingScreenMod
         internal void Test()
         {
             instance = this;
-            Trace.Pr("No texture backend. Loading from", dir);
+            Trace.Pr("Loading from", dir);
             Trace.Newline();
             packages = CreatePackages(dir);
             PrintPackages();
@@ -44,9 +44,9 @@ namespace LoadingScreenMod
                 Sharing.instance.WaitForWorkers();
                 Package.Asset asset = queue[index];
                 Trace.Seq("starts asset   ", index, asset.fullName);
-                GameObject go = AssetDeserializer.Instantiate<GameObject>(asset);
+                GameObject go = AssetDeserializer.Instantiate(asset) as GameObject;
                 go.name = asset.fullName;
-                // Initialize(go);
+                Initialize(go);
                 Trace.Seq("completed asset", index, asset.fullName);
             }
 
@@ -81,7 +81,7 @@ namespace LoadingScreenMod
         {
             // Package[] packages = PackageManager.allPackages.ToArray();
             Array.Sort(packages, (a, b) => string.Compare(a.packageName, b.packageName));
-            List<CustomAssetMetaData> list = new List<CustomAssetMetaData>(5);
+            List<CustomAssetMetaData> list = new List<CustomAssetMetaData>(6);
 
             // [0] propvar - prop  [1] prop & tree  [2] sub-building - building  [3] building  [4] trailer - vehicle  [5] vehicle
             List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4),
@@ -92,7 +92,7 @@ namespace LoadingScreenMod
                 list.Clear();
 
                 foreach (Package.Asset a in p.FilterAssets(UserAssetType.CustomAssetMetaData))
-                    list.Add(AssetDeserializer.Instantiate<CustomAssetMetaData>(a));
+                    list.Add(AssetDeserializer.Instantiate(a) as CustomAssetMetaData);
 
                 if (list.Count == 1) // the common case
                 {

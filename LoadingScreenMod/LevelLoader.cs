@@ -245,6 +245,7 @@ namespace LoadingScreenMod
                     yield return null;
                 }
 
+                new ImageFix().Deploy();
                 // LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "LoadCustomContent")); // IL_B65
                 LoadingManager.instance.QueueLoadingAction(AssetLoader.instance.LoadCustomContent());
                 RenderManager.Managers_CheckReferences();
@@ -327,6 +328,7 @@ namespace LoadingScreenMod
                 Singleton<TelemetryManager>.instance.StartSession(asset?.name, playerScene, mode, SimulationManager.instance.m_metaData);
 
             PrefabLoader.instance?.Dispose();
+            ImageFix.instance?.Dispose();
         }
 
         /// <summary>

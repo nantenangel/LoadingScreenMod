@@ -64,7 +64,7 @@
     <Compile Include="MemoryAPI.cs" />
     <Compile Include="MemStream.cs" />
     <Compile Include="Mod.cs" />
-    <Compile Include="Bugfix.cs" />
+    <Compile Include="PackageManagerFix.cs" />
     <Compile Include="PrefabLoader.cs" />
     <Compile Include="Profiling.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
