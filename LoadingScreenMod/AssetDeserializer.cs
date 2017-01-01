@@ -69,13 +69,9 @@ namespace LoadingScreenMod
 
         object DeserializeSingleObject(Type type, Type expectedType)
         {
-            // Make the common case fast.
-            //if (type == typeof(float))
-            //    return reader.ReadSingle();
-            //if (type == typeof(Vector2))
-            //    return reader.ReadVector2();
-
-            object obj = CustomDeserialize(type);
+            Trace.customDeserialize -= Profiling.Micros;
+            object obj = CustomDeserializer.CustomDeserialize(package, type, reader);
+            Trace.customDeserialize += Profiling.Micros;
 
             if (obj != null)
                 return obj;
@@ -92,7 +88,9 @@ namespace LoadingScreenMod
 
         UnityEngine.Object DeserializeScriptableObject(Type type)
         {
-            object obj = CustomDeserialize(type);
+            Trace.customDeserialize -= Profiling.Micros;
+            object obj = CustomDeserializer.CustomDeserialize(package, type, reader);
+            Trace.customDeserialize += Profiling.Micros;
 
             if (obj != null)
                 return (UnityEngine.Object) obj;
@@ -129,7 +127,7 @@ namespace LoadingScreenMod
                         int n = reader.ReadInt32();
                         Type elementType = t.GetElementType();
 
-                        // Make the common case fast.
+                        // Make the common case fast, avoid boxing.
                         if (elementType == typeof(float))
                         {
                             float[] array = new float[n]; value = array;
@@ -284,7 +282,9 @@ namespace LoadingScreenMod
         object DeserializeObject(Type type)
         {
             Trace.Ind(ind, "object", type.Name);
-            object obj = CustomDeserialize(type);
+            Trace.customDeserialize -= Profiling.Micros;
+            object obj = CustomDeserializer.CustomDeserialize(package, type, reader);
+            Trace.customDeserialize += Profiling.Micros;
 
             if (obj != null)
                 return obj;
@@ -408,14 +408,6 @@ namespace LoadingScreenMod
             CODebugBase<InternalLogChannel>.Warn(InternalLogChannel.Packer, string.Concat("Unkown member detected of type ", fieldType.FullName, " in ", classType.FullName,
                 ". Attempting to resolve from '", member, "' to '", text, "'"));
             return text;
-        }
-
-        object CustomDeserialize(Type type)
-        {
-            if (type == typeof(Package.Asset))
-                return FindAsset(reader.ReadString());
-
-            return PackageHelper.CustomDeserialize(package, type, reader);
         }
     }
 

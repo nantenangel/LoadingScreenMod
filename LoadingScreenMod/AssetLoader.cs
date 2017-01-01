@@ -37,7 +37,7 @@ namespace LoadingScreenMod
 
         public void Setup()
         {
-            new Sharing().Deploy();
+            new Sharing();
 
             if (reportAssets)
                 new AssetReport();
@@ -435,7 +435,7 @@ namespace LoadingScreenMod
                     else
                         notEnabled.Add(asset);
 
-            // Why enabled assets first? Because in duplicate prefab name situations, I want the enabled one to get through.
+            // Why enabled assets first? Because in duplicate name situations, I want the enabled one to get through.
             Package.Asset[] ret = new Package.Asset[enabled.Count + notEnabled.Count];
             enabled.CopyTo(ret);
             notEnabled.CopyTo(ret, enabled.Count);

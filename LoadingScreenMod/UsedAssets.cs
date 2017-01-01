@@ -76,7 +76,7 @@ namespace LoadingScreenMod
         /// <summary>
         /// Dynamic check to find out if at least one asset in the current load chain is used in the city. At this time, only buildings are considered containers.
         /// </summary>
-        bool GotAnyContainer()
+        internal bool GotAnyContainer()
         {
             foreach (string fullName in AssetLoader.instance.stack)
                 if (GotBuilding(fullName))

@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace LoadingScreenMod
 {
-    internal sealed class Sharing : DetourUtility
+    internal sealed class Sharing
     {
         internal static Sharing instance;
 
@@ -456,6 +456,7 @@ namespace LoadingScreenMod
                     Trace.Ind(ind, "Material (copy)", checksum);
                     matpre++;
                     return new Material(mat.material);
+                    // return mat.material; TODO test
                 }
 
                 data.TryGetValue(checksum, out obj);
@@ -515,21 +516,12 @@ namespace LoadingScreenMod
         internal Sharing()
         {
             instance = this;
-
-            // Be quick, or the JIT Compiler will inline calls to this one. It is a small method, less than 32 IL bytes.
-            //init(typeof(PackageDeserializer), "DeserializeMeshFilter");
-            //init(typeof(PackageDeserializer), "DeserializeMaterial");
-            //init(typeof(PackageDeserializer), "DeserializeMeshRenderer");
-            //init(typeof(PackageDeserializer), "DeserializeGameObject");
-            init(typeof(PackageReader), "ReadByteArray", typeof(MemReader), "DreadByteArray");
         }
 
-        internal override void Dispose()
+        internal void Dispose()
         {
             Util.DebugPrint("Textures / Materials / Meshes shared:", texhit, "/", mathit, "/", meshit, "pre-loaded:", texpre, "/", matpre, "/", mespre,
                             "loaded:", texload, "/", matload, "/", mesload);
-            Revert();
-            base.Dispose();
 
             lock (mutex)
             {
@@ -576,22 +568,25 @@ namespace LoadingScreenMod
         internal bool linear;
     }
 
-    internal sealed class ImageFix : DetourUtility
+    // Critical fixes for loading performance.
+    internal sealed class Fixes : DetourUtility
     {
-        public static ImageFix instance;
+        public static Fixes instance;
 
         // Delegates can be used to call non-public methods. Delegates have about the same performance as regular method calls.
         static readonly Action<Image> Dispoze;
 
-        static ImageFix()
+        static Fixes()
         {
             Dispoze = Util.CreateAction<Image>("Dispose");
         }
 
-        internal ImageFix()
+        internal Fixes()
         {
             instance = this;
             init(typeof(Image), "Finalize", "Fnalize");
+            init(typeof(BuildConfig), "ResolveCustomAssetName", typeof(CustomDeserializer), "ResolveCustomAssetName");
+            init(typeof(PackageReader), "ReadByteArray", typeof(MemReader), "DreadByteArray");
         }
 
         internal override void Dispose()

@@ -15,15 +15,7 @@ namespace LoadingScreenMod
         public void OnSettingsUI(UIHelperBase helper) => Settings.OnSettingsUI(helper);
         public void OnLevelUnloading() { }
         public void OnReleased() { }
-
-        public void OnLevelLoaded(LoadMode mode)
-        {
-            if (LevelLoader.instance.activated)
-                Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
-
-            Settings.helper = null;
-            Util.DebugPrint("OnLevelLoaded at", Profiling.Millis);
-        }
+        public void OnLevelLoaded(LoadMode mode) { Util.DebugPrint("OnLevelLoaded at", Profiling.Millis); }
 
         void Create()
         {

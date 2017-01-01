@@ -20,7 +20,7 @@ namespace LoadingScreenMod
         public static LevelLoader instance;
         public string cityName;
         readonly HashSet<string> knownToFail = new HashSet<string>(); // assets that failed or are missing
-        public bool activated, simulationFailed, fastLoad;
+        public bool activated, simulationFailed, fastLoad, skipAny;
 
         internal LevelLoader()
         {
@@ -48,6 +48,7 @@ namespace LoadingScreenMod
             instance.activated = ngs.m_updateMode == SimulationManager.UpdateMode.LoadGame || ngs.m_updateMode == SimulationManager.UpdateMode.NewGameFromMap ||
                 ngs.m_updateMode == SimulationManager.UpdateMode.NewGameFromScenario || Input.GetKey(KeyCode.LeftControl);
             instance.simulationFailed = false;
+            instance.skipAny = Settings.settings.SkipAny;
 
             if (!lm.m_currentlyLoading && !lm.m_applicationQuitting)
             {
@@ -58,6 +59,8 @@ namespace LoadingScreenMod
                 {
                     instance.cityName = asset?.name ?? "NewGame";
                     Profiling.Init();
+                    new CustomDeserializer();
+                    new Fixes().Deploy();
                     new AssetLoader().Setup();
                     new LoadingScreen().Setup();
                 }
@@ -92,6 +95,7 @@ namespace LoadingScreenMod
         public IEnumerator LoadLevelCoroutine(Package.Asset asset, string playerScene, string uiScene, SimulationMetaData ngs)
         {
             string scene;
+            int i;
             yield return null;
 
             LoadingManager.instance.SetSceneProgress(0f);
@@ -137,9 +141,9 @@ namespace LoadingScreenMod
                 {
                     if (Settings.settings.loadUsed)
                     {
-                        int startMillis = Profiling.Millis;
+                        i = Profiling.Millis;
 
-                        while (Profiling.Millis - startMillis < 5000 && !IsSaveDeserialized())
+                        while (Profiling.Millis - i < 5000 && !IsSaveDeserialized())
                             yield return null;
 
                         fastLoad = !AnyMissingAssets();
@@ -199,7 +203,7 @@ namespace LoadingScreenMod
                 KeyValuePair<string, float>[] levels = SetLevels();
                 float currentProgress = 0.10f;
 
-                for (int i = 0; i < levels.Length; i++)
+                for (i = 0; i < levels.Length; i++)
                 {
                     scene = levels[i].Key;
 
@@ -222,9 +226,8 @@ namespace LoadingScreenMod
                     currentProgress = levels[i].Value;
                 }
 
-                if (Settings.settings.SkipAny)
+                if (skipAny)
                 {
-                    yield return null;
                     PrefabLoader.instance?.DestroySkipped();
                     yield return null;
 
@@ -236,16 +239,8 @@ namespace LoadingScreenMod
                     {
                         UnityEngine.Debug.LogException(e);
                     }
-
-                    yield return null;
-                    GC.Collect();
-                    GC.WaitForPendingFinalizers();
-                    GC.Collect();
-                    GC.WaitForPendingFinalizers();
-                    yield return null;
                 }
 
-                new ImageFix().Deploy();
                 // LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "LoadCustomContent")); // IL_B65
                 LoadingManager.instance.QueueLoadingAction(AssetLoader.instance.LoadCustomContent());
                 RenderManager.Managers_CheckReferences();
@@ -327,8 +322,24 @@ namespace LoadingScreenMod
             if (Singleton<TelemetryManager>.exists)
                 Singleton<TelemetryManager>.instance.StartSession(asset?.name, playerScene, mode, SimulationManager.instance.m_metaData);
 
-            PrefabLoader.instance?.Dispose();
-            ImageFix.instance?.Dispose();
+            if (skipAny)
+                PrefabLoader.instance?.Dispose();
+
+            LoadingManager.instance.QueueLoadingAction(LoadingComplete());
+            Util.DebugPrint("Waiting to complete", Profiling.Millis);
+        }
+
+        // Loading complete.
+        public IEnumerator LoadingComplete()
+        {
+            Util.DebugPrint("Loading complete", Profiling.Millis);
+            Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
+            AssetLoader.instance?.Dispose();
+            Fixes.instance?.Dispose();
+            CustomDeserializer.instance?.Dispose();
+            Settings.helper = null;
+            Profiling.Stop();
+            yield return null;
         }
 
         /// <summary>
@@ -336,8 +347,6 @@ namespace LoadingScreenMod
         /// </summary>
         KeyValuePair<string, float>[] SetLevels()
         {
-            bool skipAny = Settings.settings.SkipAny;
-
             if (skipAny)
                 new PrefabLoader().Deploy();
 
