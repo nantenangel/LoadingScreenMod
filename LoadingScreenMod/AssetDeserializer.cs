@@ -21,7 +21,7 @@ namespace LoadingScreenMod
             using (Stream stream = Sharing.instance.GetStream(asset))
             using (PackageReader reader = Sharing.instance.GetReader(stream))
             {
-                Trace.Ind(ind, "ASSET", ind == 0 ? Tester.instance.index + ":" : string.Empty, asset.fullName);
+                Trace.Ind(ind, "ASSET", asset.fullName);
                 return new AssetDeserializer(asset.package, reader, asset.checksum, isMain, ind).Deserialize();
             }
         }
@@ -31,7 +31,7 @@ namespace LoadingScreenMod
             using (MemStream stream = new MemStream(bytes, 0))
             using (PackageReader reader = new MemReader(stream))
             {
-                Trace.Ind(ind, "ASSET", ind == 0 ? Tester.instance.index + ":" : string.Empty, package.packageName);
+                Trace.Ind(ind, "ASSET", package.packageName);
                 return new AssetDeserializer(package, reader, checksum, isMain, ind).Deserialize();
             }
         }

@@ -291,19 +291,19 @@ namespace LoadingScreenMod
 
         static bool Load(ref string fullName, Package.Asset data)
         {
-            //if (data != null)
-            //    try
-            //    {
-            //        fullName = data.fullName;
-            //        AssetLoader.instance.LoadImpl(fullName, data);
-            //        return true;
-            //    }
-            //    catch (Exception e)
-            //    {
-            //        AssetLoader.instance.AssetFailed(fullName, e);
-            //    }
-            //else
-            //    AssetLoader.instance.NotFound(fullName);
+            if (data != null)
+                try
+                {
+                    fullName = data.fullName;
+                    AssetLoader.instance.LoadImpl(data);
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    AssetLoader.instance.AssetFailed(fullName, e);
+                }
+            else
+                AssetLoader.instance.NotFound(fullName);
 
             return false;
         }

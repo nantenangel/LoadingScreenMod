@@ -12,7 +12,6 @@ namespace LoadingScreenMod
         const string dir = @"c:\testassets3\";
         internal static Tester instance;
         Package[] packages;
-        internal int index;
 
         internal void Test()
         {
@@ -39,7 +38,7 @@ namespace LoadingScreenMod
             Trace.Newline();
             Trace.Pr("Assets:");
 
-            for (index = 0; index < queue.Length; index++)
+            for (int index = 0; index < queue.Length; index++)
             {
                 Sharing.instance.WaitForWorkers();
                 Package.Asset asset = queue[index];
@@ -65,17 +64,6 @@ namespace LoadingScreenMod
 
             return list.ToArray();
         }
-
-        //void LoadPackages()
-        //{
-        //    Trace.Newline();
-        //    Trace.Ind(0, "Loading packages");
-
-        //    foreach (Package p in packages)
-        //        Sharing.instance.LoadPackage(p);
-
-        //    Trace.Ind(0, "Loading finished");
-        //}
 
         Package.Asset[] GetLoadQueue()
         {
