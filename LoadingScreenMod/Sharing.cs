@@ -95,11 +95,14 @@ namespace LoadingScreenMod
 
         byte[] LoadAsset(FileStream fs, Package.Asset asset)
         {
+            int remaining = asset.size;
+
+            if (remaining > 222444000 || remaining < 0)
+                throw new IOException("Asset " + asset.fullName + " size: " + remaining);
+
             fs.Position = asset.offset;
-            int len = asset.size;
-            byte[] bytes = new byte[len];
+            byte[] bytes = new byte[remaining];
             int got = 0;
-            int remaining = len;
 
             while (remaining > 0)
             {
@@ -119,13 +122,21 @@ namespace LoadingScreenMod
             Thread.CurrentThread.Name = "LoadWorker";
             Package.Asset[] q = assetsQueue;
             Package prevPackage = null;
+            Console.WriteLine("LoadWorker starts!");
 
             for (int index = 0; index < q.Length; index++)
             {
                 Package p = q[index].package;
 
                 if (!ReferenceEquals(p, prevPackage))
-                    LoadPackage(p, index);
+                    try
+                    {
+                        LoadPackage(p, index);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("[LSMT] LoadWorker: " + e.Message);
+                    }
 
                 mtQueue.Enqueue(default(KeyValuePair<Package.Asset, byte[]>)); // end-of-asset marker
                 loadAhead.Increment();
@@ -159,28 +170,36 @@ namespace LoadingScreenMod
             Thread.CurrentThread.Name = "MTWorker A";
             int index = 0, countm = 0, countt = 0;
             KeyValuePair<Package.Asset, byte[]> elem;
+            Console.WriteLine("MTWorker A starts!");
 
             while (mtQueue.Dequeue(out elem))
             {
-                if (elem.Key == null)
+                try
                 {
-                    mtAhead.Increment();
-                    loadAhead.Decrement();
-                    Trace.Seq("done with", index++);
+                    if (elem.Key == null)
+                    {
+                        mtAhead.Increment();
+                        loadAhead.Decrement();
+                        Trace.Seq("done with", index++);
+                    }
+                    else if (elem.Key.type == Package.AssetType.Texture)
+                    {
+                        Trace.Seq("starts text   ", index, elem.Key.fullName);
+                        DeserializeTextObj(elem.Key, elem.Value);
+                        countt++;
+                        Trace.Seq("completed text", index, elem.Key.fullName);
+                    }
+                    else if (elem.Key.type == Package.AssetType.StaticMesh)
+                    {
+                        Trace.Seq("starts mesh   ", index, elem.Key.fullName);
+                        DeserializeMeshObj(elem.Key, elem.Value);
+                        countm++;
+                        Trace.Seq("completed mesh", index, elem.Key.fullName);
+                    }
                 }
-                else if (elem.Key.type == Package.AssetType.Texture)
+                catch (Exception e)
                 {
-                    Trace.Seq("starts text   ", index, elem.Key.fullName);
-                    DeserializeTextObj(elem.Key, elem.Value);
-                    countt++;
-                    Trace.Seq("completed text", index, elem.Key.fullName);
-                }
-                else if (elem.Key.type == Package.AssetType.StaticMesh)
-                {
-                    Trace.Seq("starts mesh   ", index, elem.Key.fullName);
-                    DeserializeMeshObj(elem.Key, elem.Value);
-                    countm++;
-                    Trace.Seq("completed mesh", index, elem.Key.fullName);
+                    Console.WriteLine("[LSMT] MTWorker: " + e.Message);
                 }
             }
 
@@ -197,10 +216,7 @@ namespace LoadingScreenMod
                 Trace.meshWorker -= Profiling.Micros;
 
                 if (DeserializeHeader(reader) != typeof(Mesh))
-                {
-                    Util.DebugPrint("Asset error:", asset.fullName, "should be Mesh");
-                    return;
-                }
+                    throw new IOException("Asset " + asset.fullName + " should be Mesh");
 
                 string name = reader.ReadString();
                 Vector3[] vertices = reader.ReadVector3Array();
@@ -238,10 +254,7 @@ namespace LoadingScreenMod
                 Type t = DeserializeHeader(reader);
 
                 if (t != typeof(Texture2D) && t != typeof(Image))
-                {
-                    Util.DebugPrint("Asset error:", asset.fullName, "should be Texture2D or Image");
-                    return;
-                }
+                    throw new IOException("Asset " + asset.fullName + " should be Texture2D or Image");
 
                 string name = reader.ReadString();
                 bool linear = reader.ReadBoolean();
@@ -254,7 +267,7 @@ namespace LoadingScreenMod
                 to = new TextObj { name = name, pixels = pix, width = image.width, height = image.height,
                                    format = image.format, mipmap = image.mipmapCount > 1, linear = linear };
 
-                // image.Clear();
+                // image.Clear(); TODO test
                 image = null;
                 Trace.texWorker += Profiling.Micros;
             }

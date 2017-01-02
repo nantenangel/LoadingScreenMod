@@ -13,7 +13,7 @@ namespace LoadingScreenMod
     {
         public static void DebugPrint(params object[] args)
         {
-            string s = string.Format("[LoadingScreen] {0}", " ".OnJoin(args));
+            string s = string.Format("[LSMT] {0}", " ".OnJoin(args));
             Debug.Log(s);
         }
 

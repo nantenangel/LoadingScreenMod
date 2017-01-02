@@ -218,7 +218,7 @@ namespace LoadingScreenMod
             if (inst.animationLoaded)
             {
                 Quaternion q = Quaternion.AngleAxis(inst.timer * rotationSpeed, Vector3.back);
-                inst.animationMaterial.color = new Color(0.3f, 0.6f, 1f, 1f);
+                inst.animationMaterial.color = new Color(1.0f, 0.5f, 0.3f, 1f);
                 Mesh amesh = inst.animationMesh;
 
                 if (inst.animationMaterial.SetPass(0))
@@ -234,7 +234,7 @@ namespace LoadingScreenMod
                 s.x *= 0.9875f; s.y *= 0.8f;
                 pos.x -= s.x * (1f - inst.progress) * 0.5f;
                 s.x *= inst.progress;
-                inst.barFGMaterial.color = new Color(1f, 1f, 1f, 1f);
+                inst.barFGMaterial.color = new Color(1f, 0.5f, 0.3f, 1f);
 
                 if (inst.barFGMaterial.SetPass(0))
                     Graphics.DrawMeshNow(amesh, Matrix4x4.TRS(pos, Quaternion.identity, s));

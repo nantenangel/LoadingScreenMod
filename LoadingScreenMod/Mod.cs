@@ -1,12 +1,11 @@
 ﻿using ICities;
-using ColossalFramework;
 
 namespace LoadingScreenMod
 {
     public sealed class Mod : IUserMod, ILoadingExtension
     {
         static bool created = false;
-        public string Name => "Loading Screen Mod";
+        public string Name => "Loading Screen Mod [Test]";
         public string Description => "New loading options";
 
         public void OnEnabled() => Create();

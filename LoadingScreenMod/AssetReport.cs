@@ -197,12 +197,12 @@ namespace LoadingScreenMod
                         foreach (string fullName in set)
                         {
                             s = string.Concat(s, " ", Ref(fullName));
-                            fromWorkshop = fromWorkshop || AssetLoader.IsWorkshopPackage(fullName, out id);
+                            fromWorkshop = fromWorkshop || IsWorkshopPackage(fullName, out id);
                         }
 
-                        if (fromWorkshop && !AssetLoader.IsWorkshopPackage(key, out id))
+                        if (fromWorkshop && !IsWorkshopPackage(key, out id))
                         {
-                            if (AssetLoader.IsPrivatePackage(key))
+                            if (IsPrivatePackage(key))
                                 s = string.Concat(s, " <b>Workshop asset requires private content, seems like asset bug?</b>");
                             else if (key.EndsWith("_Data"))
                                 s = string.Concat(s, " <b>Probably a Workshop prop or tree but no link is available</b>");
@@ -225,10 +225,41 @@ namespace LoadingScreenMod
         {
             ulong id;
 
-            if (AssetLoader.IsWorkshopPackage(fullName, out id))
+            if (IsWorkshopPackage(fullName, out id))
                 return string.Concat(steamid, id.ToString(), "\">", fullName, "</a>");
             else
                 return fullName;
+        }
+
+        static bool IsWorkshopPackage(string fullName, out ulong id)
+        {
+            int j = fullName.IndexOf('.');
+
+            if (j <= 0 || j >= fullName.Length - 1)
+            {
+                id = 0;
+                return false;
+            }
+
+            string p = fullName.Substring(0, j);
+            return ulong.TryParse(p, out id) && id > 999999;
+        }
+
+        static bool IsPrivatePackage(string fullName)
+        {
+            ulong id;
+
+            // Private: a local asset created by the player (not from the workshop).
+            // My rationale is the following:
+            // 43453453.Name -> Workshop
+            // Name.Name     -> Private
+            // Name          -> Either an old-format (early 2015) reference, or something from DLC/Deluxe packs.
+            //                  If loading is not successful then cannot tell for sure, assumed DLC/Deluxe when reported as not found.
+
+            if (IsWorkshopPackage(fullName, out id))
+                return false;
+            else
+                return fullName.IndexOf('.') >= 0;
         }
     }
 }

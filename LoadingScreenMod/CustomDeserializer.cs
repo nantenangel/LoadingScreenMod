@@ -19,7 +19,7 @@ namespace LoadingScreenMod
             get
             {
                 if (instance.assets == null)
-                    instance.assets = AssetLoader.FilterAssets(Package.AssetType.Object);
+                    instance.assets = FilterAssets(Package.AssetType.Object);
 
                 return instance.assets;
             }
@@ -326,6 +326,25 @@ namespace LoadingScreenMod
             }
 
             return fullName;
+        }
+
+        static Package.Asset[] FilterAssets(Package.AssetType assetType)
+        {
+            List<Package.Asset> enabled = new List<Package.Asset>(64), notEnabled = new List<Package.Asset>(64);
+
+            foreach (Package.Asset asset in PackageManager.FilterAssets(assetType))
+                if (asset != null)
+                    if (asset.isEnabled)
+                        enabled.Add(asset);
+                    else
+                        notEnabled.Add(asset);
+
+            // Why enabled assets first? Because in duplicate name situations, I want the enabled one to get through.
+            Package.Asset[] ret = new Package.Asset[enabled.Count + notEnabled.Count];
+            enabled.CopyTo(ret);
+            notEnabled.CopyTo(ret, enabled.Count);
+            enabled.Clear(); notEnabled.Clear();
+            return ret;
         }
     }
 

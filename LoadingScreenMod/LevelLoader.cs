@@ -57,6 +57,11 @@ namespace LoadingScreenMod
 
                 if (instance.activated)
                 {
+                    Util.DebugPrint("Options:", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures, Settings.settings.shareMaterials,
+                        Settings.settings.shareMeshes, Settings.settings.reportAssets, Settings.settings.skipResLo, Settings.settings.skipResHi, Settings.settings.skipComLo,
+                        Settings.settings.skipComHi, Settings.settings.skipIndGen, Settings.settings.skipIndSpe, Settings.settings.skipComSpe, Settings.settings.skipOffice,
+                        Settings.settings.skipThese, Settings.settings.applyToEuropean);
+
                     instance.cityName = asset?.name ?? "NewGame";
                     Profiling.Init();
                     new CustomDeserializer();
@@ -326,13 +331,13 @@ namespace LoadingScreenMod
                 PrefabLoader.instance?.Dispose();
 
             LoadingManager.instance.QueueLoadingAction(LoadingComplete());
-            Util.DebugPrint("Waiting to complete", Profiling.Millis);
+            Util.DebugPrint("Waiting to complete at", Profiling.Millis);
         }
 
         // Loading complete.
         public IEnumerator LoadingComplete()
         {
-            Util.DebugPrint("Loading complete", Profiling.Millis);
+            Util.DebugPrint("Loading complete at", Profiling.Millis);
             Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
             AssetLoader.instance?.Dispose();
             Fixes.instance?.Dispose();

@@ -22,7 +22,7 @@ namespace LoadingScreenMod
         int propCount, treeCount, buildingCount, vehicleCount, lastMillis;
         readonly bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, reportAssets = Settings.settings.reportAssets;
         public bool hasStarted, hasFinished;
-        internal const int yieldInterval = 200;
+        internal const int yieldInterval = 300;
         internal HashSet<string> Props => loadedProps;
         internal HashSet<string> Trees => loadedTrees;
         internal HashSet<string> Buildings => loadedBuildings;
@@ -355,68 +355,77 @@ namespace LoadingScreenMod
 
             foreach (Package p in packages)
             {
-                assets.Clear();
-                assets.AddRange(p.FilterAssets(UserAssetType.CustomAssetMetaData));
-                bool want = loadEnabled && IsEnabled(p), inStyle = false;
+                CustomAssetMetaData meta = null;
 
-                if (assets.Count == 1) // the common case
+                try
                 {
-                    // Fast exit.
-                    if (!want && !(inStyle = styleBuildings.Contains(assets[0].fullName)) && !(loadUsed && UsedAssets.instance.GotPackage(p.packageName)))
-                        continue;
+                    assets.Clear();
+                    assets.AddRange(p.FilterAssets(UserAssetType.CustomAssetMetaData));
+                    bool want = loadEnabled && IsEnabled(p), inStyle = false;
 
-                    CustomAssetMetaData meta = AssetDeserializer.Instantiate(assets[0]) as CustomAssetMetaData;
-                    want = want || loadUsed && UsedAssets.instance.IsUsed(meta);
-
-                    if ((want || inStyle) && (AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0)
+                    if (assets.Count == 1) // the common case
                     {
-                        CustomAssetMetaData.Type type = meta.type;
-                        int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding || type == CustomAssetMetaData.Type.PropVariation ? -1 : 0;
-                        AddToQueue(queues, meta, offset);
-
-                        if (!want)
-                            dontSpawnNormally.Add(meta.assetRef.fullName);
-                    }
-                }
-                else
-                {
-                    // Fast exit.
-                    if (!want)
-                    {
-                        for (int i = 0; i < assets.Count; i++)
-                            inStyle = inStyle || styleBuildings.Contains(assets[i].fullName);
-
-                        if (!inStyle && !(loadUsed && UsedAssets.instance.GotPackage(p.packageName)))
+                        // Fast exit.
+                        if (!want && !(inStyle = styleBuildings.Contains(assets[0].fullName)) && !(loadUsed && UsedAssets.instance.GotPackage(p.packageName)))
                             continue;
-                    }
 
-                    metas.Clear();
+                        meta = AssetDeserializer.Instantiate(assets[0]) as CustomAssetMetaData;
+                        want = want || loadUsed && UsedAssets.instance.IsUsed(meta);
 
-                    for (int i = 0; i < assets.Count; i++)
-                    {
-                        CustomAssetMetaData meta = AssetDeserializer.Instantiate(assets[i]) as CustomAssetMetaData;
-
-                        if ((AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0)
+                        if ((want || inStyle) && (AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0)
                         {
-                            want = want || loadUsed && UsedAssets.instance.IsUsed(meta);
-                            metas.Add(meta);
-                        }
-                    }
-
-                    if ((want || inStyle) && metas.Count > 0)
-                    {
-                        metas.Sort((a, b) => b.type - a.type); // prop variation, sub-building, trailer before main asset
-                        CustomAssetMetaData.Type type = metas[0].type;
-                        int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding || type == CustomAssetMetaData.Type.PropVariation ? -1 : 0;
-
-                        for (int i = 0; i < metas.Count; i++)
-                        {
-                            AddToQueue(queues, metas[i], offset);
+                            CustomAssetMetaData.Type type = meta.type;
+                            int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding || type == CustomAssetMetaData.Type.PropVariation ? -1 : 0;
+                            AddToQueue(queues, meta, offset);
 
                             if (!want)
-                                dontSpawnNormally.Add(metas[i].assetRef.fullName);
+                                dontSpawnNormally.Add(meta.assetRef.fullName);
                         }
                     }
+                    else
+                    {
+                        // Fast exit.
+                        if (!want)
+                        {
+                            for (int i = 0; i < assets.Count; i++)
+                                inStyle = inStyle || styleBuildings.Contains(assets[i].fullName);
+
+                            if (!inStyle && !(loadUsed && UsedAssets.instance.GotPackage(p.packageName)))
+                                continue;
+                        }
+
+                        metas.Clear();
+
+                        for (int i = 0; i < assets.Count; i++)
+                        {
+                            meta = AssetDeserializer.Instantiate(assets[i]) as CustomAssetMetaData;
+
+                            if ((AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0)
+                            {
+                                want = want || loadUsed && UsedAssets.instance.IsUsed(meta);
+                                metas.Add(meta);
+                            }
+                        }
+
+                        if ((want || inStyle) && metas.Count > 0)
+                        {
+                            metas.Sort((a, b) => b.type - a.type); // prop variation, sub-building, trailer before main asset
+                            CustomAssetMetaData.Type type = metas[0].type;
+                            int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding || type == CustomAssetMetaData.Type.PropVariation ? -1 : 0;
+
+                            for (int i = 0; i < metas.Count; i++)
+                            {
+                                AddToQueue(queues, metas[i], offset);
+
+                                if (!want)
+                                    dontSpawnNormally.Add(metas[i].assetRef.fullName);
+                            }
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    AssetFailed(meta?.assetRef?.fullName ?? p.packageName + "." + p.packageMainAsset, e);
                 }
             }
 
@@ -466,115 +475,6 @@ namespace LoadingScreenMod
         {
             Package.Asset mainAsset = package.Find(package.packageMainAsset);
             return mainAsset?.isEnabled ?? true;
-        }
-
-        List<Package.Asset>[] GetLoadQueues(HashSet<string> styleBuildings)
-        {
-            Package.Asset[] assets = FilterAssets(UserAssetType.CustomAssetMetaData);
-            List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4), new List<Package.Asset>(64) };
-            SteamHelper.DLC_BitMask notMask = ~SteamHelper.GetOwnedDLCMask();
-
-            for (int i = 0; i < assets.Length; i++)
-            {
-                Package.Asset asset = assets[i];
-                string fullName = null;
-
-                try
-                {
-                    bool wantThis = loadEnabled && IsEnabled(asset) || styleBuildings.Contains(asset.fullName);
-
-                    // Make the first check fast.
-                    if (wantThis || loadUsed && UsedAssets.instance.GotPackage(asset.package.packageName))
-                    {
-                        CustomAssetMetaData assetMetaData = asset.Instantiate<CustomAssetMetaData>();
-
-                        // Always remember: assetRef may point to another package because the deserialization method accepts any asset with the same checksum.
-                        // Think of identical vehicle trailers in different crp's.
-                        // There is a bug in the 1.6.0 game update in this.
-                        fullName = asset.package.packageName + "." + assetMetaData.assetRef.name;
-
-                        if ((AssetImporterAssetTemplate.GetAssetDLCMask(assetMetaData) & notMask) == 0)
-                            switch (assetMetaData.type)
-                            {
-                                case CustomAssetMetaData.Type.Building:
-                                    if ((wantThis || loadUsed && UsedAssets.instance.GotBuilding(fullName)) && !IsDuplicate(fullName, loadedBuildings, asset.package))
-                                        queues[3].Add(asset);
-                                    break;
-
-                                case CustomAssetMetaData.Type.Prop:
-                                    if ((wantThis || loadUsed && UsedAssets.instance.GotProp(fullName)) && !IsDuplicate(fullName, loadedProps, asset.package))
-                                        queues[1].Add(asset);
-                                    break;
-
-                                case CustomAssetMetaData.Type.Tree:
-                                    if ((wantThis || loadUsed && UsedAssets.instance.GotTree(fullName)) && !IsDuplicate(fullName, loadedTrees, asset.package))
-                                        queues[1].Add(asset);
-                                    break;
-
-                                case CustomAssetMetaData.Type.Vehicle:
-                                    if ((wantThis || loadUsed && UsedAssets.instance.GotVehicle(fullName)) && !IsDuplicate(fullName, loadedVehicles, asset.package))
-                                        queues[3].Add(asset);
-                                    break;
-
-                                case CustomAssetMetaData.Type.Trailer:
-                                    if ((wantThis || loadUsed && UsedAssets.instance.GotVehicle(fullName)) && !IsDuplicate(fullName, loadedVehicles, asset.package))
-                                        queues[1].Add(asset);
-                                    break;
-
-                                case CustomAssetMetaData.Type.Unknown:
-                                    if (wantThis)
-                                        queues[3].Add(asset);
-                                    break;
-
-                                case CustomAssetMetaData.Type.SubBuilding:
-                                    if ((wantThis || loadUsed && UsedAssets.instance.GotBuilding(fullName)) && !IsDuplicate(fullName, loadedBuildings, asset.package))
-                                        queues[2].Add(asset);
-                                    break;
-
-                                case CustomAssetMetaData.Type.PropVariation:
-                                    if ((wantThis || loadUsed && UsedAssets.instance.GotProp(fullName)) && !IsDuplicate(fullName, loadedProps, asset.package))
-                                        queues[0].Add(asset);
-                                    break;
-                            }
-                    }
-                }
-                catch (Exception e)
-                {
-                    AssetFailed(fullName ?? asset.fullName, e);
-                }
-            }
-
-            return queues;
-        }
-
-        internal static Package.Asset[] FilterAssets(Package.AssetType assetType)
-        {
-            List<Package.Asset> enabled = new List<Package.Asset>(64), notEnabled = new List<Package.Asset>(64);
-
-            foreach (Package.Asset asset in PackageManager.FilterAssets(assetType))
-                if (asset != null)
-                    if (IsEnabled(asset))
-                        enabled.Add(asset);
-                    else
-                        notEnabled.Add(asset);
-
-            // Why enabled assets first? Because in duplicate name situations, I want the enabled one to get through.
-            Package.Asset[] ret = new Package.Asset[enabled.Count + notEnabled.Count];
-            enabled.CopyTo(ret);
-            notEnabled.CopyTo(ret, enabled.Count);
-            enabled.Clear(); notEnabled.Clear();
-            return ret;
-        }
-
-        // There is an interesting bug in the package manager: secondary CustomAssetMetaDatas in a crp are considered always enabled.
-        // As a result, the game loads all vehicle trailers, no matter if they are enabled or not. This is the fix.
-        static bool IsEnabled(Package.Asset asset)
-        {
-            if (asset.isMainAsset)
-                return asset.isEnabled;
-
-            Package.Asset main = asset.package.Find(asset.package.packageMainAsset);
-            return main?.isEnabled ?? false;
         }
 
         internal static string AssetName(string name_Data) => name_Data.Length > 5 && name_Data.EndsWith("_Data") ? name_Data.Substring(0, name_Data.Length - 5) : name_Data;
@@ -657,37 +557,6 @@ namespace LoadingScreenMod
             }
             else
                 return false;
-        }
-
-        internal static bool IsWorkshopPackage(string fullName, out ulong id)
-        {
-            int j = fullName.IndexOf('.');
-
-            if (j <= 0 || j >= fullName.Length - 1)
-            {
-                id = 0;
-                return false;
-            }
-
-            string p = fullName.Substring(0, j);
-            return ulong.TryParse(p, out id) && id > 999999;
-        }
-
-        internal static bool IsPrivatePackage(string fullName)
-        {
-            ulong id;
-
-            // Private: a local asset created by the player (not from the workshop).
-            // My rationale is the following:
-            // 43453453.Name -> Workshop
-            // Name.Name     -> Private
-            // Name          -> Either an old-format (early 2015) reference, or something from DLC/Deluxe packs.
-            //                  If loading is not successful then cannot tell for sure, assumed DLC/Deluxe when reported as not found.
-
-            if (IsWorkshopPackage(fullName, out id))
-                return false;
-            else
-                return fullName.IndexOf('.') >= 0;
         }
     }
 }

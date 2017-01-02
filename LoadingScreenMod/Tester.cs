@@ -9,7 +9,7 @@ namespace LoadingScreenMod
 {
     internal sealed class Tester
     {
-        const string dir = @"c:\testassets3\";
+        const string dir = @"g:\testassets5\";
         internal static Tester instance;
         Package[] packages;
 
