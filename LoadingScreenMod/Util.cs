@@ -144,12 +144,12 @@ namespace LoadingScreenMod
         internal static void Newline() { w.WriteLine(); w.Flush(); }
         internal static void Flush() => w.Flush();
         internal static void Pr(params object[] args) => w.WriteLine(" ".OnJoin(args));
-        internal static void Ind(int n, params object[] args) => w.WriteLine((new string(' ', n + n) + " ".OnJoin(args)).PadRight(116) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")");
+        internal static void Ind(int n, params object[] args) => w.WriteLine((new string(' ', n + n) + " ".OnJoin(args)).PadRight(120) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")");
 
         internal static void Seq(params object[] args)
         {
             string name = Thread.CurrentThread.Name ?? "MainThread";
-            string s = name + " " + (" ".OnJoin(args)).PadRight(116) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")";
+            string s = name + " " + (" ".OnJoin(args)).PadRight(120) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")";
 
             lock (seq)
             {

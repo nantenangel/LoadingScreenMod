@@ -290,10 +290,12 @@ namespace LoadingScreenMod
             if (bytes != null)
                 return new MemStream(bytes, 0);
 
-            if (asset.type != UserAssetType.CustomAssetMetaData)
+            if (removedMillis > 0)
+            {
                 Trace.Seq("MISS BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                Trace.Pr("MISS BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+            }
 
-            Trace.Pr("MISS BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
             return asset.GetStream();
         }
 
@@ -342,16 +344,25 @@ namespace LoadingScreenMod
             }
             else if ((bytes = obj as byte[]) != null)
             {
-                Trace.Seq("MISS MESH OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
-                Trace.Pr("MISS MESH OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
+                if (removedMillis > 0)
+                {
+                    Trace.Seq("MISS MESH OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
+                    Trace.Pr("MISS MESH OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
+                }
+
                 mesh = AssetDeserializer.Instantiate(package, bytes, checksum, isMain, ind) as Mesh;
                 mespre++;
             }
             else
             {
                 Package.Asset asset = package.FindByChecksum(checksum);
-                Trace.Seq("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
-                Trace.Pr("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+
+                if (removedMillis > 0)
+                {
+                    Trace.Seq("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                    Trace.Pr("MISS MESH OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                }
+
                 mesh = AssetDeserializer.Instantiate(asset, isMain, ind) as Mesh;
                 mesload++;
             }
@@ -408,16 +419,25 @@ namespace LoadingScreenMod
             }
             else if ((bytes = obj as byte[]) != null)
             {
-                Trace.Seq("MISS TEXT OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
-                Trace.Pr("MISS TEXT OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
+                if (removedMillis > 0)
+                {
+                    Trace.Seq("MISS TEXT OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
+                    Trace.Pr("MISS TEXT OBJ BUT GOT BYTES:  Assets", count, checksum, " Removed at", removedMillis);
+                }
+
                 texture2D = AssetDeserializer.Instantiate(package, bytes, checksum, isMain, ind) as Texture2D;
                 texpre++;
             }
             else
             {
                 Package.Asset asset = package.FindByChecksum(checksum);
-                Trace.Seq("MISS TEXT OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
-                Trace.Pr("MISS TEXT OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+
+                if (removedMillis > 0)
+                {
+                    Trace.Seq("MISS TEXT OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                    Trace.Pr("MISS TEXT OBJ AND BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                }
+
                 texture2D = AssetDeserializer.Instantiate(asset, isMain, ind) as Texture2D;
                 texload++;
             }
@@ -474,8 +494,13 @@ namespace LoadingScreenMod
             else
             {
                 Package.Asset asset = package.FindByChecksum(checksum);
-                Trace.Seq("MISS MATERIAL BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
-                Trace.Pr("MISS MATERIAL BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+
+                if (removedMillis > 0)
+                {
+                    Trace.Seq("MISS MATERIAL BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                    Trace.Pr("MISS MATERIAL BYTES:", asset.fullName, asset.package.packagePath, " Assets", count, " Removed at", removedMillis);
+                }
+
                 mat = (MaterialData) AssetDeserializer.Instantiate(asset, isMain, ind);
                 matload++;
             }
@@ -516,6 +541,7 @@ namespace LoadingScreenMod
         internal Sharing()
         {
             instance = this;
+            AssetDeserializer.INDEX = 0;
         }
 
         internal void Dispose()
@@ -538,6 +564,7 @@ namespace LoadingScreenMod
             shareTextures = Settings.settings.shareTextures;
             shareMaterials = Settings.settings.shareMaterials;
             shareMeshes = Settings.settings.shareMeshes;
+            AssetDeserializer.INDEX = 0;
 
             new Thread(LoadWorker).Start();
             new Thread(MTWorker).Start();

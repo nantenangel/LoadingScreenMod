@@ -16,12 +16,14 @@ namespace LoadingScreenMod
         bool isMain;
         int ind;
 
+        internal static int INDEX;
+
         public static object Instantiate(Package.Asset asset, bool isMain = true, int ind = 0)
         {
             using (Stream stream = Sharing.instance.GetStream(asset))
             using (PackageReader reader = Sharing.instance.GetReader(stream))
             {
-                Trace.Ind(ind, "ASSET", asset.fullName);
+                Trace.Ind(ind, "ASSET", ind == 0 ? (INDEX++).ToString() : string.Empty, stream is MemStream ? "(pre):" : "(load):", asset.fullName);
                 return new AssetDeserializer(asset.package, reader, asset.checksum, isMain, ind).Deserialize();
             }
         }
@@ -31,7 +33,7 @@ namespace LoadingScreenMod
             using (MemStream stream = new MemStream(bytes, 0))
             using (PackageReader reader = new MemReader(stream))
             {
-                Trace.Ind(ind, "ASSET", package.packageName);
+                Trace.Ind(ind, "ASSET", ind == 0 ? (INDEX++).ToString() : string.Empty, "(pre):", package.packageName);
                 return new AssetDeserializer(package, reader, checksum, isMain, ind).Deserialize();
             }
         }
