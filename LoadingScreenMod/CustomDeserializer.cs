@@ -148,9 +148,9 @@ namespace LoadingScreenModTest
                 return subInfo;
             }
 
-            Trace.packageHelper -= Profiling.Micros;
+            //Trace.packageHelper -= Profiling.Micros;
             object o = PackageHelper.CustomDeserialize(p, t, r);
-            Trace.packageHelper += Profiling.Micros;
+            //Trace.packageHelper += Profiling.Micros;
             return o;
         }
 
@@ -210,13 +210,13 @@ namespace LoadingScreenModTest
             // Old (early 2015) name?
             if (fullName.IndexOf('.') < 0)
             {
-                Trace.Ind(0, "FS:", fullName);
+                //Trace.Ind(0, "FS:", fullName);
                 Package.Asset[] a = Assets;
 
                 for (int i = 0; i < a.Length; i++)
                     if (fullName == a[i].name && prefabDict.TryGetValue(a[i].package.packageName + "." + fullName, out prefabData))
                     {
-                        Trace.Ind(0, "FS: found", prefabData.m_name);
+                        //Trace.Ind(0, "FS: found", prefabData.m_name);
                         return prefabData.m_prefab;
                     }
             }
@@ -253,7 +253,7 @@ namespace LoadingScreenModTest
                     if (fullName == a[i].fullName || fullName == a[i].name)
                         return a[i];
 
-                Trace.Ind(0, "NF:", fullName);
+                //Trace.Ind(0, "NF:", fullName);
             }
             catch (Exception e)
             {
@@ -312,13 +312,13 @@ namespace LoadingScreenModTest
             // Old (early 2015) name?
             if (fullName.IndexOf('.') < 0)
             {
-                Trace.Ind(0, "RCA FS:", fullName);
+                //Trace.Ind(0, "RCA FS:", fullName);
                 Package.Asset[] a = CustomDeserializer.Assets;
 
                 for (int i = 0; i < a.Length; i++)
                     if (fullName == a[i].name)
                     {
-                        Trace.Ind(0, "RCA FS: found", a[i].package.packageName + "." + fullName);
+                        //Trace.Ind(0, "RCA FS: found", a[i].package.packageName + "." + fullName);
                         return a[i].package.packageName + "." + fullName;
                     }
             }

@@ -136,21 +136,15 @@ namespace LoadingScreenModTest
 
             lastMillis = Profiling.Millis;
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Calculating asset load order");
-            Profiling.Start();
             Util.DebugPrint("GetLoadQueue", Profiling.Millis);
             Package.Asset[] queue = GetLoadQueue(styleBuildings);
             Util.DebugPrint("LoadQueue", queue.Length, Profiling.Millis);
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
 
-            Trace.Newline();
-            Trace.Pr("Load queue:");
-            for (i = 0; i < queue.Length; i++)
-                Trace.Pr(i, "\t", queue[i].fullName);
-
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Loading Custom Assets");
             Sharing.instance.Start(queue);
-            Trace.Newline();
-            Trace.Pr("Assets:");
+            //Trace.Newline();
+            //Trace.Pr("Assets:");
 
             for (i = 0; i < queue.Length; i++)
             {
@@ -169,8 +163,8 @@ namespace LoadingScreenModTest
 
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
             Util.DebugPrint("Custom assets loaded at", Profiling.Millis);
-            Trace.Seq("done");
-            Trace.Ind(0, "Done");
+            //Trace.Seq("done");
+            //Trace.Ind(0, "Done");
             queue = null;
             stack.Clear();
             Report();
