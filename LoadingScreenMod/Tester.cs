@@ -5,7 +5,7 @@ using System.Linq;
 using ColossalFramework.Packaging;
 using UnityEngine;
 
-namespace LoadingScreenMod
+namespace LoadingScreenModTest
 {
     internal sealed class Tester
     {

@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using ColossalFramework.Packaging;
 using ColossalFramework.PlatformServices;
 
-namespace LoadingScreenMod
+namespace LoadingScreenModTest
 {
     internal sealed class CustomDeserializer
     {

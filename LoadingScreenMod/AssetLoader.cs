@@ -7,7 +7,7 @@ using ColossalFramework.Packaging;
 using ColossalFramework.PlatformServices;
 using UnityEngine;
 
-namespace LoadingScreenMod
+namespace LoadingScreenModTest
 {
     /// <summary>
     /// LoadCustomContent coroutine from LoadingManager.
@@ -137,7 +137,9 @@ namespace LoadingScreenMod
             lastMillis = Profiling.Millis;
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Calculating asset load order");
             Profiling.Start();
+            Util.DebugPrint("GetLoadQueue", Profiling.Millis);
             Package.Asset[] queue = GetLoadQueue(styleBuildings);
+            Util.DebugPrint("LoadQueue", queue.Length, Profiling.Millis);
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
 
             Trace.Newline();
@@ -154,9 +156,9 @@ namespace LoadingScreenMod
             {
                 Sharing.instance.WaitForWorkers();
                 Package.Asset asset = queue[i];
-                Trace.Seq("starts asset   ", i, asset.fullName);
+                Console.WriteLine("[LSMT] " + i + ": " + Profiling.Millis + " " + asset.fullName + " " + Sharing.instance.loadWorkerThread.IsAlive +
+                    " " + Sharing.instance.mtWorkerThread.IsAlive);
                 Load(asset);
-                Trace.Seq("completed asset", i, asset.fullName);
 
                 if (Profiling.Millis - lastMillis > yieldInterval)
                 {
@@ -166,6 +168,7 @@ namespace LoadingScreenMod
             }
 
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
+            Util.DebugPrint("Custom assets loaded at", Profiling.Millis);
             Trace.Seq("done");
             Trace.Ind(0, "Done");
             queue = null;

@@ -6,7 +6,7 @@ using ColossalFramework.Importers;
 using ColossalFramework.Packaging;
 using UnityEngine;
 
-namespace LoadingScreenMod
+namespace LoadingScreenModTest
 {
     internal sealed class Sharing
     {
@@ -33,6 +33,9 @@ namespace LoadingScreenMod
         // These are local to LoadWorker.
         List<Package.Asset> loadList = new List<Package.Asset>(32);
         Dictionary<string, byte[]> loadMap = new Dictionary<string, byte[]>(32);
+
+        // Worker threads.
+        internal Thread loadWorkerThread, mtWorkerThread;
 
         void LoadPackage(Package package, int index)
         {
@@ -122,7 +125,6 @@ namespace LoadingScreenMod
             Thread.CurrentThread.Name = "LoadWorker";
             Package.Asset[] q = assetsQueue;
             Package prevPackage = null;
-            Console.WriteLine("LoadWorker starts!");
 
             for (int index = 0; index < q.Length; index++)
             {
@@ -170,7 +172,6 @@ namespace LoadingScreenMod
             Thread.CurrentThread.Name = "MTWorker A";
             int index = 0, countm = 0, countt = 0;
             KeyValuePair<Package.Asset, byte[]> elem;
-            Console.WriteLine("MTWorker A starts!");
 
             while (mtQueue.Dequeue(out elem))
             {
@@ -566,6 +567,7 @@ namespace LoadingScreenMod
             {
                 data.Clear(); removed.Clear();
                 data = null; removed = null;
+                loadWorkerThread = null; mtWorkerThread = null;
                 texturesMain.Clear(); texturesLod.Clear(); materialsMain.Clear(); materialsLod.Clear();  meshes.Clear();
                 texturesMain = null; texturesLod = null; materialsMain = null; materialsLod = null; meshes = null; instance = null;
             }
@@ -579,8 +581,8 @@ namespace LoadingScreenMod
             shareMeshes = Settings.settings.shareMeshes;
             AssetDeserializer.INDEX = 0;
 
-            new Thread(LoadWorker).Start();
-            new Thread(MTWorker).Start();
+            (loadWorkerThread = new Thread(LoadWorker)).Start();
+            (mtWorkerThread = new Thread(MTWorker)).Start();
         }
     }
 

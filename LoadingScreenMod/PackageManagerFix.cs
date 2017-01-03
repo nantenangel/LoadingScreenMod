@@ -1,4 +1,4 @@
-﻿namespace LoadingScreenMod
+﻿namespace LoadingScreenModTest
 {
     public sealed class PackageManagerFix : DetourUtility
     {

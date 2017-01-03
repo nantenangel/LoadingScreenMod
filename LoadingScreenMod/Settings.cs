@@ -8,7 +8,7 @@ using ColossalFramework.UI;
 using ICities;
 using UnityEngine;
 
-namespace LoadingScreenMod
+namespace LoadingScreenModTest
 {
     public class Settings
     {

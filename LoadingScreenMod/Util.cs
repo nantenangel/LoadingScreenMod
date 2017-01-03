@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using ColossalFramework.PlatformServices;
 using System.Threading;
 
-namespace LoadingScreenMod
+namespace LoadingScreenModTest
 {
     public static class Util
     {

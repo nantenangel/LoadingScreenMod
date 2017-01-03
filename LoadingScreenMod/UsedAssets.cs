@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using ColossalFramework.Packaging;
-using ColossalFramework.PlatformServices;
-using UnityEngine;
 
-namespace LoadingScreenMod
+namespace LoadingScreenModTest
 {
     internal sealed class UsedAssets
     {
