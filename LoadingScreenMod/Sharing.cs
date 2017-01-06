@@ -24,8 +24,9 @@ namespace LoadingScreenModTest
 
         // Asset checksum to asset data.
         LinkedHashMap<string, object> data = new LinkedHashMap<string, object>(dataHistory + 64);
+        int maxCount;
         //Dictionary<string, int> removed = new Dictionary<string, int>(512);
-        int assetCount, totalBytes;
+        //int assetCount, totalBytes;
 
         // Meshes and textures from LoadWorker to MTWorker.
         ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>> mtQueue = new ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>>(48);
@@ -71,7 +72,7 @@ namespace LoadingScreenModTest
             }
 
             loadList.Sort((a, b) => (int) (a.offset - b.offset));
-            assetCount += loadList.Count;
+            //assetCount += loadList.Count;
             //Trace.Seq("loads index ", index, package.packageName + "." + package.packageMainAsset);
 
             using (FileStream fs = File.OpenRead(package.packagePath))
@@ -80,7 +81,7 @@ namespace LoadingScreenModTest
                     Package.Asset asset = loadList[i];
                     byte[] bytes = LoadAsset(fs, asset);
                     loadMap[asset.checksum] = bytes;
-                    totalBytes += bytes.Length;
+                    //totalBytes += bytes.Length;
 
                     if (asset.type == Package.AssetType.Texture || asset.type == Package.AssetType.StaticMesh)
                         mtQueue.Enqueue(new KeyValuePair<Package.Asset, byte[]>(asset, bytes));
@@ -464,6 +465,7 @@ namespace LoadingScreenModTest
                     else
                         texturesLod[checksum] = texture2D;
 
+                    maxCount = Mathf.Max(data.Count, maxCount);
                     data.Remove(checksum);
                 }
 
@@ -539,11 +541,6 @@ namespace LoadingScreenModTest
             return ms != null ? new MemReader(ms) : new PackageReader(stream);
         }
 
-        // Delegates can be used to call non-public methods. Delegates have about the same performance as regular method calls.
-        // Delegates are roughly 100 times faster than reflection in Unity 5.
-        readonly Action<Package, GameObject, PackageReader> DeserializeComponent =
-            Util.CreateStaticAction<Package, GameObject, PackageReader>(typeof(PackageDeserializer), "DeserializeComponent");
-
         int texhit, texpre, texload, mathit, matpre, matload, meshit, mespre, mesload;
         Dictionary<string, Texture2D> texturesMain = new Dictionary<string, Texture2D>(128);
         Dictionary<string, Texture2D> texturesLod = new Dictionary<string, Texture2D>(128);
@@ -562,6 +559,8 @@ namespace LoadingScreenModTest
         {
             Util.DebugPrint("Textures / Materials / Meshes shared:", texhit, "/", mathit, "/", meshit, "pre-loaded:", texpre, "/", matpre, "/", mespre,
                             "loaded:", texload, "/", matload, "/", mesload);
+
+            Util.DebugPrint("Max cache", maxCount);
 
             lock (mutex)
             {

@@ -331,13 +331,15 @@ namespace LoadingScreenModTest
                 PrefabLoader.instance?.Dispose();
 
             LoadingManager.instance.QueueLoadingAction(LoadingComplete());
-            Util.DebugPrint("Waiting to complete at", Profiling.Millis);
+            Console.WriteLine("[LSMT] Waiting at " + Profiling.Millis);
+            AssetLoader.instance.PrintMem();
         }
 
         // Loading complete.
         public IEnumerator LoadingComplete()
         {
-            Util.DebugPrint("Loading complete at", Profiling.Millis);
+            Console.WriteLine("[LSMT] All completed at " + Profiling.Millis);
+            AssetLoader.instance.PrintMem();
             Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
             AssetLoader.instance?.Dispose();
             Fixes.instance?.Dispose();

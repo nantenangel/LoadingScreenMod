@@ -19,9 +19,10 @@ namespace LoadingScreenModTest
             loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>(), loadedIntersections = new HashSet<string>(),
             dontSpawnNormally = new HashSet<string>();
         internal Stack<string> stack = new Stack<string>(4); // the asset loading stack
-        int propCount, treeCount, buildingCount, vehicleCount, lastMillis;
+        int propCount, treeCount, buildingCount, vehicleCount, lastMillis, assetCount;
         readonly bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, reportAssets = Settings.settings.reportAssets;
-        public bool hasStarted, hasFinished;
+        public bool hasStarted, hasFinished, isWin = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
+
         internal const int yieldInterval = 300;
         internal HashSet<string> Props => loadedProps;
         internal HashSet<string> Trees => loadedTrees;
@@ -150,8 +151,12 @@ namespace LoadingScreenModTest
             {
                 Sharing.instance.WaitForWorkers();
                 Package.Asset asset = queue[i];
-                Console.WriteLine("[LSMT] " + i + ": " + Profiling.Millis + " " + asset.fullName + " " + Sharing.instance.loadWorkerThread.IsAlive +
-                    " " + Sharing.instance.mtWorkerThread.IsAlive);
+                Console.WriteLine(string.Concat("[LSMT] ", i, ": ", Profiling.Millis, " ", assetCount, " ", asset.fullName, " ", Sharing.instance.loadWorkerThread.IsAlive,
+                    " ", Sharing.instance.mtWorkerThread.IsAlive));
+
+                if ((i & 31) == 0)
+                    PrintMem();
+
                 Load(asset);
 
                 if (Profiling.Millis - lastMillis > yieldInterval)
@@ -162,6 +167,7 @@ namespace LoadingScreenModTest
             }
 
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
+            PrintMem();
             Util.DebugPrint("Custom assets loaded at", Profiling.Millis);
             //Trace.Seq("done");
             //Trace.Ind(0, "Done");
@@ -186,7 +192,7 @@ namespace LoadingScreenModTest
                     {
                         for(j = 0; j < districtStyleMetaData.assets.Length; j++)
                         {
-                            BuildingInfo bi = PrefabCollection<BuildingInfo>.FindLoaded(districtStyleMetaData.assets[j] + "_Data");
+                            BuildingInfo bi = CustomDeserializer.FindLoaded<BuildingInfo>(districtStyleMetaData.assets[j] + "_Data");
 
                             if (bi != null)
                             {
@@ -196,7 +202,7 @@ namespace LoadingScreenModTest
                                     bi.m_dontSpawnNormally = !districtStyleMetaData.assetRef.isEnabled;
                             }
                             else
-                                CODebugBase<LogChannel>.Warn(LogChannel.Modding, "Warning: Missing asset (" + districtStyleMetaData.assets[i] + ") in style " + districtStyleMetaData.name);
+                                CODebugBase<LogChannel>.Warn(LogChannel.Modding, "Warning: Missing asset (" + districtStyleMetaData.assets[j] + ") in style " + districtStyleMetaData.name);
                         }
 
                         districtStyles.Add(districtStyle);
@@ -221,6 +227,29 @@ namespace LoadingScreenModTest
 
             LoadingManager.instance.m_loadingProfilerMain.EndLoading();
             hasFinished = true;
+        }
+
+        internal void PrintMem()
+        {
+            string s = "[LSMT] Mem ";
+
+            try
+            {
+                if (isWin)
+                {
+                    ulong pagefileUsage, workingSetSize;
+                    MemoryAPI.GetUsage(out pagefileUsage, out workingSetSize);
+                    int wsMegas = (int) (workingSetSize >> 20);
+                    s += wsMegas.ToString() + " ";
+                }
+
+                s += GC.CollectionCount(0);
+            }
+            catch (Exception)
+            {
+            }
+
+            Console.WriteLine(s);
         }
 
         void Load(Package.Asset assetRef)
@@ -304,6 +333,7 @@ namespace LoadingScreenModTest
             finally
             {
                 stack.Pop();
+                assetCount++;
                 LoadingManager.instance.m_loadingProfilerCustomAsset.EndLoading();
             }
         }
@@ -348,6 +378,7 @@ namespace LoadingScreenModTest
             List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4),
                                              new List<Package.Asset>(64), new List<Package.Asset>(32), new List<Package.Asset>(32) };
 
+            Util.DebugPrint("Sorted at", Profiling.Millis);
             SteamHelper.DLC_BitMask notMask = ~SteamHelper.GetOwnedDLCMask();
 
             foreach (Package p in packages)
