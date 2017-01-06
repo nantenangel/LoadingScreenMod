@@ -380,6 +380,7 @@ namespace LoadingScreenModTest
 
             Util.DebugPrint("Sorted at", Profiling.Millis);
             SteamHelper.DLC_BitMask notMask = ~SteamHelper.GetOwnedDLCMask();
+            //PrintPackages(packages);
 
             foreach (Package p in packages)
             {
@@ -389,6 +390,10 @@ namespace LoadingScreenModTest
                 {
                     assets.Clear();
                     assets.AddRange(p.FilterAssets(UserAssetType.CustomAssetMetaData));
+
+                    if (assets.Count == 0)
+                        continue;
+
                     bool want = loadEnabled && IsEnabled(p), inStyle = false;
 
                     if (assets.Count == 1) // the common case
@@ -586,5 +591,17 @@ namespace LoadingScreenModTest
             else
                 return false;
         }
+
+        //static void PrintPackages(Package[] packages)
+        //{
+        //    foreach (Package p in packages)
+        //    {
+        //        Trace.Pr(p.packageName, "\t\t", p.packagePath, "   ", p.version);
+
+        //        foreach (Package.Asset a in p)
+        //            Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(90), a.checksum, a.type.ToString().PadRight(10),
+        //                a.offset.ToString().PadLeft(7), a.size.ToString().PadLeft(7));
+        //    }
+        //}
     }
 }

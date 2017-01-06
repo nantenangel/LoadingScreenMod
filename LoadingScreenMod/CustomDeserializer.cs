@@ -293,8 +293,14 @@ namespace LoadingScreenModTest
                 try
                 {
                     fullName = data.fullName;
-                    AssetLoader.instance.LoadImpl(data);
-                    return true;
+
+                    // There is at least one asset (411236307) on the workshop that wants to include itself. Asset Editor quite
+                    // certainly no longer accepts that but in the early days, it was possible.
+                    if (fullName != AssetLoader.instance.Current)
+                    {
+                        AssetLoader.instance.LoadImpl(data);
+                        return true;
+                    }
                 }
                 catch (Exception e)
                 {
