@@ -23,7 +23,8 @@ namespace LoadingScreenModTest
         readonly bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, reportAssets = Settings.settings.reportAssets;
         public bool hasStarted, hasFinished, isWin = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
 
-        internal const int yieldInterval = 300;
+        internal const int yieldInterval = 350;
+        float progress;
         internal HashSet<string> Props => loadedProps;
         internal HashSet<string> Trees => loadedTrees;
         internal HashSet<string> Buildings => loadedBuildings;
@@ -162,10 +163,13 @@ namespace LoadingScreenModTest
                 if (Profiling.Millis - lastMillis > yieldInterval)
                 {
                     lastMillis = Profiling.Millis;
+                    progress = 0.15f + (i + 1) * 0.7f / queue.Length;
+                    LoadingScreen.instance.SetProgressMinMax(progress, progress);
                     yield return null;
                 }
             }
 
+            LoadingScreen.instance.SetProgressMinMax(0.85f, 1f);
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
             PrintMem();
             Util.DebugPrint("Custom assets loaded at", Profiling.Millis);
@@ -288,8 +292,8 @@ namespace LoadingScreenModTest
                     if (pi.m_lodObject != null)
                         pi.m_lodObject.SetActive(false);
 
+                    Initialize(pi);
                     loadedProps.Add(fullName);
-                    PrefabCollection<PropInfo>.InitializePrefabs("Custom Assets", pi, null);
                     propCount++;
                 }
 
@@ -297,8 +301,8 @@ namespace LoadingScreenModTest
 
                 if (ti != null)
                 {
+                    Initialize(ti);
                     loadedTrees.Add(fullName);
-                    PrefabCollection<TreeInfo>.InitializePrefabs("Custom Assets", ti, null);
                     treeCount++;
                 }
 
@@ -309,9 +313,9 @@ namespace LoadingScreenModTest
                     if (bi.m_lodObject != null)
                         bi.m_lodObject.SetActive(false);
 
-                    loadedBuildings.Add(fullName);
-                    PrefabCollection<BuildingInfo>.InitializePrefabs("Custom Assets", bi, null);
                     bi.m_dontSpawnNormally = dontSpawnNormally.Remove(fullName);
+                    Initialize(bi);
+                    loadedBuildings.Add(fullName);
                     buildingCount++;
 
                     if (bi.GetAI() is IntersectionAI)
@@ -325,8 +329,8 @@ namespace LoadingScreenModTest
                     if (vi.m_lodObject != null)
                         vi.m_lodObject.SetActive(false);
 
+                    Initialize(vi);
                     loadedVehicles.Add(fullName);
-                    PrefabCollection<VehicleInfo>.InitializePrefabs("Custom Assets", vi, null);
                     vehicleCount++;
                 }
             }
@@ -336,6 +340,17 @@ namespace LoadingScreenModTest
                 assetCount++;
                 LoadingManager.instance.m_loadingProfilerCustomAsset.EndLoading();
             }
+        }
+
+        void Initialize<T>(T info) where T : PrefabInfo
+        {
+            string fullName = info.gameObject.name;
+            string brokenAssets = LoadingManager.instance.m_brokenAssets;
+            PrefabCollection<T>.InitializePrefabs("Custom Assets", info, null);
+            LoadingManager.instance.m_brokenAssets = brokenAssets;
+
+            if (CustomDeserializer.FindLoaded<T>(fullName) == null)
+                throw new Exception(string.Concat(typeof(T).Name, " ", fullName, " failed"));
         }
 
         static void RemoveSkipped(DistrictStyle style)

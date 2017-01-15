@@ -1,5 +1,4 @@
-﻿using System;
-using ICities;
+﻿using ICities;
 
 namespace LoadingScreenModTest
 {
@@ -14,7 +13,7 @@ namespace LoadingScreenModTest
         public void OnSettingsUI(UIHelperBase helper) => Settings.OnSettingsUI(helper);
         public void OnCreated(ILoading loading) { }
         public void OnReleased() { }
-        public void OnLevelLoaded(LoadMode mode) { Console.WriteLine("[LSMT] OnLevelLoaded at " + Profiling.Millis); }
+        public void OnLevelLoaded(LoadMode mode) { Util.DebugPrint("OnLevelLoaded at", Profiling.Millis); }
         public void OnLevelUnloading() { }
 
         void Create()

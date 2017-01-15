@@ -1,5 +1,4 @@
 ﻿using System;
-using UnityEngine;
 using System.Linq;
 using System.Reflection;
 using System.IO;
@@ -10,14 +9,8 @@ namespace LoadingScreenModTest
 {
     public static class Util
     {
-        public static void DebugPrint(params object[] args)
-        {
-            string s = string.Format("[LSMT] {0}", " ".OnJoin(args));
-            Debug.Log(s);
-        }
-
+        public static void DebugPrint(params object[] args) => Console.WriteLine(string.Concat("[LSMT] ", " ".OnJoin(args)));
         public static string OnJoin(this string delim, IEnumerable<object> args) => string.Join(delim, args.Select(o => o?.ToString() ?? "null").ToArray());
-        public static string asString(this Array array) => string.Concat("[", ", ".OnJoin(array.OfType<object>()), "]");
 
         internal static void InvokeVoid(object instance, string method)
         {

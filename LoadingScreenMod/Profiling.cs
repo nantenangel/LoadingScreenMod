@@ -33,7 +33,6 @@ namespace LoadingScreenModTest
         }
 
         internal static int Millis => (int) stopWatch.ElapsedMilliseconds;
-        internal static long Micros => stopWatch.ElapsedTicks / (TimeSpan.TicksPerMillisecond / 1000);
         internal static void CustomAssetFailed(string name) => ModifyEvent(customAssetEvents, name, FAILED);
         internal static void CustomAssetDuplicate(string name) => ModifyEvent(customAssetEvents, name, DUPLICATE);
         internal static void CustomAssetNotFound(string name) => ModifyEvent(customAssetEvents, name, NOT_FOUND);
@@ -45,8 +44,8 @@ namespace LoadingScreenModTest
                 LoadingProfiler.Event[] buffer = events.m_buffer;
 
                 if (!string.IsNullOrEmpty(eventName))
-                    for (int i = events.m_size - 1, k = 5; i >= 0 && k >= 0; i--, k--)
-                        if (!string.IsNullOrEmpty(buffer[i].m_name) && eventName == buffer[i].m_name)
+                    for (int i = events.m_size - 1, k = 20; i >= 0 && k >= 0; i--, k--)
+                        if (eventName == buffer[i].m_name)
                         {
                             buffer[i].m_name = string.Concat(eventName, postfix);
                             break;

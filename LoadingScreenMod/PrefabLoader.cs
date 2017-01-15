@@ -10,8 +10,6 @@ namespace LoadingScreenModTest
     public sealed class PrefabLoader : DetourUtility
     {
         internal static PrefabLoader instance;
-        readonly object loadingLock = Util.Get(LoadingManager.instance, "m_loadingLock");
-        readonly FieldInfo queueField = typeof(LoadingManager).GetField("m_mainThreadQueue", BindingFlags.NonPublic | BindingFlags.Instance);
         readonly FieldInfo hasQueuedActionsField = typeof(LoadingManager).GetField("m_hasQueuedActions", BindingFlags.NonPublic | BindingFlags.Instance);
         readonly FieldInfo nameField, prefabsField, prefabsField2, replacesField, replacesField2;
         internal HashSet<string> skippedPrefabs = new HashSet<string>();
@@ -55,7 +53,7 @@ namespace LoadingScreenModTest
                 instance.saveDeserialized = true;
             }
 
-            while (!Monitor.TryEnter(instance.loadingLock, SimulationManager.SYNCHRONIZE_TIMEOUT))
+            while (!Monitor.TryEnter(LevelLoader.instance.loadingLock, SimulationManager.SYNCHRONIZE_TIMEOUT))
                 ;
 
             try
@@ -65,7 +63,7 @@ namespace LoadingScreenModTest
 
                 if (action != null)
                 {
-                    Queue<IEnumerator> mainThreadQueue = (Queue<IEnumerator>) instance.queueField.GetValue(lm);
+                    Queue<IEnumerator> mainThreadQueue = (Queue<IEnumerator>) LevelLoader.instance.queueField.GetValue(lm);
                     mainThreadQueue.Enqueue(action);
 
                     if (mainThreadQueue.Count < 2)
@@ -74,7 +72,7 @@ namespace LoadingScreenModTest
             }
             finally
             {
-                Monitor.Exit(instance.loadingLock);
+                Monitor.Exit(LevelLoader.instance.loadingLock);
             }
         }
 
@@ -188,25 +186,38 @@ namespace LoadingScreenModTest
             }
         }
 
-        internal void DestroySkipped()
+        internal static IEnumerator DestroySkipped()
         {
-            if (skippedPrefabs == null || skippedPrefabs.Count == 0)
-                return;
+            if (instance?.skippedPrefabs == null || instance.skippedPrefabs.Count == 0)
+                yield break;
 
             BuildingInfo[] all = Resources.FindObjectsOfTypeAll<BuildingInfo>();
+            HashSet<string> skippedPrefabs = instance.skippedPrefabs;
 
             for (int i = 0; i < all.Length; i++)
             {
                 BuildingInfo info = all[i];
-                GameObject go = info.gameObject;
-                bool skipped = skippedPrefabs.Contains(go.name);
+                bool skipped = skippedPrefabs.Contains(info.gameObject.name);
 
                 if (skipped)
+                {
                     DestroyBuilding(info);
+                    yield return null;
+                }
+            }
+
+            try
+            {
+                Resources.UnloadUnusedAssets();
+                Util.DebugPrint("Skipped some at", Profiling.Millis);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
             }
         }
 
-        void DestroyBuilding(BuildingInfo info)
+        static void DestroyBuilding(BuildingInfo info)
         {
             info.DestroyPrefabInstance();
             info.DestroyPrefab();

@@ -19,33 +19,38 @@ namespace LoadingScreenModTest
     {
         public static LevelLoader instance;
         public string cityName;
-        readonly HashSet<string> knownToFail = new HashSet<string>(); // assets that failed or are missing
-        public bool activated, simulationFailed, fastLoad, skipAny;
+        readonly HashSet<string> knownFailedAssets = new HashSet<string>(); // assets that failed or are missing
+        readonly HashSet<string> knownFastLoads = new HashSet<string>(); // savegames that can be fastloaded
+        internal readonly FieldInfo queueField = typeof(LoadingManager).GetField("m_mainThreadQueue", BindingFlags.NonPublic | BindingFlags.Instance);
+        internal object loadingLock;
+        DateTime fullLoadTime;
+        bool simulationFailed, fastLoad, skipAny;
 
         internal LevelLoader()
         {
             instance = this;
-            init(Singleton<LoadingManager>.instance.GetType(), "LoadLevel", 4, 0, typeof(Package.Asset));
+            init(typeof(LoadingManager), "LoadLevel", 4, 0, typeof(Package.Asset));
         }
 
         internal void AddFailedAssets(HashSet<string> assets)
         {
             foreach (string fullName in assets)
-                knownToFail.Add(fullName);
+                knownFailedAssets.Add(fullName);
         }
 
         internal override void Dispose()
         {
             Revert();
             base.Dispose();
-            knownToFail.Clear();
+            knownFailedAssets.Clear();
+            knownFastLoads.Clear();
             instance = null;
         }
 
         public Coroutine LoadLevel(Package.Asset asset, string playerScene, string uiScene, SimulationMetaData ngs)
         {
             LoadingManager lm = Singleton<LoadingManager>.instance;
-            instance.activated = ngs.m_updateMode == SimulationManager.UpdateMode.LoadGame || ngs.m_updateMode == SimulationManager.UpdateMode.NewGameFromMap ||
+            bool activated = ngs.m_updateMode == SimulationManager.UpdateMode.LoadGame || ngs.m_updateMode == SimulationManager.UpdateMode.NewGameFromMap ||
                 ngs.m_updateMode == SimulationManager.UpdateMode.NewGameFromScenario || Input.GetKey(KeyCode.LeftControl);
             instance.simulationFailed = false;
             instance.skipAny = Settings.settings.SkipAny;
@@ -55,13 +60,14 @@ namespace LoadingScreenModTest
                 if (lm.m_LoadingWrapper != null)
                     lm.m_LoadingWrapper.OnLevelUnloading();
 
-                if (instance.activated)
+                if (activated)
                 {
                     Util.DebugPrint("Options:", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures, Settings.settings.shareMaterials,
                         Settings.settings.shareMeshes, Settings.settings.reportAssets, Settings.settings.skipResLo, Settings.settings.skipResHi, Settings.settings.skipComLo,
                         Settings.settings.skipComHi, Settings.settings.skipIndGen, Settings.settings.skipIndSpe, Settings.settings.skipComSpe, Settings.settings.skipOffice,
                         Settings.settings.skipThese, Settings.settings.applyToEuropean);
 
+                    LoadingManager.instance.SetSceneProgress(0f);
                     instance.cityName = asset?.name ?? "NewGame";
                     Profiling.Init();
                     new CustomDeserializer();
@@ -81,14 +87,14 @@ namespace LoadingScreenModTest
                 Util.Set(lm, "m_sceneProgress", 0f);
                 Util.Set(lm, "m_simulationProgress", 0f);
 
-                if (instance.activated)
+                if (activated)
                     Profiling.Start();
 
                 lm.m_loadingProfilerMain.Reset();
                 lm.m_loadingProfilerSimulation.Reset();
                 lm.m_loadingProfilerScenes.Reset();
 
-                IEnumerator iter = instance.activated ? instance.LoadLevelCoroutine(asset, playerScene, uiScene, ngs) :
+                IEnumerator iter = activated ? instance.LoadLevelCoroutine(asset, playerScene, uiScene, ngs) :
                     (IEnumerator) Util.Invoke(lm, "LoadLevelCoroutine", asset, playerScene, uiScene, ngs);
 
                 return lm.StartCoroutine(iter);
@@ -103,10 +109,7 @@ namespace LoadingScreenModTest
             int i;
             yield return null;
 
-            LoadingManager.instance.SetSceneProgress(0f);
             Util.InvokeVoid(LoadingManager.instance, "PreLoadLevel");
-            AsyncTask task = Singleton<SimulationManager>.instance.AddAction("Loading", (IEnumerator) Util.Invoke(LoadingManager.instance, "LoadSimulationData", asset, ngs));
-            LoadSaveStatus.activeTask = task;
 
             if (!LoadingManager.instance.LoadingAnimationComponent.AnimationLoaded)
             {
@@ -115,9 +118,12 @@ namespace LoadingScreenModTest
                 LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
             }
 
+            AsyncTask task = Singleton<SimulationManager>.instance.AddAction("Loading", (IEnumerator) Util.Invoke(LoadingManager.instance, "LoadSimulationData", asset, ngs));
+            LoadSaveStatus.activeTask = task;
+
             if (LoadingManager.instance.m_loadedEnvironment == null) // loading from main menu
             {
-                knownToFail.Clear();
+                knownFailedAssets.Clear();
                 fastLoad = false;
             }
             else // loading from in-game (the pause menu)
@@ -144,7 +150,7 @@ namespace LoadingScreenModTest
 
                 if (fastLoad)
                 {
-                    if (Settings.settings.loadUsed)
+                    if (Settings.settings.loadUsed && !IsKnownFastLoad(asset))
                     {
                         i = Profiling.Millis;
 
@@ -158,12 +164,14 @@ namespace LoadingScreenModTest
                     {
                         LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "EssentialScenesLoaded"));
                         LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "RenderDataReady"));
+                        Util.DebugPrint("fast load at", Profiling.Millis);
                     }
                     else // fallback to full load
                     {
                         DestroyLoadedPrefabs();
                         LoadingManager.instance.m_loadedEnvironment = null;
                         LoadingManager.instance.m_loadedMapTheme = null;
+                        Util.DebugPrint("not fast load at", Profiling.Millis);
                     }
                 }
                 else // full load
@@ -173,12 +181,16 @@ namespace LoadingScreenModTest
                     Util.InvokeVoid(LoadingManager.instance, "DestroyAllPrefabs");
                     LoadingManager.instance.m_loadedEnvironment = null;
                     LoadingManager.instance.m_loadedMapTheme = null;
+                    Util.DebugPrint("full load at", Profiling.Millis);
                 }
             }
 
             if (LoadingManager.instance.m_loadedEnvironment == null) // IL_27C
             {
                 AsyncOperation op;
+                knownFastLoads.Clear();
+                fullLoadTime = DateTime.Now;
+                loadingLock = Util.Get(LoadingManager.instance, "m_loadingLock");
 
                 if (!string.IsNullOrEmpty(playerScene))
                 {
@@ -187,7 +199,7 @@ namespace LoadingScreenModTest
 
                     while (!op.isDone) // IL_2FF
                     {
-                        LoadingManager.instance.SetSceneProgress(op.progress * 0.1f);
+                        LoadingManager.instance.SetSceneProgress(op.progress * 0.01f);
                         yield return null;
                     }
 
@@ -232,21 +244,31 @@ namespace LoadingScreenModTest
                 }
 
                 if (skipAny)
+                    LoadingManager.instance.QueueLoadingAction(PrefabLoader.DestroySkipped());
+
+                Queue<IEnumerator> mainThreadQueue = (Queue<IEnumerator>) queueField.GetValue(LoadingManager.instance);
+                Util.DebugPrint("mainThreadQueue len", mainThreadQueue.Count, "at", Profiling.Millis);
+
+                // Some major mods (Network Extensions 1 & 2, Single Train Track, Metro Overhaul) have a race condition issue
+                // in their NetInfo Installer. Everything goes fine if LoadCustomContent() below is NOT queued before the
+                // said Installers have finished. This is just a workaround for the issue. The actual fix should be in
+                // the Installers. Notice that the built-in loader of the game is also affected.
+
+                do
                 {
-                    PrefabLoader.instance?.DestroySkipped();
+                    yield return null;
                     yield return null;
 
-                    try
+                    lock(loadingLock)
                     {
-                        Resources.UnloadUnusedAssets();
-                    }
-                    catch (Exception e)
-                    {
-                        UnityEngine.Debug.LogException(e);
+                        mainThreadQueue = (Queue<IEnumerator>) queueField.GetValue(LoadingManager.instance);
+                        i = mainThreadQueue.Count;
                     }
                 }
+                while (i > 0);
 
-                // LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "LoadCustomContent")); // IL_B65
+                Util.DebugPrint("mainThreadQueue len 0 at", Profiling.Millis);
+
                 LoadingManager.instance.QueueLoadingAction(AssetLoader.instance.LoadCustomContent());
                 RenderManager.Managers_CheckReferences();
                 LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "EssentialScenesLoaded"));
@@ -267,7 +289,7 @@ namespace LoadingScreenModTest
 
                     while (!op.isDone) // IL_C47
                     {
-                        LoadingManager.instance.SetSceneProgress(0.74f + op.progress * 0.05f);
+                        LoadingManager.instance.SetSceneProgress(0.85f + op.progress * 0.05f);
                         yield return null;
                     }
 
@@ -284,7 +306,7 @@ namespace LoadingScreenModTest
 
                     while (!op.isDone) // IL_CDE
                     {
-                        LoadingManager.instance.SetSceneProgress(0.79f + op.progress * 0.2f);
+                        LoadingManager.instance.SetSceneProgress(0.90f + op.progress * 0.08f);
                         yield return null;
                     }
 
@@ -331,14 +353,15 @@ namespace LoadingScreenModTest
                 PrefabLoader.instance?.Dispose();
 
             LoadingManager.instance.QueueLoadingAction(LoadingComplete());
-            Console.WriteLine("[LSMT] Waiting at " + Profiling.Millis);
+            knownFastLoads.Add(asset.fullName);
+            Util.DebugPrint("Waiting at", Profiling.Millis);
             AssetLoader.instance.PrintMem();
         }
 
         // Loading complete.
         public IEnumerator LoadingComplete()
         {
-            Console.WriteLine("[LSMT] All completed at " + Profiling.Millis);
+            Util.DebugPrint("All completed at", Profiling.Millis);
             AssetLoader.instance.PrintMem();
             Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
             AssetLoader.instance?.Dispose();
@@ -346,7 +369,7 @@ namespace LoadingScreenModTest
             CustomDeserializer.instance?.Dispose();
             Settings.helper = null;
             Profiling.Stop();
-            yield return null;
+            yield break;
         }
 
         /// <summary>
@@ -370,61 +393,61 @@ namespace LoadingScreenModTest
                 isWinter = false;
             }
 
-            List<KeyValuePair<string, float>> levels = new List<KeyValuePair<string, float>>(14);
+            List<KeyValuePair<string, float>> levels = new List<KeyValuePair<string, float>>(18);
             string scene = (string) Util.Invoke(LoadingManager.instance, "GetLoadingScene");
 
             if (!string.IsNullOrEmpty(scene))
-                levels.Add(new KeyValuePair<string, float>(scene, 0.11f));
+                levels.Add(new KeyValuePair<string, float>(scene, 0.015f));
 
-            levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment + "Prefabs", 0.55f));
+            levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment + "Prefabs", 0.12f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 1u }))
-                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterLoginPackPrefabs" : "LoginPackPrefabs", 0.56f));
+                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterLoginPackPrefabs" : "LoginPackPrefabs", 0.121f));
 
-            levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterPreorderPackPrefabs" : "PreorderPackPrefabs", 0.57f));
-            levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterSignupPackPrefabs" : "SignupPackPrefabs", 0.58f));
+            levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterPreorderPackPrefabs" : "PreorderPackPrefabs", 0.122f));
+            levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterSignupPackPrefabs" : "SignupPackPrefabs", 0.123f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 346791u }))
-                levels.Add(new KeyValuePair<string, float>("DeluxePackPrefabs", 0.59f));
+                levels.Add(new KeyValuePair<string, float>("DeluxePackPrefabs", 0.124f));
 
             if (PlatformService.IsAppOwned(238370u))
-                levels.Add(new KeyValuePair<string, float>("MagickaPackPrefabs", 0.60f));
+                levels.Add(new KeyValuePair<string, float>("MagickaPackPrefabs", 0.125f));
 
             if (LoadingManager.instance.m_supportsExpansion[0])
-                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterExpansion1Prefabs" : "Expansion1Prefabs", 0.63f));
+                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterExpansion1Prefabs" : "Expansion1Prefabs", 0.126f));
 
             if (LoadingManager.instance.m_supportsExpansion[1])
-                levels.Add(new KeyValuePair<string, float>("Expansion2Prefabs", 0.64f));
+                levels.Add(new KeyValuePair<string, float>("Expansion2Prefabs", 0.127f));
 
             if (LoadingManager.instance.m_supportsExpansion[2])
-                levels.Add(new KeyValuePair<string, float>("Expansion3Prefabs", 0.65f));
+                levels.Add(new KeyValuePair<string, float>("Expansion3Prefabs", 0.128f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 456200u }))
-                levels.Add(new KeyValuePair<string, float>("FootballPrefabs", 0.655f));
+                levels.Add(new KeyValuePair<string, float>("FootballPrefabs", 0.129f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 525940u }))
-                levels.Add(new KeyValuePair<string, float>("Football2Prefabs", 0.66f));
+                levels.Add(new KeyValuePair<string, float>("Football2Prefabs", 0.13f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526610u }))
-                levels.Add(new KeyValuePair<string, float>("Football3Prefabs", 0.665f));
+                levels.Add(new KeyValuePair<string, float>("Football3Prefabs", 0.131f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526611u }))
-                levels.Add(new KeyValuePair<string, float>("Football4Prefabs", 0.67f));
+                levels.Add(new KeyValuePair<string, float>("Football4Prefabs", 0.132f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526612u }))
-                levels.Add(new KeyValuePair<string, float>("Football5Prefabs", 0.675f));
+                levels.Add(new KeyValuePair<string, float>("Football5Prefabs", 0.133f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 547501u }))
-                levels.Add(new KeyValuePair<string, float>("Station1Prefabs", 0.68f));
+                levels.Add(new KeyValuePair<string, float>("Station1Prefabs", 0.134f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 515190u }))
-                levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.69f));
+                levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.135f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 547500u }))
-                levels.Add(new KeyValuePair<string, float>("ModderPack2Prefabs", 0.70f));
+                levels.Add(new KeyValuePair<string, float>("ModderPack2Prefabs", 0.136f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 563850u }))
-                levels.Add(new KeyValuePair<string, float>("ChinaPackPrefabs", 0.71f));
+                levels.Add(new KeyValuePair<string, float>("ChinaPackPrefabs", 0.137f));
 
             if (skipAny && !Settings.settings.applyToEuropean)
                 levels.Add(new KeyValuePair<string, float>(string.Empty, 0f));
@@ -432,12 +455,32 @@ namespace LoadingScreenModTest
             Package.Asset europeanStyles = PackageManager.FindAssetByName("System." + DistrictStyle.kEuropeanStyleName);
 
             if (europeanStyles != null && europeanStyles.isEnabled)
-                levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment.Equals("Europe") ? "EuropeNormalPrefabs" : "EuropeStylePrefabs", 0.74f));
+                levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment.Equals("Europe") ? "EuropeNormalPrefabs" : "EuropeStylePrefabs", 0.15f));
 
             if (skipAny && Settings.settings.applyToEuropean)
                 levels.Add(new KeyValuePair<string, float>(string.Empty, 0f));
 
             return levels.ToArray();
+        }
+
+        /// <summary>
+        /// The savegame is a fast load if it is pre-known or its time stamp is newer than the full load time stamp.
+        /// </summary>
+        bool IsKnownFastLoad(Package.Asset asset)
+        {
+            if (knownFastLoads.Contains(asset.fullName))
+                return true;
+
+            try
+            {
+                return fullLoadTime < asset.package.Find(asset.package.packageMainAsset).Instantiate<SaveGameMetaData>().timeStamp;
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -496,7 +539,7 @@ namespace LoadingScreenModTest
         {
             try
             {
-                return UsedAssets.Create().AnyMissing(knownToFail);
+                return UsedAssets.Create().AnyMissing(knownFailedAssets);
             }
             catch (Exception e)
             {

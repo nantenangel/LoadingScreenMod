@@ -138,7 +138,7 @@ namespace LoadingScreenModTest
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine("[LSMT] LoadWorker: " + e.Message);
+                        Util.DebugPrint("LoadWorker:", e.Message);
                     }
 
                 mtQueue.Enqueue(default(KeyValuePair<Package.Asset, byte[]>)); // end-of-asset marker
@@ -201,7 +201,7 @@ namespace LoadingScreenModTest
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("[LSMT] MTWorker: " + e.Message);
+                    Util.DebugPrint("MTWorker:", e.Message);
                 }
             }
 

@@ -10,9 +10,10 @@ namespace LoadingScreenModTest
     public sealed class LoadingScreen : DetourUtility
     {
         public static LoadingScreen instance;
-        const float rotationSpeed = 100f, animationScale = 0.2f, meshInterval = AssetLoader.yieldInterval / 1050f, progressInterval = 0.55f;
+        const float rotationSpeed = 100f, animationScale = 0.2f, progressInterval = AssetLoader.yieldInterval / 1050f;
 
         float timer, progress, meshTime, progressTime;
+        float minProgress = 0f, maxProgress = 1f;
         int meshUpdates;
         internal readonly float meshWidth = Screen.width / 3, meshHeight = 3 * Screen.height / 4;
 
@@ -179,12 +180,20 @@ namespace LoadingScreenModTest
             instance.Dispose();
         }
 
+        internal void SetProgressMinMax(float min, float max)
+        {
+            minProgress = min;
+            maxProgress = max;
+        }
+
         void Progress()
         {
             float targetProgress = (float) targetProgressField.GetValue(la);
 
             if (targetProgress >= 0f)
-                progress += (Mathf.Clamp01(targetProgress + 0.05f) - progress) * 0.25f;
+                progress += (Mathf.Clamp01(targetProgress + 0.04f) - progress) * 0.2f;
+
+            progress = Mathf.Clamp(progress, minProgress, maxProgress);
         }
 
         void Update()
@@ -247,7 +256,7 @@ namespace LoadingScreenModTest
 
                 float now = Time.time;
 
-                if (now - inst.meshTime >= meshInterval || inst.meshUpdates < 3)
+                if (now - inst.meshTime >= progressInterval || inst.meshUpdates < 3)
                 {
                     inst.meshTime = now;
                     inst.meshUpdates++;
