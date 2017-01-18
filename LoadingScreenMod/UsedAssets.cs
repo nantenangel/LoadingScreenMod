@@ -121,20 +121,24 @@ namespace LoadingScreenModTest
             }
         }
 
-        internal bool AnyMissing(HashSet<string> ignore)
+        internal bool AllAssetsAvailable(HashSet<string> ignore)
         {
-            return AnyMissing<BuildingInfo>(buildingAssets, ignore) || AnyMissing<PropInfo>(propAssets, ignore) ||
-                   AnyMissing<TreeInfo>(treeAssets, ignore) || AnyMissing<VehicleInfo>(vehicleAssets, ignore) ||
-                   Settings.settings.SkipAny && AnyMissing<BuildingInfo>(buildingPrefabs, new HashSet<string>());
+            return (!Settings.settings.loadUsed || AllAvailable<BuildingInfo>(buildingAssets, ignore) &&
+                    AllAvailable<PropInfo>(propAssets, ignore) && AllAvailable<TreeInfo>(treeAssets, ignore) &&
+                    AllAvailable<VehicleInfo>(vehicleAssets, ignore)) &&
+                   (!Settings.settings.SkipAny || AllAvailable<BuildingInfo>(buildingPrefabs, new HashSet<string>()));
         }
 
-        static bool AnyMissing<P>(HashSet<string> fullNames, HashSet<string> ignore) where P : PrefabInfo
+        static bool AllAvailable<P>(HashSet<string> fullNames, HashSet<string> ignore) where P : PrefabInfo
         {
             foreach (string name in fullNames)
                 if (!ignore.Contains(name) && CustomDeserializer.FindLoaded<P>(name) == null)
-                    return true;
+                {
+                    Util.DebugPrint("Not available:", name);
+                    return false;
+                }
 
-            return false;
+            return true;
         }
 
         /// <summary>

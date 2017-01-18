@@ -58,7 +58,7 @@ namespace LoadingScreenModTest
             if (!lm.m_currentlyLoading && !lm.m_applicationQuitting)
             {
                 if (lm.m_LoadingWrapper != null)
-                    lm.m_LoadingWrapper.OnLevelUnloading();
+                    lm.m_LoadingWrapper.OnLevelUnloading(); // OnLevelUnloading
 
                 if (activated)
                 {
@@ -138,7 +138,7 @@ namespace LoadingScreenModTest
                     SimulationManager.instance.m_metaData.Merge(ngs);
                 }
 
-                Util.InvokeVoid(LoadingManager.instance, "MetaDataLoaded");
+                Util.InvokeVoid(LoadingManager.instance, "MetaDataLoaded"); // No OnCreated
                 string mapThemeName = SimulationManager.instance.m_metaData.m_MapThemeMetaData?.name;
                 fastLoad = SimulationManager.instance.m_metaData.m_environment == LoadingManager.instance.m_loadedEnvironment && mapThemeName == LoadingManager.instance.m_loadedMapTheme;
 
@@ -150,14 +150,14 @@ namespace LoadingScreenModTest
 
                 if (fastLoad)
                 {
-                    if (Settings.settings.loadUsed && !IsKnownFastLoad(asset))
+                    if ((Settings.settings.loadUsed || skipAny) && !IsKnownFastLoad(asset))
                     {
                         i = Profiling.Millis;
 
                         while (Profiling.Millis - i < 5000 && !IsSaveDeserialized())
                             yield return null;
 
-                        fastLoad = !AnyMissingAssets();
+                        fastLoad = AllAssetsAvailable();
                     }
 
                     if (fastLoad) // optimized load
@@ -216,7 +216,7 @@ namespace LoadingScreenModTest
                     SimulationManager.instance.m_metaData.Merge(ngs);
                 }
 
-                Util.InvokeVoid(LoadingManager.instance, "MetaDataLoaded");
+                Util.InvokeVoid(LoadingManager.instance, "MetaDataLoaded"); // OnCreated if loading from the main manu
                 KeyValuePair<string, float>[] levels = SetLevels();
                 float currentProgress = 0.10f;
 
@@ -352,7 +352,7 @@ namespace LoadingScreenModTest
             if (skipAny)
                 PrefabLoader.instance?.Dispose();
 
-            LoadingManager.instance.QueueLoadingAction(LoadingComplete());
+            LoadingManager.instance.QueueLoadingAction(LoadingComplete()); // OnLevelLoaded
             knownFastLoads.Add(asset.fullName);
             Util.DebugPrint("Waiting at", Profiling.Millis);
             AssetLoader.instance.PrintMem();
@@ -364,7 +364,7 @@ namespace LoadingScreenModTest
             Util.DebugPrint("All completed at", Profiling.Millis);
             AssetLoader.instance.PrintMem();
             Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
-            AssetLoader.instance?.Dispose();
+            AssetLoader.instance.Dispose();
             Fixes.instance?.Dispose();
             CustomDeserializer.instance?.Dispose();
             Settings.helper = null;
@@ -533,13 +533,13 @@ namespace LoadingScreenModTest
         }
 
         /// <summary>
-        /// Checks if the savegame needs any assets or prefabs not currently in memory.
+        /// Checks if the game has all required assets and prefabs currently in memory.
         /// </summary>
-        bool AnyMissingAssets()
+        bool AllAssetsAvailable()
         {
             try
             {
-                return UsedAssets.Create().AnyMissing(knownFailedAssets);
+                return UsedAssets.Create().AllAssetsAvailable(knownFailedAssets);
             }
             catch (Exception e)
             {

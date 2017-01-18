@@ -48,7 +48,7 @@ namespace LoadingScreenModTest
                     {
                         string n = pi.gameObject.name;
 
-                        if (!string.IsNullOrEmpty(n) && n.Contains("."))
+                        if (!string.IsNullOrEmpty(n) && n.IndexOf('.') >= 0)
                             UsedAssets.instance.IndirectProps.Add(n);
                     }
 
@@ -56,7 +56,7 @@ namespace LoadingScreenModTest
                     {
                         string n = ti.gameObject.name;
 
-                        if (!string.IsNullOrEmpty(n) && n.Contains("."))
+                        if (!string.IsNullOrEmpty(n) && n.IndexOf('.') >= 0)
                             UsedAssets.instance.IndirectTrees.Add(n);
                     }
                 }
@@ -185,7 +185,7 @@ namespace LoadingScreenModTest
 
                 if (data != null)
                     fullName = data.fullName;
-                else if (name.Contains("."))
+                else if (name.IndexOf('.') >= 0)
                     fullName = name;
 
                 if (Load(ref fullName, data))
@@ -210,15 +210,11 @@ namespace LoadingScreenModTest
             // Old (early 2015) name?
             if (fullName.IndexOf('.') < 0)
             {
-                //Trace.Ind(0, "FS:", fullName);
                 Package.Asset[] a = Assets;
 
                 for (int i = 0; i < a.Length; i++)
                     if (fullName == a[i].name && prefabDict.TryGetValue(a[i].package.packageName + "." + fullName, out prefabData))
-                    {
-                        //Trace.Ind(0, "FS: found", prefabData.m_name);
                         return prefabData.m_prefab;
-                    }
             }
 
             return null;
@@ -252,8 +248,6 @@ namespace LoadingScreenModTest
                 for (int i = 0; i < a.Length; i++)
                     if (fullName == a[i].fullName || fullName == a[i].name)
                         return a[i];
-
-                //Trace.Ind(0, "NF:", fullName);
             }
             catch (Exception e)
             {
@@ -296,7 +290,7 @@ namespace LoadingScreenModTest
 
                     // There is at least one asset (411236307) on the workshop that wants to include itself. Asset Editor quite
                     // certainly no longer accepts that but in the early days, it was possible.
-                    if (fullName != AssetLoader.instance.Current)
+                    if (fullName != AssetLoader.instance.Current && !AssetLoader.instance.HasFailed(fullName))
                     {
                         AssetLoader.instance.LoadImpl(data);
                         return true;
@@ -318,15 +312,11 @@ namespace LoadingScreenModTest
             // Old (early 2015) name?
             if (fullName.IndexOf('.') < 0)
             {
-                //Trace.Ind(0, "RCA FS:", fullName);
                 Package.Asset[] a = CustomDeserializer.Assets;
 
                 for (int i = 0; i < a.Length; i++)
                     if (fullName == a[i].name)
-                    {
-                        //Trace.Ind(0, "RCA FS: found", a[i].package.packageName + "." + fullName);
                         return a[i].package.packageName + "." + fullName;
-                    }
             }
 
             return fullName;
