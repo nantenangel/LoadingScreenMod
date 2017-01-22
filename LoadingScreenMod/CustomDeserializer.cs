@@ -83,7 +83,7 @@ namespace LoadingScreenModTest
                 PropInfo pi = null;
 
                 if (fullName == AssetLoader.instance.Current)
-                    Util.DebugPrint("Warning:", fullName, "wants to be a prop variation for itself.");
+                    Util.DebugPrint("Warning:", fullName, "wants to be a prop variation for itself");
                 else
                     pi = Get<PropInfo>(p, fullName, name, false);
 
@@ -102,7 +102,7 @@ namespace LoadingScreenModTest
                 TreeInfo ti = null;
 
                 if (fullName == AssetLoader.instance.Current)
-                    Util.DebugPrint("Warning:", fullName, "wants to be a tree variation for itself.");
+                    Util.DebugPrint("Warning:", fullName, "wants to be a tree variation for itself");
                 else
                     ti = Get<TreeInfo>(p, fullName, name, false);
 
@@ -136,7 +136,7 @@ namespace LoadingScreenModTest
                 BuildingInfo bi = null;
 
                 if (fullName == AssetLoader.instance.Current || name == AssetLoader.instance.Current)
-                    Util.DebugPrint("Warning:", fullName, "wants to be a sub-building for itself.");
+                    Util.DebugPrint("Warning:", fullName, "wants to be a sub-building for itself");
                 else
                     bi = Get<BuildingInfo>(p, fullName, name, true);
 

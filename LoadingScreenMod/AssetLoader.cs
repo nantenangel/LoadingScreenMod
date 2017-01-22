@@ -19,8 +19,8 @@ namespace LoadingScreenModTest
             loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>(), loadedIntersections = new HashSet<string>(),
             dontSpawnNormally = new HashSet<string>();
         internal Stack<string> stack = new Stack<string>(4); // the asset loading stack
-        int propCount, treeCount, buildingCount, vehicleCount, lastMillis, assetCount;
-        readonly bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, reportAssets = Settings.settings.reportAssets;
+        int propCount, treeCount, buildingCount, vehicleCount, beginMillis, lastMillis, assetCount;
+        readonly bool reportAssets = Settings.settings.reportAssets;
         public bool hasStarted, hasFinished, isWin = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
 
         internal const int yieldInterval = 350;
@@ -36,7 +36,6 @@ namespace LoadingScreenModTest
         public AssetLoader()
         {
             instance = this;
-            hasStarted = hasFinished = false;
         }
 
         public void Setup()
@@ -59,7 +58,7 @@ namespace LoadingScreenModTest
 
         void Report()
         {
-            if (loadUsed)
+            if (Settings.settings.loadUsed)
                 UsedAssets.instance.ReportMissingAssets();
 
             if (reportAssets)
@@ -70,6 +69,8 @@ namespace LoadingScreenModTest
 
             Sharing.instance?.Dispose();
         }
+
+        internal static bool IsActive() => instance != null && instance.hasStarted && !instance.hasFinished;
 
         public IEnumerator LoadCustomContent()
         {
@@ -130,13 +131,11 @@ namespace LoadingScreenModTest
             LoadingManager.instance.m_loadingProfilerCustomAsset.ContinueLoading();
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
 
-            if (loadUsed)
+            if (Settings.settings.loadUsed)
                 UsedAssets.Create();
 
-            //yield return null;
-            //new Tester().Test();
-
             lastMillis = Profiling.Millis;
+            LoadingScreen.instance.DualSource.Add("Custom Assets");
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Calculating asset load order");
             Util.DebugPrint("GetLoadQueue", Profiling.Millis);
             Package.Asset[] queue = GetLoadQueue(styleBuildings);
@@ -145,8 +144,7 @@ namespace LoadingScreenModTest
 
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Loading Custom Assets");
             Sharing.instance.Start(queue);
-            //Trace.Newline();
-            //Trace.Pr("Assets:");
+            beginMillis = Profiling.Millis;
 
             for (i = 0; i < queue.Length; i++)
             {
@@ -164,17 +162,16 @@ namespace LoadingScreenModTest
                 {
                     lastMillis = Profiling.Millis;
                     progress = 0.15f + (i + 1) * 0.7f / queue.Length;
-                    LoadingScreen.instance.SetProgressMinMax(progress, progress);
+                    LoadingScreen.instance.SetProgress(progress, progress, assetCount, assetCount - i - 1 + queue.Length, beginMillis, lastMillis);
                     yield return null;
                 }
             }
 
-            LoadingScreen.instance.SetProgressMinMax(0.85f, 1f);
+            lastMillis = Profiling.Millis;
+            LoadingScreen.instance.SetProgress(0.85f, 1f, assetCount, assetCount, beginMillis, lastMillis);
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
             PrintMem();
-            Util.DebugPrint("Custom assets loaded at", Profiling.Millis);
-            //Trace.Seq("done");
-            //Trace.Ind(0, "Done");
+            Util.DebugPrint("Custom assets loaded at", lastMillis);
             queue = null;
             stack.Clear();
             Report();
@@ -388,13 +385,14 @@ namespace LoadingScreenModTest
             List<Package.Asset> assets = new List<Package.Asset>(8);
             List<CustomAssetMetaData> metas = new List<CustomAssetMetaData>(8);
 
-            // Why this asset ordering? By having related and identical assets close to each other, we get more cache hits in AssetDeserializer.
+            // Why this asset ordering? By having related and identical assets close to each other, we get more cache hits and faster disk reads in Sharing.
             // [0] propvar - prop  [1] prop & tree  [2] sub-building - building  [3] building  [4] trailer - vehicle  [5] vehicle
             List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4),
                                              new List<Package.Asset>(64), new List<Package.Asset>(32), new List<Package.Asset>(32) };
 
             Util.DebugPrint("Sorted at", Profiling.Millis);
             SteamHelper.DLC_BitMask notMask = ~SteamHelper.GetOwnedDLCMask();
+            bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed;
             //PrintPackages(packages);
 
             foreach (Package p in packages)
@@ -546,9 +544,8 @@ namespace LoadingScreenModTest
                 if (reportAssets)
                     AssetReport.instance.AssetFailed(fullName);
 
-                Profiling.CustomAssetFailed(ShorterAssetName(fullName));
                 DualProfilerSource profiler = LoadingScreen.instance.DualSource;
-                profiler?.SomeFailed();
+                profiler?.CustomAssetFailed(ShorterAssetName(fullName));
             }
 
             if (e != null)
@@ -564,11 +561,8 @@ namespace LoadingScreenModTest
 
             Util.DebugPrint("Duplicate asset", fullName, "in", path);
             string name = ShorterAssetName(fullName);
-            LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(name);
-            Profiling.CustomAssetDuplicate(name);
-            LoadingManager.instance.m_loadingProfilerCustomAsset.EndLoading();
             DualProfilerSource profiler = LoadingScreen.instance.DualSource;
-            profiler?.SomeDuplicate();
+            profiler?.CustomAssetDuplicate(name);
         }
 
         internal void NotFound(string fullName)
@@ -587,11 +581,8 @@ namespace LoadingScreenModTest
                 {
                     Util.DebugPrint("Asset not found:", fullName);
                     string name = ShorterAssetName(fullName);
-                    LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(name);
-                    Profiling.CustomAssetNotFound(name);
-                    LoadingManager.instance.m_loadingProfilerCustomAsset.EndLoading();
                     DualProfilerSource profiler = LoadingScreen.instance.DualSource;
-                    profiler?.SomeNotFound();
+                    profiler?.CustomAssetNotFound(name);
                 }
             }
         }

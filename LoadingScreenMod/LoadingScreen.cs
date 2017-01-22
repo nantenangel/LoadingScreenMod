@@ -47,6 +47,7 @@ namespace LoadingScreenModTest
 
         internal SimpleProfilerSource SimulationSource => texts != null && texts.Length >= 3 ? texts[2].source as SimpleProfilerSource : null;
         internal DualProfilerSource DualSource => texts != null && texts.Length >= 1 ? texts[0].source as DualProfilerSource : null;
+        internal LineSource LoaderSource => texts != null && texts.Length >= 4 ? texts[3].source as LineSource: null;
 
         public LoadingScreen()
         {
@@ -130,12 +131,13 @@ namespace LoadingScreenModTest
 
                 List<Text> list = new List<Text>(5);
                 list.Add(new Text(new Vector3(-1.2f,   0.7f, 10f), new DualProfilerSource("Scenes and Assets:", 36)));
-                list.Add(new Text(new Vector3(-0.35f, -0.52f, 10f), new SimpleProfilerSource("Main:", LoadingManager.instance.m_loadingProfilerMain)));
-                list.Add(new Text(new Vector3(-0.35f, -0.62f, 10f), new SimpleProfilerSource("Simulation:", LoadingManager.instance.m_loadingProfilerSimulation)));
-                list.Add(new Text(new Vector3(-0.1f,   0.44f, 10f), new TimeSource(), 1.5f));
+                list.Add(new Text(new Vector3(-0.33f, -0.52f, 10f), new SimpleProfilerSource("Main:", LoadingManager.instance.m_loadingProfilerMain)));
+                list.Add(new Text(new Vector3(-0.33f, -0.62f, 10f), new SimpleProfilerSource("Simulation:", LoadingManager.instance.m_loadingProfilerSimulation)));
+                list.Add(new Text(new Vector3(-0.12f,  0.7f, 10f), new LineSource("Assets Loader:", 2, AssetLoader.IsActive)));
+                list.Add(new Text(new Vector3(-0.1f,   0.38f, 10f), new TimeSource(), 1.5f));
 
                 if (Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor)
-                    list.Add(new Text(new Vector3(-0.1f, 0.32f, 10f), new MemorySource(), 1.5f));
+                    list.Add(new Text(new Vector3(-0.1f, 0.27f, 10f), new MemorySource(), 1.5f));
 
                 texts = list.ToArray();
                 fontLoaded = uifont != null;
@@ -180,10 +182,17 @@ namespace LoadingScreenModTest
             instance.Dispose();
         }
 
-        internal void SetProgressMinMax(float min, float max)
+        internal void SetProgress(float min, float max, int assetsCount, int assetsTotal, int beginMillis, int nowMillis)
         {
             minProgress = min;
             maxProgress = max;
+
+            if (assetsCount > 0 && nowMillis > beginMillis)
+            {
+                LineSource loader = LoaderSource;
+                loader.Add(string.Concat(assetsCount.ToString(), " / ", assetsTotal.ToString()));
+                loader.Add(string.Concat((assetsCount * 1000f / (nowMillis - beginMillis)).ToString("G3"), " / sec"));
+            }
         }
 
         void Progress()
@@ -231,9 +240,9 @@ namespace LoadingScreenModTest
                 Mesh amesh = inst.animationMesh;
 
                 if (inst.animationMaterial.SetPass(0))
-                    Graphics.DrawMeshNow(amesh, Matrix4x4.TRS(new Vector3(0f, 0f, 10f), q, new Vector3(animationScale, animationScale, animationScale)));
+                    Graphics.DrawMeshNow(amesh, Matrix4x4.TRS(new Vector3(0f, -0.04f, 10f), q, new Vector3(animationScale, animationScale, animationScale)));
 
-                Vector3 pos = new Vector3(0f, -0.15f, 10f);
+                Vector3 pos = new Vector3(0f, -0.20f, 10f);
                 Vector3 s = new Vector3(animationScale * 2f, animationScale * 0.125f, animationScale);
                 inst.barBGMaterial.color = new Color(1f, 1f, 1f, 1f);
 
@@ -273,11 +282,12 @@ namespace LoadingScreenModTest
 
         static Mesh CreateQuads()
         {
-            List<Vector3> vertices = new List<Vector3>(12);
-            List<int> triangles = new List<int>(18);
-            CreateQuad(-1.25f,  0.75f, 0.75f, 1.50f, vertices, triangles);
-            CreateQuad(-0.40f, -0.47f, 0.75f, 0.28f, vertices, triangles);
-            CreateQuad(-0.15f,  0.49f, 0.30f, 0.27f, vertices, triangles);
+            List<Vector3> vertices = new List<Vector3>(16);
+            List<int> triangles = new List<int>(24);
+            CreateQuad(-1.26f,  0.75f, 0.77f, 1.50f, vertices, triangles);
+            CreateQuad(-0.38f, -0.47f, 0.75f, 0.28f, vertices, triangles);
+            CreateQuad(-0.17f,  0.75f, 0.34f, 0.20f, vertices, triangles);
+            CreateQuad(-0.17f,  0.43f, 0.34f, 0.26f, vertices, triangles);
             Mesh mesh = new Mesh();
             mesh.name = "BG Quads";
             mesh.vertices = vertices.ToArray();
@@ -347,12 +357,12 @@ namespace LoadingScreenModTest
             }
         }
 
-        bool GenerateMesh()
+        void GenerateMesh()
         {
             UIFont uifont = LoadingScreen.instance.uifont;
 
             if (uifont == null)
-                return false;
+                return;
 
             UIFontRenderer uiFontRenderer = uifont.ObtainRenderer();
             UIRenderData uiRenderData = UIRenderData.Obtain();
@@ -378,15 +388,12 @@ namespace LoadingScreenModTest
             {
                 Util.DebugPrint("Cannot generate font mesh");
                 UnityEngine.Debug.LogException(e);
-                return false;
             }
             finally
             {
                 uiFontRenderer.Dispose();
                 uiRenderData.Dispose();
             }
-
-            return true;
         }
     }
 }

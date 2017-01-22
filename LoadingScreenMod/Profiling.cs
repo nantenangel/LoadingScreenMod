@@ -10,13 +10,11 @@ namespace LoadingScreenModTest
     public static class Profiling
     {
         static readonly Stopwatch stopWatch = new Stopwatch();
-        static FastList<LoadingProfiler.Event> customAssetEvents;
         internal const string FAILED = " (failed)", DUPLICATE = " (duplicate)", NOT_FOUND = " (not found)";
 
         internal static void Init()
         {
             Sink.builder.Length = 0;
-            customAssetEvents = ProfilerSource.GetEvents(LoadingManager.instance.m_loadingProfilerCustomAsset);
         }
 
         internal static void Start()
@@ -28,34 +26,10 @@ namespace LoadingScreenModTest
         internal static void Stop()
         {
             Sink.builder.Length = 0; Sink.builder.Capacity = 0;
-            customAssetEvents = null;
             stopWatch.Reset();
         }
 
         internal static int Millis => (int) stopWatch.ElapsedMilliseconds;
-        internal static void CustomAssetFailed(string name) => ModifyEvent(customAssetEvents, name, FAILED);
-        internal static void CustomAssetDuplicate(string name) => ModifyEvent(customAssetEvents, name, DUPLICATE);
-        internal static void CustomAssetNotFound(string name) => ModifyEvent(customAssetEvents, name, NOT_FOUND);
-
-        static void ModifyEvent(FastList<LoadingProfiler.Event> events, string eventName, string postfix)
-        {
-            try
-            {
-                LoadingProfiler.Event[] buffer = events.m_buffer;
-
-                if (!string.IsNullOrEmpty(eventName))
-                    for (int i = events.m_size - 1, k = 20; i >= 0 && k >= 0; i--, k--)
-                        if (eventName == buffer[i].m_name)
-                        {
-                            buffer[i].m_name = string.Concat(eventName, postfix);
-                            break;
-                        }
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogException(e);
-            }
-        }
     }
 
     sealed class Sink
@@ -69,7 +43,7 @@ namespace LoadingScreenModTest
         string NameIdle => string.Concat(GRAY, name, OFF);
         string NameFailed => string.Concat(RED, name, Profiling.FAILED, OFF);
 
-        internal const string YELLOW = "<color #f0e000>", RED = "<color #f04040>", GRAY = "<color #c0c0c0>", OFF = "</color>";
+        internal const string YELLOW = "<color #f0f000>", RED = "<color #f04040>", GRAY = "<color #c0c0c0>", ORANGE = "<color #f0a040>", CYAN = "<color #80e0f0>", OFF = "</color>";
         internal static readonly StringBuilder builder = new StringBuilder();
 
         internal Sink(string name, int len)
@@ -96,8 +70,15 @@ namespace LoadingScreenModTest
                     queue.Enqueue(last);
                 }
 
-                if (s[s.Length - 1] == ')' && (s.EndsWith(Profiling.NOT_FOUND) || s.EndsWith(Profiling.DUPLICATE) || s.EndsWith(Profiling.FAILED)))
-                    s = string.Concat(RED, s, OFF);
+                if (s[s.Length - 1] == ')')
+                {
+                    if (s.EndsWith(Profiling.NOT_FOUND))
+                        s = string.Concat(ORANGE, s, OFF);
+                    else if (s.EndsWith(Profiling.FAILED))
+                        s = string.Concat(RED, s, OFF);
+                    else if (s.EndsWith(Profiling.DUPLICATE))
+                        s = string.Concat(CYAN, s, OFF);
+                }
 
                 last = s;
             }
@@ -119,17 +100,16 @@ namespace LoadingScreenModTest
         }
     }
 
-    internal abstract class Source
+    abstract class Source
     {
         protected internal abstract string CreateText();
     }
 
-    internal class ProfilerSource : Source
+    class ProfilerSource : Source
     {
         protected readonly Sink sink;
         protected readonly FastList<LoadingProfiler.Event> events;
         protected int index;
-        readonly bool alwaysLoading;
 
         static FieldInfo EventsField => typeof(LoadingProfiler).GetField("m_events", BindingFlags.NonPublic | BindingFlags.Instance);
         internal static FastList<LoadingProfiler.Event> GetEvents(LoadingProfiler profiler) => (FastList<LoadingProfiler.Event>) EventsField.GetValue(profiler);
@@ -138,9 +118,6 @@ namespace LoadingScreenModTest
         {
             get
             {
-                if (alwaysLoading)
-                    return true;
-
                 int lst = events.m_size - 1;
                 LoadingProfiler.Event[] buffer = events.m_buffer;
                 return lst >= 0 && ((int) buffer[lst].m_type & 1) == 0; // true if the last one is begin or continue
@@ -149,11 +126,10 @@ namespace LoadingScreenModTest
 
         internal ProfilerSource(string name, int len, LoadingProfiler profiler) : this(profiler, new Sink(name, len)) { }
 
-        internal ProfilerSource(LoadingProfiler profiler, Sink sink, bool alwaysLoading = false) : base()
+        internal ProfilerSource(LoadingProfiler profiler, Sink sink) : base()
         {
             this.sink = sink;
             this.events = GetEvents(profiler);
-            this.alwaysLoading = alwaysLoading;
         }
 
         protected internal override string CreateText()
@@ -241,19 +217,42 @@ namespace LoadingScreenModTest
                 if (string.IsNullOrEmpty(message))
                     message = "Deserialize";
             }
-            else if (message.Length > 70)
-                message = message.Substring(0, 70);
+            else if (message.Length > 80)
+                message = message.Substring(0, 80);
 
-            message = string.Concat(Sink.RED, message, Sink.OFF);
+            if (!message.StartsWith(Sink.RED))
+                message = string.Concat(Sink.RED, message, Sink.OFF);
+
             sink.Clear();
             sink.Add(message);
             failed = true;
         }
     }
 
+    internal sealed class LineSource : Source
+    {
+        readonly Sink sink;
+        readonly Func<bool> IsLoading;
+
+        internal LineSource(string name, int len, Func<bool> IsLoading) : this(new Sink(name, len), IsLoading) { }
+
+        internal LineSource(Sink sink, Func<bool> IsLoading)
+        {
+            this.sink = sink;
+            this.IsLoading = IsLoading;
+        }
+
+        protected internal override string CreateText() => sink.CreateText(IsLoading());
+        internal void Add(string s) => sink.Add(s);
+        internal void AddNotFound(string s) => Add(string.Concat(s, Profiling.NOT_FOUND));
+        internal void AddFailed(string s) => Add(string.Concat(s, Profiling.FAILED));
+        internal void AddDuplicate(string s) => Add(string.Concat(s, Profiling.DUPLICATE));
+    }
+
     internal sealed class DualProfilerSource : Source
     {
-        readonly Source scenes, assets;
+        readonly Source scenes;
+        readonly LineSource assets;
         readonly Sink sink;
         readonly string name;
         int state = 0;
@@ -264,7 +263,7 @@ namespace LoadingScreenModTest
             this.sink = new Sink(name, len);
             this.name = name;
             this.scenes = new ProfilerSource(LoadingManager.instance.m_loadingProfilerScenes, sink);
-            this.assets = new ProfilerSource(LoadingManager.instance.m_loadingProfilerCustomAsset, sink, true);
+            this.assets = new LineSource(sink, () => true);
         }
 
         protected internal override string CreateText()
@@ -279,9 +278,10 @@ namespace LoadingScreenModTest
             return ret;
         }
 
-        internal void SomeFailed() { failed++; AdjustName(); }
-        internal void SomeDuplicate() { duplicate++; AdjustName(); }
-        internal void SomeNotFound() { notFound++; AdjustName(); }
+        internal void Add(string s) => assets.Add(s);
+        internal void CustomAssetNotFound(string n) { notFound++; AdjustName(); assets.AddNotFound(n); }
+        internal void CustomAssetFailed(string n) { failed++; AdjustName(); assets.AddFailed(n); }
+        internal void CustomAssetDuplicate(string n) { duplicate++; AdjustName(); assets.AddDuplicate(n); }
 
         void AdjustName()
         {

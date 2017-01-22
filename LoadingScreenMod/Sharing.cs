@@ -414,6 +414,7 @@ namespace LoadingScreenModTest
                 }
 
                 data.TryGetValue(checksum, out obj);
+                maxCount = Mathf.Max(data.Count, maxCount);
                 //removed.TryGetValue(checksum, out removedMillis);
                 //count = data.Count;
             }
@@ -465,7 +466,6 @@ namespace LoadingScreenModTest
                     else
                         texturesLod[checksum] = texture2D;
 
-                    maxCount = Mathf.Max(data.Count, maxCount);
                     data.Remove(checksum);
                 }
 
