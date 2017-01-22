@@ -222,7 +222,9 @@ namespace LoadingScreenModTest
         {
             try
             {
-                UITextField field = group.AddTextfield(" ", text, action, null) as UITextField;
+                UITextField field = group.AddTextfield(" ", " ", action, null) as UITextField;
+                field.maxLength = 8192;
+                field.text = text;
                 field.width *= 2.8f;
                 UIComponent parent = field.parent;
                 UILabel label = parent?.Find<UILabel>("Label");
