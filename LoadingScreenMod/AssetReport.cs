@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using ColossalFramework.Packaging;
 
 namespace LoadingScreenModTest
 {
@@ -12,6 +14,7 @@ namespace LoadingScreenModTest
         Dictionary<string, List<string>> duplicate = new Dictionary<string, List<string>>();
         List<string> notFound = new List<string>();
         Dictionary<string, HashSet<string>> notFoundIndirect = new Dictionary<string, HashSet<string>>();
+        HashSet<string> packageNames = new HashSet<string>();
         StreamWriter w;
         const string steamid = @"<a target=""_blank"" href=""https://steamcommunity.com/sharedfiles/filedetails/?id=";
 
@@ -22,8 +25,8 @@ namespace LoadingScreenModTest
 
         internal void Dispose()
         {
-            failed.Clear(); duplicate.Clear(); notFoundIndirect.Clear();
-            instance = null; failed = null; duplicate = null; notFoundIndirect = null;
+            failed.Clear(); duplicate.Clear(); notFoundIndirect.Clear(); packageNames.Clear();
+            instance = null; failed = null; duplicate = null; notFoundIndirect = null; packageNames = null;
         }
 
         internal void AssetFailed(string name) => failed.Add(name);
@@ -50,15 +53,17 @@ namespace LoadingScreenModTest
                 notFoundIndirect[name] = new HashSet<string> { referencedBy };
         }
 
+        internal void AddPackage(Package p) => packageNames.Add(p.packageName);
+
         internal void Save()
         {
             try
             {
                 w = new StreamWriter(Util.GetFileName(AssetLoader.AssetName(LevelLoader.instance.cityName) + "-AssetsReport", "htm"));
-                w.WriteLine(@"<!DOCTYPE html><html><head><meta charset=""UTF-8""><title>Assets Report</title><style>");
+                w.WriteLine(@"<!DOCTYPE html><html lang=""en""><head><meta charset=""UTF-8""><title>Assets Report</title><style>");
                 w.WriteLine(@"* {font-family: sans-serif;}");
                 w.WriteLine(@".my {display: -webkit-flex; display: flex;}");
-                w.WriteLine(@".my div {min-width: 30%; margin: 4px 4px 4px 20px;}");
+                w.WriteLine(@".my div {min-width: 32%; margin: 5px 5px 5px 20px;}");
                 w.WriteLine(@"h1 {margin-top: 40px; border-bottom: 2px solid black;}");
                 w.WriteLine(@"</style></head><body>");
 
@@ -82,19 +87,19 @@ namespace LoadingScreenModTest
                 if (Settings.settings.loadUsed)
                 {
                     H1("The following custom assets are used in this city");
-                    Save(new List<string>(UsedAssets.instance.Buildings), "Buildings and parks");
-                    Save(new List<string>(UsedAssets.instance.Props), "Props");
-                    Save(new List<string>(UsedAssets.instance.Trees), "Trees");
-                    Save(new List<string>(UsedAssets.instance.Vehicles), "Vehicles");
-                    Save(new List<string>(UsedAssets.instance.IndirectProps), "Props in buildings and parks");
-                    Save(new List<string>(UsedAssets.instance.IndirectTrees), "Trees in buildings and parks");
+                    List<string> buildings = new List<string>(UsedAssets.instance.Buildings), props = new List<string>(UsedAssets.instance.Props),
+                        trees = new List<string>(UsedAssets.instance.Trees), vehicles = new List<string>(UsedAssets.instance.Vehicles),
+                        indirectProps = new List<string>(UsedAssets.instance.IndirectProps), indirectTrees = new List<string>(UsedAssets.instance.IndirectTrees);
+                    Save(buildings, "Buildings and parks"); Save(props, "Props"); Save(trees, "Trees"); Save(vehicles, "Vehicles");
+                    Save(indirectProps, "Props in buildings and parks"); Save(indirectTrees, "Trees in buildings and parks");
+                    HashSet<string> paths = GetPackagePaths(buildings, props, trees, vehicles, indirectProps, indirectTrees);
 
                     H1("The following loaded assets are currently unnecessary (not used in this city)");
-                    Italics("There are three reasons why an asset may appear in this section: (a) The asset is enabled in Content Manager (b) The asset is a prop or tree in an enabled building or park (c) The asset is included in an enabled district style.");
-                    Save(AssetLoader.instance.Buildings.Where(s => !AssetLoader.instance.IsIntersection(s) && !UsedAssets.instance.GotBuilding(s)).ToList(), "Buildings and parks");
-                    Save(AssetLoader.instance.Props.Where(s => !UsedAssets.instance.GotProp(s) && !UsedAssets.instance.GotIndirectProp(s)).ToList(), "Props");
-                    Save(AssetLoader.instance.Trees.Where(s => !UsedAssets.instance.GotTree(s) && !UsedAssets.instance.GotIndirectTree(s)).ToList(), "Trees");
-                    Save(AssetLoader.instance.Vehicles.Where(s => !UsedAssets.instance.GotVehicle(s)).ToList(), "Vehicles");
+                    Italics("There are three reasons why an asset may appear in this section: (a) The asset is enabled but unused (b) The asset is a prop or tree in an enabled but unused building or park (c) The asset is included in an enabled district style and unused.");
+                    Save(AssetLoader.instance.Buildings.Where(s => !AssetLoader.instance.IsIntersection(s) && !Used(s, paths)).ToList(), "Buildings and parks");
+                    Save(AssetLoader.instance.Props.Where(s => !Used(s, paths)).ToList(), "Props");
+                    Save(AssetLoader.instance.Trees.Where(s => !Used(s, paths)).ToList(), "Trees");
+                    Save(AssetLoader.instance.Vehicles.Where(s => !Used(s, paths)).ToList(), "Vehicles");
                 }
                 else
                 {
@@ -115,7 +120,7 @@ namespace LoadingScreenModTest
             }
         }
 
-        void Save(List<string> lines, string heading = "", string emptyMsg = "")
+        void Save(List<string> lines, string heading = "", string emptyMsg = "", bool missedReferences = false)
         {
             if (!string.IsNullOrEmpty(heading))
                 H2(heading);
@@ -129,8 +134,18 @@ namespace LoadingScreenModTest
             {
                 lines.Sort();
 
-                foreach (var s in lines)
-                    Para(Ref(s));
+                if (!missedReferences)
+                    foreach (var n in lines)
+                        Para(Ref(n));
+                else
+                {
+                    foreach (var n in lines)
+                    {
+                        string s = Ref(n);
+                        MissedReference(ref s, n, true);
+                        Para(s);
+                    }
+                }
             }
         }
 
@@ -152,7 +167,7 @@ namespace LoadingScreenModTest
                 string s = string.Concat(Ref(key), "</div><div>Duplicate found:");
 
                 foreach (string path in duplicate[key])
-                    s = string.Concat(s, " ", path);
+                    s = string.Concat(s, " ", Enc(path));
 
                 Para(s);
             }
@@ -169,7 +184,7 @@ namespace LoadingScreenModTest
             if (notFound.Count > 0)
             {
                 Italics("Note: the following assets are used in your city but could not be found. You should get the assets if possible. These cases can break savegames.");
-                Save(notFound);
+                Save(notFound, string.Empty, string.Empty, true);
             }
 
             if (notFoundIndirect.Count > 0)
@@ -177,7 +192,7 @@ namespace LoadingScreenModTest
                 if (notFound.Count > 0)
                     w.WriteLine("<br>");
 
-                Italics("Note: the following missing assets are used in buildings and parks. These cases should <b>not</b> break savegames.");
+                Italics("Note: the following missing assets are used in buildings and parks. These cases do <b>not</b> break savegames.");
                 List<string> keys = new List<string>(notFoundIndirect.Keys);
                 keys.Sort();
 
@@ -190,24 +205,25 @@ namespace LoadingScreenModTest
                         Para(refkey);
                     else
                     {
-                        string s = string.Concat(refkey, "</div><div>Required in:");
-                        ulong id;
+                        string s = string.Concat(refkey, "</div><div>Required in: ");
+                        string pn;
+                        int i = 0;
                         bool fromWorkshop = false;
 
                         foreach (string fullName in set)
                         {
-                            s = string.Concat(s, " ", Ref(fullName));
-                            fromWorkshop = fromWorkshop || IsWorkshopPackage(fullName, out id);
+                            s = string.Concat(s, i++ > 0 ? "<br>" : string.Empty, Ref(fullName));
+                            fromWorkshop = fromWorkshop || IsWorkshopPackage(fullName, out pn);
                         }
 
-                        if (fromWorkshop && !IsWorkshopPackage(key, out id))
+                        if (!MissedReference(ref s, key, false) && fromWorkshop && !IsWorkshopPackage(key, out pn))
                         {
                             if (IsPrivatePackage(key))
-                                s = string.Concat(s, " <b>Workshop asset requires private content, seems like asset bug?</b>");
+                                s = string.Concat(s, @"<br><b>Workshop asset requires private content, seems like asset <a target=""_blank"" href=""http://steamcommunity.com/workshop/filedetails/discussion/667342976/357284767251931800/"">bug</a></b>");
                             else if (key.EndsWith("_Data"))
-                                s = string.Concat(s, " <b>Probably a Workshop prop or tree but no link is available</b>");
+                                s = string.Concat(s, "<br><b>Probably a Workshop prop or tree but no link is available</b>");
                             else
-                                s = string.Concat(s, " <b>Workshop asset requires DLC or Deluxe content?</b>");
+                                s = string.Concat(s, "<br><b>Workshop asset requires DLC or Deluxe content?</b>");
                         }
 
                         Para(s);
@@ -216,38 +232,87 @@ namespace LoadingScreenModTest
             }
         }
 
+        HashSet<string> GetPackagePaths(params List<string>[] names)
+        {
+            HashSet<string> paths = new HashSet<string>();
+
+            for (int i = 0; i < names.Length; i++)
+                for (int j = 0; j < names[i].Count; j++)
+                {
+                    Package.Asset asset = CustomDeserializer.FindAsset(names[i][j]);
+                    string path = asset?.package.packagePath;
+
+                    if (path != null)
+                        paths.Add(path);
+                }
+
+            return paths;
+        }
+
+        bool Used(string fullName, HashSet<string> packagePaths)
+        {
+            Package.Asset asset = CustomDeserializer.FindAsset(fullName);
+            string path = asset?.package.packagePath;
+            return path != null && packagePaths.Contains(path);
+        }
+
+        bool MissedReference(ref string s, string key, bool div)
+        {
+            string packageName, assetName;
+
+            if (GetNames(key, out packageName, out assetName) && packageNames.Contains(packageName))
+            {
+                s = string.Concat(s, div ? "</div><div>" : "<br>", "<b>You have ", Ref(packageName), " but it does not contain ", assetName,
+                    @". Name probably <a target=""_blank"" href=""http://steamcommunity.com/workshop/filedetails/discussion/667342976/141136086940263481/"">changed</a> by the author</b>");
+                return true;
+            }
+
+            return false;
+        }
+
         void Para(string line) => w.WriteLine(string.Concat("<div class=\"my\"><div>", line, "</div></div>"));
         void Italics(string line) => Para("<i>" + line + "</i>");
         void H1(string line) => w.WriteLine(string.Concat("<h1>", line, "</h1>"));
         void H2(string line) => w.WriteLine(string.Concat("<h2>", line, "</h2>"));
 
-        string Ref(string fullName)
+        static string Ref(string name)
         {
-            ulong id;
+            string pn;
 
-            if (IsWorkshopPackage(fullName, out id))
-                return string.Concat(steamid, id.ToString(), "\">", fullName, "</a>");
+            if (IsWorkshopPackage(name, out pn))
+                return string.Concat(steamid, Enc(pn), "\">", Enc(name), "</a>");
             else
-                return fullName;
+                return Enc(name);
         }
 
-        static bool IsWorkshopPackage(string fullName, out ulong id)
+        static bool GetNames(string fullName, out string packageName, out string assetName)
         {
             int j = fullName.IndexOf('.');
 
-            if (j <= 0 || j >= fullName.Length - 1)
+            if (j > 0 && j < fullName.Length - 1)
             {
-                id = 0;
+                packageName = fullName.Substring(0, j);
+                assetName = fullName.Substring(j + 1);
+                return true;
+            }
+            else
+            {
+                packageName = assetName = string.Empty;
                 return false;
             }
+        }
 
-            string p = fullName.Substring(0, j);
-            return ulong.TryParse(p, out id) && id > 999999;
+        static bool IsWorkshopPackage(string name, out string packageName)
+        {
+            int j = name.IndexOf('.');
+            packageName = j > 0 && j < name.Length - 1 ? name.Substring(0, j) : name;
+            ulong id;
+            return ulong.TryParse(packageName, out id) && id > 9999999;
         }
 
         static bool IsPrivatePackage(string fullName)
         {
-            ulong id;
+            string pn;
 
             // Private: a local asset created by the player (not from the workshop).
             // My rationale is the following:
@@ -256,10 +321,69 @@ namespace LoadingScreenModTest
             // Name          -> Either an old-format (early 2015) reference, or something from DLC/Deluxe packs.
             //                  If loading is not successful then cannot tell for sure, assumed DLC/Deluxe when reported as not found.
 
-            if (IsWorkshopPackage(fullName, out id))
+            if (IsWorkshopPackage(fullName, out pn))
                 return false;
             else
                 return fullName.IndexOf('.') >= 0;
+        }
+
+        // From a more recent mono version.
+        // See license https://github.com/mono/mono/blob/master/mcs/class/System.Web/System.Web.Util/HttpEncoder.cs
+        static string Enc(string s)
+        {
+            bool needEncode = false;
+
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+
+                if (c == '&' || c == '"' || c == '<' || c == '>' || c > 159 || c == '\'')
+                {
+                    needEncode = true;
+                    break;
+                }
+            }
+
+            if (!needEncode)
+                return s;
+
+            StringBuilder output = new StringBuilder();
+            int len = s.Length;
+
+            for (int i = 0; i < len; i++)
+            {
+                char ch = s[i];
+
+                switch (ch)
+                {
+                    case '&':
+                        output.Append("&amp;");
+                        break;
+                    case '>':
+                        output.Append("&gt;");
+                        break;
+                    case '<':
+                        output.Append("&lt;");
+                        break;
+                    case '"':
+                        output.Append("&quot;");
+                        break;
+                    case '\'':
+                        output.Append("&#39;");
+                        break;
+                    case '\uff1c':
+                        output.Append("&#65308;");
+                        break;
+                    case '\uff1e':
+                        output.Append("&#65310;");
+                        break;
+                    default:
+                        output.Append(ch);
+                        break;
+                }
+            }
+
+            return output.ToString();
         }
     }
 }

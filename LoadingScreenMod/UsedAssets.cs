@@ -51,13 +51,6 @@ namespace LoadingScreenModTest
         /// </summary>
         internal bool GotPackage(string packageName) => allPackages.Contains(packageName) || packageName.IndexOf('.') >= 0;
 
-        internal bool GotProp(string fullName) => propAssets.Contains(fullName);
-        internal bool GotTree(string fullName) => treeAssets.Contains(fullName);
-        internal bool GotBuilding(string fullName) => buildingAssets.Contains(fullName);
-        internal bool GotVehicle(string fullName) => vehicleAssets.Contains(fullName);
-        internal bool GotIndirectProp(string fullName) => indirectProps.Contains(fullName);
-        internal bool GotIndirectTree(string fullName) => indirectTrees.Contains(fullName);
-
         /// <summary>
         /// Is the asset used in the city?
         /// </summary>
@@ -69,7 +62,7 @@ namespace LoadingScreenModTest
         internal bool GotAnyContainer()
         {
             foreach (string fullName in AssetLoader.instance.stack)
-                if (GotBuilding(fullName))
+                if (buildingAssets.Contains(fullName))
                     return true;
 
             return false;

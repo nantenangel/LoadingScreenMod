@@ -392,7 +392,7 @@ namespace LoadingScreenModTest
 
             Util.DebugPrint("Sorted at", Profiling.Millis);
             SteamHelper.DLC_BitMask notMask = ~SteamHelper.GetOwnedDLCMask();
-            bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed;
+            bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, report = loadUsed && Settings.settings.reportAssets;
             //PrintPackages(packages);
 
             foreach (Package p in packages)
@@ -406,6 +406,9 @@ namespace LoadingScreenModTest
 
                     if (assets.Count == 0)
                         continue;
+
+                    if (report)
+                        AssetReport.instance.AddPackage(p);
 
                     bool want = loadEnabled && IsEnabled(p), inStyle = false;
 
@@ -539,11 +542,10 @@ namespace LoadingScreenModTest
         {
             if (fullName != null && failedAssets.Add(fullName))
             {
-                Util.DebugPrint("Asset failed:", fullName);
-
                 if (reportAssets)
                     AssetReport.instance.AssetFailed(fullName);
 
+                Util.DebugPrint("Asset failed:", fullName);
                 DualProfilerSource profiler = LoadingScreen.instance.DualSource;
                 profiler?.CustomAssetFailed(ShorterAssetName(fullName));
             }
@@ -560,9 +562,8 @@ namespace LoadingScreenModTest
                 AssetReport.instance.Duplicate(fullName, path);
 
             Util.DebugPrint("Duplicate asset", fullName, "in", path);
-            string name = ShorterAssetName(fullName);
             DualProfilerSource profiler = LoadingScreen.instance.DualSource;
-            profiler?.CustomAssetDuplicate(name);
+            profiler?.CustomAssetDuplicate(ShorterAssetName(fullName));
         }
 
         internal void NotFound(string fullName)
@@ -580,9 +581,8 @@ namespace LoadingScreenModTest
                 if (failedAssets.Add(fullName))
                 {
                     Util.DebugPrint("Asset not found:", fullName);
-                    string name = ShorterAssetName(fullName);
                     DualProfilerSource profiler = LoadingScreen.instance.DualSource;
-                    profiler?.CustomAssetNotFound(name);
+                    profiler?.CustomAssetNotFound(ShorterAssetName(fullName));
                 }
             }
         }

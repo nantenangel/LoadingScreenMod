@@ -223,7 +223,7 @@ namespace LoadingScreenModTest
         /// <summary>
         /// Given packagename.assetname, find the asset. Works with (fullName = asset name), too.
         /// </summary>
-        static Package.Asset FindAsset(string fullName)
+        internal static Package.Asset FindAsset(string fullName)
         {
             try
             {
