@@ -182,11 +182,22 @@ namespace LoadingScreenModTest
                     DeserializeMeshRenderer(go.AddComponent(type) as MeshRenderer);
                 else if (typeof(MonoBehaviour).IsAssignableFrom(type))
                     DeserializeMonoBehaviour((MonoBehaviour) go.AddComponent(type));
+                else if (type == typeof(SkinnedMeshRenderer))
+                    DeserializeSkinnedMeshRenderer(go.AddComponent(type) as SkinnedMeshRenderer);
+                else if (type == typeof(Animator))
+                    DeserializeAnimator(go.AddComponent(type) as Animator);
                 else
                     throw new InvalidDataException("Unknown type to deserialize " + type.Name);
             }
 
             return go;
+        }
+
+        void DeserializeAnimator(Animator animator)
+        {
+            animator.applyRootMotion = reader.ReadBoolean();
+            animator.updateMode = (AnimatorUpdateMode) reader.ReadInt32();
+            animator.cullingMode = (AnimatorCullingMode) reader.ReadInt32();
         }
 
         UnityEngine.Object DeserializeTexture()
@@ -246,8 +257,7 @@ namespace LoadingScreenModTest
 
         void DeserializeMeshFilter(MeshFilter meshFilter)
         {
-            string checksum = reader.ReadString();
-            meshFilter.sharedMesh = Sharing.instance.GetMesh(checksum, package, isMain);
+            meshFilter.sharedMesh = Sharing.instance.GetMesh(reader.ReadString(), package, isMain);
         }
 
         void DeserializeMonoBehaviour(MonoBehaviour behaviour)
@@ -277,6 +287,18 @@ namespace LoadingScreenModTest
                 array[i] = Sharing.instance.GetMaterial(reader.ReadString(), package, isMain);
 
             renderer.sharedMaterials = array;
+        }
+
+        void DeserializeSkinnedMeshRenderer(SkinnedMeshRenderer smr)
+        {
+            int count = reader.ReadInt32();
+            Material[] array = new Material[count];
+
+            for (int i = 0; i < count; i++)
+                array[i] = Sharing.instance.GetMaterial(reader.ReadString(), package, isMain);
+
+            smr.sharedMaterials = array;
+            smr.sharedMesh = Sharing.instance.GetMesh(reader.ReadString(), package, isMain);
         }
 
         UnityEngine.Object DeserializeMesh()
