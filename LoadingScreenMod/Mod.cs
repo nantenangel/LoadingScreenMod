@@ -21,7 +21,7 @@ namespace LoadingScreenModTest
             if (!created)
             {
                 // Trace.Start();
-                new LevelLoader().Deploy();
+                LevelLoader.Create().Deploy();
                 // new PackageManagerFix().Deploy();
                 created = true;
             }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace LoadingScreenModTest
@@ -232,6 +233,32 @@ namespace LoadingScreenModTest
             internal K key;
             internal V val;
             internal Node prev, next;
+        }
+    }
+
+    public abstract class Instance<T>
+    {
+        private static T inst;
+
+        public static T instance
+        {
+            get
+            {
+                return inst;
+            }
+
+            set
+            {
+                Instance<T>.inst = value;
+            }
+        }
+
+        internal static T Create()
+        {
+            if (Instance<T>.inst == null)
+                Instance<T>.inst = (T) Activator.CreateInstance(typeof(T), true);
+
+            return Instance<T>.inst;
         }
     }
 }

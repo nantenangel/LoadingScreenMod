@@ -1,20 +1,10 @@
 ﻿namespace LoadingScreenModTest
 {
-    public sealed class PackageManagerFix : DetourUtility
+    public sealed class PackageManagerFix : DetourUtility<PackageManagerFix>
     {
-        //public static PackageManagerFix instance;
-
-        //public PackageManagerFix()
+        //private PackageManagerFix()
         //{
-        //    instance = this;
         //    init(typeof(PackageManager), "FindAssetByName");
-        //}
-
-        //internal override void Dispose()
-        //{
-        //    Revert();
-        //    base.Dispose();
-        //    instance = null;
         //}
 
         /// <summary>

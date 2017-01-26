@@ -7,9 +7,8 @@ using ColossalFramework.Packaging;
 
 namespace LoadingScreenModTest
 {
-    internal sealed class AssetReport
+    internal sealed class AssetReport : Instance<AssetReport>
     {
-        internal static AssetReport instance;
         List<string> failed = new List<string>();
         Dictionary<string, List<string>> duplicate = new Dictionary<string, List<string>>();
         List<string> notFound = new List<string>();
@@ -18,15 +17,12 @@ namespace LoadingScreenModTest
         StreamWriter w;
         const string steamid = @"<a target=""_blank"" href=""https://steamcommunity.com/sharedfiles/filedetails/?id=";
 
-        internal AssetReport()
-        {
-            instance = this;
-        }
+        private AssetReport() { }
 
         internal void Dispose()
         {
             failed.Clear(); duplicate.Clear(); notFoundIndirect.Clear(); packageNames.Clear();
-            instance = null; failed = null; duplicate = null; notFoundIndirect = null; packageNames = null;
+            failed = null; duplicate = null; notFoundIndirect = null; packageNames = null; instance = null;
         }
 
         internal void AssetFailed(string name) => failed.Add(name);

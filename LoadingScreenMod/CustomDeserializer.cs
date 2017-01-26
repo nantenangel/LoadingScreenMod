@@ -5,9 +5,8 @@ using ColossalFramework.PlatformServices;
 
 namespace LoadingScreenModTest
 {
-    internal sealed class CustomDeserializer
+    internal sealed class CustomDeserializer : Instance<CustomDeserializer>
     {
-        internal static CustomDeserializer instance;
         Package.Asset[] assets;
         Dictionary<PublishedFileId, HashSet<string>> packagesToPaths;
         readonly bool report = Settings.settings.reportAssets && Settings.settings.loadUsed;
@@ -23,10 +22,7 @@ namespace LoadingScreenModTest
             }
         }
 
-        internal CustomDeserializer()
-        {
-            instance = this;
-        }
+        private CustomDeserializer() { }
 
         internal void Dispose()
         {
@@ -148,10 +144,7 @@ namespace LoadingScreenModTest
                 return subInfo;
             }
 
-            //Trace.packageHelper -= Profiling.Micros;
-            object o = PackageHelper.CustomDeserialize(p, t, r);
-            //Trace.packageHelper += Profiling.Micros;
-            return o;
+            return PackageHelper.CustomDeserialize(p, t, r);
         }
 
         // Works with (fullName = asset name), too.

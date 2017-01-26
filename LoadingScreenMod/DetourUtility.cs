@@ -5,7 +5,7 @@ using System.Reflection;
 
 namespace LoadingScreenModTest
 {
-    public class DetourUtility
+    public class DetourUtility<T> : Instance<T>
     {
         internal const BindingFlags FLAGS = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
         readonly List<Detour> detours = new List<Detour>();
@@ -83,7 +83,12 @@ namespace LoadingScreenModTest
                 d.Revert();
         }
 
-        internal virtual void Dispose()  =>  detours.Clear();
+        internal virtual void Dispose()
+        {
+            Revert();
+            detours.Clear();
+            instance = default(T);
+        }
     }
 
     class Detour

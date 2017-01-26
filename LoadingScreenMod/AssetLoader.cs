@@ -12,9 +12,8 @@ namespace LoadingScreenModTest
     /// <summary>
     /// LoadCustomContent coroutine from LoadingManager.
     /// </summary>
-    public sealed class AssetLoader
+    public sealed class AssetLoader : Instance<AssetLoader>
     {
-        public static AssetLoader instance;
         HashSet<string> failedAssets = new HashSet<string>(), loadedProps = new HashSet<string>(), loadedTrees = new HashSet<string>(),
             loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>(), loadedIntersections = new HashSet<string>(),
             dontSpawnNormally = new HashSet<string>();
@@ -33,17 +32,14 @@ namespace LoadingScreenModTest
         internal bool HasFailed(string fullName) => failedAssets.Contains(fullName);
         internal string Current => stack.Count > 0 ? stack.Peek() : string.Empty;
 
-        public AssetLoader()
-        {
-            instance = this;
-        }
+        private AssetLoader() { }
 
         public void Setup()
         {
-            new Sharing();
+            Sharing.Create();
 
             if (reportAssets)
-                new AssetReport();
+                AssetReport.Create();
         }
 
         public void Dispose()

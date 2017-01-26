@@ -15,9 +15,8 @@ namespace LoadingScreenModTest
     /// <summary>
     /// LoadLevelCoroutine from LoadingManager.
     /// </summary>
-    public sealed class LevelLoader : DetourUtility
+    public sealed class LevelLoader : DetourUtility<LevelLoader>
     {
-        public static LevelLoader instance;
         public string cityName;
         readonly HashSet<string> knownFailedAssets = new HashSet<string>(); // assets that failed or are missing
         readonly HashSet<string> knownFastLoads = new HashSet<string>(); // savegames that can be fastloaded
@@ -26,9 +25,8 @@ namespace LoadingScreenModTest
         DateTime fullLoadTime;
         bool simulationFailed, fastLoad, skipAny;
 
-        internal LevelLoader()
+        private LevelLoader()
         {
-            instance = this;
             init(typeof(LoadingManager), "LoadLevel", 4, 0, typeof(Package.Asset));
         }
 
@@ -40,11 +38,9 @@ namespace LoadingScreenModTest
 
         internal override void Dispose()
         {
-            Revert();
             base.Dispose();
             knownFailedAssets.Clear();
             knownFastLoads.Clear();
-            instance = null;
         }
 
         public Coroutine LoadLevel(Package.Asset asset, string playerScene, string uiScene, SimulationMetaData ngs)
@@ -70,10 +66,10 @@ namespace LoadingScreenModTest
                     LoadingManager.instance.SetSceneProgress(0f);
                     instance.cityName = asset?.name ?? "NewGame";
                     Profiling.Init();
-                    new CustomDeserializer();
-                    new Fixes().Deploy();
-                    new AssetLoader().Setup();
-                    new LoadingScreen().Setup();
+                    CustomDeserializer.Create();
+                    Fixes.Create().Deploy();
+                    AssetLoader.Create().Setup();
+                    LoadingScreen.Create().Setup();
                 }
 
                 lm.LoadingAnimationComponent.enabled = true;
@@ -378,7 +374,7 @@ namespace LoadingScreenModTest
         KeyValuePair<string, float>[] SetLevels()
         {
             if (skipAny)
-                new PrefabLoader().Deploy();
+                PrefabLoader.Create().Deploy();
 
             MethodInfo dlcMethod = typeof(LoadingManager).GetMethod("DLC", BindingFlags.Instance | BindingFlags.NonPublic);
             LoadingManager.instance.m_supportsExpansion[0] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 369150u });

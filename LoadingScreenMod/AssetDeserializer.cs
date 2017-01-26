@@ -12,44 +12,35 @@ namespace LoadingScreenModTest
     {
         readonly Package package;
         readonly PackageReader reader;
-        string checksum;
         bool isMain;
-        int ind;
 
-        //internal static int INDEX;
-
-        public static object Instantiate(Package.Asset asset, bool isMain = true, int ind = 0)
+        public static object Instantiate(Package.Asset asset, bool isMain = true)
         {
             using (Stream stream = Sharing.instance.GetStream(asset))
             using (PackageReader reader = Sharing.instance.GetReader(stream))
             {
-                //Trace.Ind(ind, "ASSET", ind == 0 ? (INDEX++).ToString() : string.Empty, stream is MemStream ? "(pre):" : "(load):", asset.fullName);
-                return new AssetDeserializer(asset.package, reader, asset.checksum, isMain, ind).Deserialize();
+                return new AssetDeserializer(asset.package, reader, isMain).Deserialize();
             }
         }
 
-        internal static object Instantiate(Package package, byte[] bytes, string checksum, bool isMain, int ind)
+        internal static object Instantiate(Package package, byte[] bytes, bool isMain)
         {
             using (MemStream stream = new MemStream(bytes, 0))
             using (PackageReader reader = new MemReader(stream))
             {
-                //Trace.Ind(ind, "ASSET", ind == 0 ? (INDEX++).ToString() : string.Empty, "(pre):", package.packageName);
-                return new AssetDeserializer(package, reader, checksum, isMain, ind).Deserialize();
+                return new AssetDeserializer(package, reader, isMain).Deserialize();
             }
         }
 
-        internal AssetDeserializer(Package package, PackageReader reader, string checksum, bool isMain, int ind)
+        internal AssetDeserializer(Package package, PackageReader reader, bool isMain)
         {
             this.package = package;
             this.reader = reader;
-            this.checksum = checksum;
             this.isMain = isMain;
-            this.ind = ind;
         }
 
         internal object Deserialize()
         {
-            ind++;
             Type type;
 
             if (!DeserializeHeader(out type))
@@ -71,16 +62,14 @@ namespace LoadingScreenModTest
 
         object DeserializeSingleObject(Type type, Type expectedType)
         {
-            //Trace.customDeserialize -= Profiling.Micros;
             object obj = CustomDeserializer.CustomDeserialize(package, type, reader);
-            //Trace.customDeserialize += Profiling.Micros;
 
             if (obj != null)
                 return obj;
             if (typeof(ScriptableObject).IsAssignableFrom(type))
-                return Instantiate(FindAsset(reader.ReadString()), isMain, ind);
+                return Instantiate(FindAsset(reader.ReadString()), isMain);
             if (typeof(GameObject).IsAssignableFrom(type))
-                return Instantiate(FindAsset(reader.ReadString()), isMain, ind);
+                return Instantiate(FindAsset(reader.ReadString()), isMain);
 
             if (package.version < 3u && expectedType != null && expectedType == typeof(Package.Asset))
                 return reader.ReadUnityType(expectedType);
@@ -90,16 +79,13 @@ namespace LoadingScreenModTest
 
         UnityEngine.Object DeserializeScriptableObject(Type type)
         {
-            //Trace.customDeserialize -= Profiling.Micros;
             object obj = CustomDeserializer.CustomDeserialize(package, type, reader);
-            //Trace.customDeserialize += Profiling.Micros;
 
             if (obj != null)
                 return (UnityEngine.Object) obj;
 
             ScriptableObject so = ScriptableObject.CreateInstance(type);
             so.name = reader.ReadString();
-            //Trace.Ind(ind, "SO", so.name);
             DeserializeFields(so, type, false);
             return so;
         }
@@ -107,7 +93,6 @@ namespace LoadingScreenModTest
         void DeserializeFields(object obj, Type type, bool resolveMember)
         {
             int count = reader.ReadInt32();
-            ind++;
 
             for (int i = 0; i < count; i++)
             {
@@ -170,8 +155,6 @@ namespace LoadingScreenModTest
                     field?.SetValue(obj, value);
                 }
             }
-
-            ind--;
         }
 
         UnityEngine.Object DeserializeGameObject()
@@ -183,8 +166,6 @@ namespace LoadingScreenModTest
             go.SetActive(reader.ReadBoolean());
             int count = reader.ReadInt32();
             isMain = count > 3;
-            //Trace.Ind(ind, "GO", go.name + ", " + count);
-            ind++;
 
             for (int i = 0; i < count; i++)
             {
@@ -205,7 +186,6 @@ namespace LoadingScreenModTest
                     throw new InvalidDataException("Unknown type to deserialize " + type.Name);
             }
 
-            ind--;
             return go;
         }
 
@@ -217,7 +197,6 @@ namespace LoadingScreenModTest
             Image image = new Image(reader.ReadBytes(count));
             Texture2D texture2D = image.CreateTexture(linear);
             texture2D.name = name;
-            //Trace.Ind(ind, "Texture", reader.BaseStream is MemStream ? "(pre)" : "(load)", checksum, name, texture2D.width, "x", texture2D.height);
             return texture2D;
         }
 
@@ -229,8 +208,6 @@ namespace LoadingScreenModTest
             material.name = name;
             int count = reader.ReadInt32();
             int textureCount = 0;
-            //Trace.Ind(ind, "Material", reader.BaseStream is MemStream ? "(pre)" : "(load)", checksum, name);
-            ind++;
 
             for (int i = 0; i < count; i++)
             {
@@ -249,7 +226,7 @@ namespace LoadingScreenModTest
                     if (!reader.ReadBoolean())
                     {
                         string checksum = reader.ReadString();
-                        material.SetTexture(propertyName, Sharing.instance.GetTexture(checksum, package, isMain, ind));
+                        material.SetTexture(propertyName, Sharing.instance.GetTexture(checksum, package, isMain));
                         textureCount++;
                     }
                     else
@@ -257,7 +234,6 @@ namespace LoadingScreenModTest
                 }
             }
 
-            ind--;
             return new MaterialData(material, textureCount); ;
         }
 
@@ -266,27 +242,22 @@ namespace LoadingScreenModTest
             transform.localPosition = reader.ReadVector3();
             transform.localRotation = reader.ReadQuaternion();
             transform.localScale = reader.ReadVector3();
-            //Trace.Ind(ind, "Transform", transform.name);
         }
 
         void DeserializeMeshFilter(MeshFilter meshFilter)
         {
             string checksum = reader.ReadString();
-            meshFilter.sharedMesh = Sharing.instance.GetMesh(checksum, package, isMain, ind);
+            meshFilter.sharedMesh = Sharing.instance.GetMesh(checksum, package, isMain);
         }
 
         void DeserializeMonoBehaviour(MonoBehaviour behaviour)
         {
-            //Trace.Ind(ind, behaviour.GetType().Name);
             DeserializeFields(behaviour, behaviour.GetType(), false);
         }
 
         object DeserializeObject(Type type)
         {
-            //Trace.Ind(ind, "object", type.Name);
-            //Trace.customDeserialize -= Profiling.Micros;
             object obj = CustomDeserializer.CustomDeserialize(package, type, reader);
-            //Trace.customDeserialize += Profiling.Micros;
 
             if (obj != null)
                 return obj;
@@ -303,7 +274,7 @@ namespace LoadingScreenModTest
             Material[] array = new Material[count];
 
             for (int i = 0; i < count; i++)
-                array[i] = Sharing.instance.GetMaterial(reader.ReadString(), package, isMain, ind);
+                array[i] = Sharing.instance.GetMaterial(reader.ReadString(), package, isMain);
 
             renderer.sharedMaterials = array;
         }
@@ -324,7 +295,6 @@ namespace LoadingScreenModTest
             for (int i = 0; i < mesh.subMeshCount; i++)
                 mesh.SetTriangles(reader.ReadInt32Array(), i);
 
-            //Trace.Ind(ind, "Mesh", reader.BaseStream is MemStream ? "(pre)" : "(load)", checksum, mesh.name + ", " + mesh.vertexCount + ", " + mesh.triangles.Length);
             return mesh;
         }
 

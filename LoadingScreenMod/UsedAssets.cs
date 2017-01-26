@@ -3,9 +3,8 @@ using System.Collections.Generic;
 
 namespace LoadingScreenModTest
 {
-    internal sealed class UsedAssets
+    internal sealed class UsedAssets : Instance<UsedAssets>
     {
-        internal static UsedAssets instance;
         HashSet<string> allPackages = new HashSet<string>();
         HashSet<string>[] allAssets;
         HashSet<string> buildingAssets = new HashSet<string>(), propAssets = new HashSet<string>(), treeAssets = new HashSet<string>(), vehicleAssets = new HashSet<string>();
@@ -18,17 +17,10 @@ namespace LoadingScreenModTest
         internal HashSet<string> IndirectProps => indirectProps;
         internal HashSet<string> IndirectTrees => indirectTrees;
 
-        internal static UsedAssets Create()
+        private UsedAssets()
         {
-            if (instance == null)
-            {
-                instance = new UsedAssets();
-                instance.allAssets = new HashSet<string>[] { instance.buildingAssets, instance.propAssets, instance.treeAssets, instance.vehicleAssets,
-                                                             instance.vehicleAssets, instance.buildingAssets, instance.buildingAssets, instance.propAssets };
-                instance.LookupUsed();
-            }
-
-            return instance;
+            allAssets = new HashSet<string>[] { buildingAssets, propAssets, treeAssets, vehicleAssets, vehicleAssets, buildingAssets, buildingAssets, propAssets };
+            LookupUsed();
         }
 
         void LookupUsed()

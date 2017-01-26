@@ -7,11 +7,9 @@ using System.Collections.Generic;
 
 namespace LoadingScreenModTest
 {
-    public sealed class LoadingScreen : DetourUtility
+    public sealed class LoadingScreen : DetourUtility<LoadingScreen>
     {
-        public static LoadingScreen instance;
         const float rotationSpeed = 100f, animationScale = 0.2f, progressInterval = AssetLoader.yieldInterval / 1050f;
-
         float timer, progress, meshTime, progressTime;
         float minProgress = 0f, maxProgress = 1f;
         int meshUpdates;
@@ -41,7 +39,7 @@ namespace LoadingScreenModTest
         Text[] texts;
         bool fontLoaded;
 
-        readonly FieldInfo targetProgressField = typeof(LoadingAnimation).GetField("m_targetProgress", DetourUtility.FLAGS);
+        readonly FieldInfo targetProgressField = typeof(LoadingAnimation).GetField("m_targetProgress", FLAGS);
         readonly LoadingAnimation la = Singleton<LoadingManager>.instance.LoadingAnimationComponent;
         readonly Camera camera;
 
@@ -49,9 +47,8 @@ namespace LoadingScreenModTest
         internal DualProfilerSource DualSource => texts != null && texts.Length >= 1 ? texts[0].source as DualProfilerSource : null;
         internal LineSource LoaderSource => texts != null && texts.Length >= 4 ? texts[3].source as LineSource: null;
 
-        public LoadingScreen()
+        private LoadingScreen()
         {
-            instance = this;
             init(typeof(LoadingAnimation), "SetImage");
             init(typeof(LoadingAnimation), "SetText");
             init(typeof(LoadingAnimation), "OnEnable");
@@ -65,8 +62,8 @@ namespace LoadingScreenModTest
         internal void Setup()
         {
             UIFontManager.callbackRequestCharacterInfo = (UIFontManager.CallbackRequestCharacterInfo) Delegate.Combine(UIFontManager.callbackRequestCharacterInfo,
-                new UIFontManager.CallbackRequestCharacterInfo(instance.RequestCharacterInfo));
-            Font.textureRebuilt += new Action<Font>(instance.FontTextureRebuilt);
+                new UIFontManager.CallbackRequestCharacterInfo(RequestCharacterInfo));
+            Font.textureRebuilt += new Action<Font>(FontTextureRebuilt);
 
             animationMesh = (Mesh) Util.Get(la, "m_animationMesh");
             animationMaterial = (Material) Util.Get(la, "m_animationMaterial");
@@ -80,10 +77,8 @@ namespace LoadingScreenModTest
         internal override void Dispose()
         {
             UIFontManager.callbackRequestCharacterInfo = (UIFontManager.CallbackRequestCharacterInfo) Delegate.Remove(UIFontManager.callbackRequestCharacterInfo,
-                new UIFontManager.CallbackRequestCharacterInfo(instance.RequestCharacterInfo));
-            Font.textureRebuilt -= new Action<Font>(instance.FontTextureRebuilt);
-
-            Revert();
+                new UIFontManager.CallbackRequestCharacterInfo(RequestCharacterInfo));
+            Font.textureRebuilt -= new Action<Font>(FontTextureRebuilt);
             base.Dispose();
 
             if (imageMaterial != null)
@@ -101,7 +96,6 @@ namespace LoadingScreenModTest
             if (bgMaterial != null)
                 UnityEngine.Object.Destroy(bgMaterial);
 
-            instance = null;
             imageMesh = null; imageMaterial = null; animationMesh = null; animationMaterial = null; barBGMaterial = null; barFGMaterial = null; textMaterial = null; bgMesh = null; bgMaterial = null;
             imageLoaded = animationLoaded = fontLoaded = bgLoaded = false;
         }

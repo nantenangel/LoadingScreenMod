@@ -7,18 +7,16 @@ using UnityEngine;
 
 namespace LoadingScreenModTest
 {
-    public sealed class PrefabLoader : DetourUtility
+    public sealed class PrefabLoader : DetourUtility<PrefabLoader>
     {
-        internal static PrefabLoader instance;
         readonly FieldInfo hasQueuedActionsField = typeof(LoadingManager).GetField("m_hasQueuedActions", BindingFlags.NonPublic | BindingFlags.Instance);
         readonly FieldInfo nameField, prefabsField, prefabsField2, replacesField, replacesField2;
         internal HashSet<string> skippedPrefabs = new HashSet<string>();
         bool saveDeserialized;
         const string ROUTINE = "<InitializePrefabs>c__Iterator6"; // TODO make robust
 
-        internal PrefabLoader()
+        private PrefabLoader()
         {
-            instance = this;
             Type coroutine = typeof(BuildingCollection).GetNestedType(ROUTINE, BindingFlags.NonPublic);
             nameField = coroutine?.GetField("name", BindingFlags.NonPublic | BindingFlags.Instance);
             prefabsField = coroutine?.GetField("prefabs", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -33,9 +31,8 @@ namespace LoadingScreenModTest
         internal override void Dispose()
         {
             Util.DebugPrint("Skipped", skippedPrefabs.Count, "prefabs");
-            Revert();
             base.Dispose();
-            skippedPrefabs.Clear(); skippedPrefabs = null; instance = null;
+            skippedPrefabs.Clear(); skippedPrefabs = null;;
         }
 
         public static void QueueLoadingAction(LoadingManager lm, IEnumerator action)
