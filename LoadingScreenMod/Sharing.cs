@@ -14,6 +14,7 @@ namespace LoadingScreenModTest
         const int dataHistory = cacheDepth * 44;
         ConcurrentCounter loadAhead = new ConcurrentCounter(0, 0, cacheDepth), mtAhead = new ConcurrentCounter(0, 0, cacheDepth);
         internal void WaitForWorkers() => mtAhead.Decrement();
+        internal int WorkersAhead => loadAhead.Value + mtAhead.Value;
         static bool Supports(Package.AssetType type) => type <= Package.UnityTypeEnd && type >= Package.UnityTypeStart;
 
         // The assets to load, ordered for maximum performance.
@@ -22,6 +23,7 @@ namespace LoadingScreenModTest
 
         // Asset checksum to asset data.
         LinkedHashMap<string, object> data = new LinkedHashMap<string, object>(dataHistory + 64);
+        internal int currentCount;
         int maxCount;
 
         // Meshes and textures from LoadWorker to MTWorker.
@@ -32,7 +34,17 @@ namespace LoadingScreenModTest
         Dictionary<string, byte[]> loadMap = new Dictionary<string, byte[]>(32);
 
         // Worker threads.
-        internal Thread loadWorkerThread, mtWorkerThread;
+        Thread loadWorkerThread, mtWorkerThread;
+
+        internal string ThreadStatus
+        {
+            get
+            {
+                bool b1 = loadWorkerThread.IsAlive, b2 = mtWorkerThread.IsAlive;
+                return b1 & b2 ? string.Empty : string.Concat(" ", b1.ToString(), " ", b2.ToString());
+            }
+        }
+
 
         void LoadPackage(Package package, int index)
         {
@@ -340,7 +352,8 @@ namespace LoadingScreenModTest
                 }
 
                 data.TryGetValue(checksum, out obj);
-                maxCount = Mathf.Max(data.Count, maxCount);
+                currentCount = data.Count;
+                maxCount = Mathf.Max(currentCount, maxCount);
             }
 
             TextObj to = obj as TextObj;
@@ -437,7 +450,9 @@ namespace LoadingScreenModTest
             return ms != null ? new MemReader(ms) : new PackageReader(stream);
         }
 
+        // Texture / material / mesh sharing begins here.
         int texhit, texpre, texload, mathit, matpre, matload, meshit, mespre, mesload;
+        internal int Misses => texload + matload + mesload;
         Dictionary<string, Texture2D> texturesMain = new Dictionary<string, Texture2D>(128);
         Dictionary<string, Texture2D> texturesLod = new Dictionary<string, Texture2D>(128);
         Dictionary<string, MaterialData> materialsMain = new Dictionary<string, MaterialData>(64);

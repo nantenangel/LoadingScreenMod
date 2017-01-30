@@ -146,8 +146,8 @@ namespace LoadingScreenModTest
             {
                 Sharing.instance.WaitForWorkers();
                 Package.Asset asset = queue[i];
-                Console.WriteLine(string.Concat("[LSMT] ", i, ": ", Profiling.Millis, " ", assetCount, " ", asset.fullName, " ", Sharing.instance.loadWorkerThread.IsAlive,
-                    " ", Sharing.instance.mtWorkerThread.IsAlive));
+                Console.WriteLine(string.Concat("[LSMT] ", i, ": ", Profiling.Millis, " ", assetCount, " ", Sharing.instance.currentCount, " ",
+                    asset.fullName, Sharing.instance.ThreadStatus));
 
                 if ((i & 31) == 0)
                     PrintMem();
@@ -240,7 +240,10 @@ namespace LoadingScreenModTest
                     s += wsMegas.ToString() + " ";
                 }
 
-                s += GC.CollectionCount(0);
+                s = string.Concat(s, GC.CollectionCount(0).ToString());
+
+                if (Sharing.HasInstance)
+                    s += string.Concat(" ", Sharing.instance.Misses.ToString(), " ", Sharing.instance.WorkersAhead.ToString());
             }
             catch (Exception)
             {

@@ -14,7 +14,6 @@ namespace LoadingScreenModTest
         object sync = new object();
         volatile bool completed = false;
         public int Count => queue.Count;
-        public bool Completed => completed;
 
         public ConcurrentQueue(int capacity)
         {
@@ -64,8 +63,20 @@ namespace LoadingScreenModTest
     /// </summary>
     public sealed class ConcurrentCounter
     {
-        int value, min, max;
+        volatile int value;
+        int min, max;
         object sync = new object();
+
+        public int Value
+        {
+            get
+            {
+                lock (sync)
+                {
+                    return value;
+                }
+            }
+        }
 
         public ConcurrentCounter(int value, int min, int max)
         {
@@ -252,6 +263,8 @@ namespace LoadingScreenModTest
                 Instance<T>.inst = value;
             }
         }
+
+        public static bool HasInstance => Instance<T>.inst != null;
 
         internal static T Create()
         {
