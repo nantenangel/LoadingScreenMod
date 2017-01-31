@@ -45,11 +45,9 @@ namespace LoadingScreenModTest
             }
         }
 
-
-        void LoadPackage(Package package, int index)
+        void LoadPackage(Package package)
         {
             loadList.Clear(); loadMap.Clear();
-            int re = 0;
 
             lock (mutex)
             {
@@ -67,10 +65,7 @@ namespace LoadingScreenModTest
                         continue;
 
                     if (data.ContainsKey(checksum))
-                    {
                         data.Reinsert(checksum);
-                        re++;
-                    }
                     else
                         loadList.Add(asset);
                 }
@@ -134,7 +129,7 @@ namespace LoadingScreenModTest
                 if (!ReferenceEquals(p, prevPackage))
                     try
                     {
-                        LoadPackage(p, index);
+                        LoadPackage(p);
                     }
                     catch (Exception e)
                     {
@@ -150,7 +145,7 @@ namespace LoadingScreenModTest
                 {
                     int millis = Profiling.Millis;
 
-                    for (count = 0; count < 18 && data.Count > dataHistory; count++)
+                    for (count = 0; count < 18 && data.Count > dataHistory || data.Count > 3 * dataHistory; count++)
                         data.RemoveEldest();
                 }
             }

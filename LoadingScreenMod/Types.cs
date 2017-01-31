@@ -255,7 +255,7 @@ namespace LoadingScreenModTest
         {
             get
             {
-                return inst;
+                return Instance<T>.inst;
             }
 
             set

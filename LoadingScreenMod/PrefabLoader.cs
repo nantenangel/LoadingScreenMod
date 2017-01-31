@@ -32,7 +32,7 @@ namespace LoadingScreenModTest
         {
             Util.DebugPrint("Skipped", skippedPrefabs.Count, "prefabs");
             base.Dispose();
-            skippedPrefabs.Clear(); skippedPrefabs = null;;
+            skippedPrefabs.Clear(); skippedPrefabs = null;
         }
 
         public static void QueueLoadingAction(LoadingManager lm, IEnumerator action)
