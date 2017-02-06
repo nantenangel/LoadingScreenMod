@@ -144,7 +144,6 @@ namespace LoadingScreenModTest
 
             for (i = 0; i < queue.Length; i++)
             {
-                Sharing.instance.WaitForWorkers();
                 Package.Asset asset = queue[i];
                 Console.WriteLine(string.Concat("[LSMT] ", i, ": ", Profiling.Millis, " ", assetCount, " ", Sharing.instance.currentCount, " ",
                     asset.fullName, Sharing.instance.ThreadStatus));
@@ -152,7 +151,9 @@ namespace LoadingScreenModTest
                 if ((i & 31) == 0)
                     PrintMem();
 
+                Sharing.instance.WaitForWorkers();
                 Load(asset);
+                Sharing.instance.ManageLoadQueue();
 
                 if (Profiling.Millis - lastMillis > yieldInterval)
                 {
@@ -166,8 +167,8 @@ namespace LoadingScreenModTest
             lastMillis = Profiling.Millis;
             LoadingScreen.instance.SetProgress(0.85f, 1f, assetCount, assetCount, beginMillis, lastMillis);
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
+            Util.DebugPrint("Custom assets loaded in", lastMillis - beginMillis);
             PrintMem();
-            Util.DebugPrint("Custom assets loaded at", lastMillis);
             queue = null;
             stack.Clear();
             Report();
@@ -236,8 +237,8 @@ namespace LoadingScreenModTest
                 {
                     ulong pagefileUsage, workingSetSize;
                     MemoryAPI.GetUsage(out pagefileUsage, out workingSetSize);
-                    int wsMegas = (int) (workingSetSize >> 20);
-                    s += wsMegas.ToString() + " ";
+                    int wsMegas = (int) (workingSetSize >> 20), pfMegas = (int) (pagefileUsage>> 20);
+                    s += string.Concat(wsMegas.ToString(), " ", pfMegas.ToString(), " ");
                 }
 
                 s = string.Concat(s, GC.CollectionCount(0).ToString());
@@ -604,8 +605,8 @@ namespace LoadingScreenModTest
         //        Trace.Pr(p.packageName, "\t\t", p.packagePath, "   ", p.version);
 
         //        foreach (Package.Asset a in p)
-        //            Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(90), a.checksum, a.type.ToString().PadRight(10),
-        //                a.offset.ToString().PadLeft(7), a.size.ToString().PadLeft(7));
+        //            Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(94), a.checksum, a.type.ToString().PadRight(19),
+        //                a.offset.ToString().PadLeft(8), a.size.ToString().PadLeft(8));
         //    }
         //}
     }

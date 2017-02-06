@@ -43,7 +43,7 @@ namespace LoadingScreenModTest
         string NameIdle => string.Concat(GRAY, name, OFF);
         string NameFailed => string.Concat(RED, name, Profiling.FAILED, OFF);
 
-        internal const string YELLOW = "<color #f0f000>", RED = "<color #f04040>", GRAY = "<color #c0c0c0>", ORANGE = "<color #f0a040>", CYAN = "<color #80e0f0>", OFF = "</color>";
+        internal const string YELLOW = "<color #f0f000>", RED = "<color #f04040>", GRAY = "<color #c0c0c0>", ORANGE = "<color #f0a840>", CYAN = "<color #80e0f0>", OFF = "</color>";
         internal static readonly StringBuilder builder = new StringBuilder();
 
         internal Sink(string name, int len)
@@ -303,7 +303,16 @@ namespace LoadingScreenModTest
 
     internal sealed class MemorySource : Source
     {
-        int systemMegas = SystemInfo.systemMemorySize;
+        int systemMegas = SystemInfo.systemMemorySize, wsOrange, wsRed, pfOrange, pfRed;
+        bool orange, red;
+
+        internal MemorySource()
+        {
+            wsOrange =  92 * systemMegas >> 7;
+            wsRed    = 106 * systemMegas >> 7;
+            pfOrange = 107 * systemMegas >> 7;
+            pfRed    = 124 * systemMegas >> 7;
+        }
 
         protected internal override string CreateText()
         {
@@ -313,11 +322,13 @@ namespace LoadingScreenModTest
                 MemoryAPI.GetUsage(out pagefileUsage, out workingSetSize);
                 int pfMegas = (int) (pagefileUsage >> 20), wsMegas = (int) (workingSetSize >> 20);
                 string gigas = (wsMegas / 1024f).ToString("F2");
+                orange |= wsMegas > wsOrange | pfMegas > pfOrange;
+                red |= wsMegas > wsRed | pfMegas > pfRed;
 
-                if (systemMegas < wsMegas)
+                if (red)
                     return string.Concat(Sink.RED, gigas, Sink.OFF, " GB");
-                else if (systemMegas < pfMegas)
-                    return string.Concat(Sink.YELLOW, gigas, Sink.OFF, " GB");
+                else if (orange)
+                    return string.Concat(Sink.ORANGE, gigas, Sink.OFF, " GB");
                 else
                     return string.Concat(gigas, " GB");
             }

@@ -125,50 +125,12 @@ namespace LoadingScreenModTest
 
     //internal static class Trace
     //{
-    //    static List<string> seq = new List<string>(64);
-    //    internal static long meshWorker, meshMain, texWorker, texMain, customDeserialize, packageHelper;
-    //    internal static long texBytes, texPixels;
-    //    internal static int imgFinalizes, loadHits;
-
     //    static StreamWriter w;
     //    internal static void Start() => w = new StreamWriter(Util.GetFileName("trace", "txt"));
-    //    internal static void Stop() { SaveAll(); w.Dispose(); }
+    //    internal static void Stop() { w.Dispose(); }
     //    internal static void Newline() { w.WriteLine(); w.Flush(); }
     //    internal static void Flush() => w.Flush();
     //    internal static void Pr(params object[] args) => w.WriteLine(" ".OnJoin(args));
     //    internal static void Ind(int n, params object[] args) => w.WriteLine((new string(' ', n + n) + " ".OnJoin(args)).PadRight(120) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")");
-
-    //    internal static void Seq(params object[] args)
-    //    {
-    //        string name = Thread.CurrentThread.Name ?? "MainThread";
-    //        string s = name + " " + (" ".OnJoin(args)).PadRight(120) + " (" + Profiling.Millis + ") (" + GC.CollectionCount(0) + ")";
-
-    //        lock (seq)
-    //        {
-    //            seq.Add(s);
-    //        }
-    //    }
-
-    //    static void SaveAll()
-    //    {
-    //        Newline();
-    //        Pr("meshWorker", meshWorker);
-    //        Pr("texWorker", texWorker);
-    //        Pr("meshMain", meshMain);
-    //        Pr("texMain", texMain);
-    //        Pr("texBytes", texBytes);
-    //        Pr("texPixels", texPixels);
-    //        Pr("imgFinalizes", imgFinalizes);
-    //        Pr("loadHits", loadHits);
-    //        Pr("customDeserialize", customDeserialize);
-    //        Pr("packageHelper", packageHelper);
-
-    //        Newline();
-    //        Pr("Seq:");
-    //        foreach (var s in seq)
-    //            Pr(s);
-
-    //        seq.Clear();
-    //    }
     //}
 }
