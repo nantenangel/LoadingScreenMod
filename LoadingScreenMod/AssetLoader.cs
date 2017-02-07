@@ -153,7 +153,7 @@ namespace LoadingScreenModTest
 
                 Sharing.instance.WaitForWorkers();
                 Load(asset);
-                Sharing.instance.ManageLoadQueue();
+                Sharing.instance.ManageLoadQueue(i);
 
                 if (Profiling.Millis - lastMillis > yieldInterval)
                 {

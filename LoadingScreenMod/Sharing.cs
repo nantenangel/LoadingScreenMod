@@ -11,8 +11,10 @@ namespace LoadingScreenModTest
     internal sealed class Sharing : Instance<Sharing>
     {
         const int cacheDepth = 3;
-        const int dataHistory = cacheDepth * 48;
+        const int dataHistory = cacheDepth * 50;
         const int dataMax = 3 * dataHistory;
+        const int evictLimit = dataMax / 6;
+        const int materialLimit = 3 * evictLimit / 4;
         const int removeTarget = cacheDepth * 5;
         ConcurrentCounter loadAhead = new ConcurrentCounter(0, 0, cacheDepth), mtAhead = new ConcurrentCounter(0, 0, cacheDepth);
         internal void WaitForWorkers() => mtAhead.Decrement();
@@ -24,11 +26,9 @@ namespace LoadingScreenModTest
         object mutex = new object();
 
         // Asset checksum to asset data.
-        LinkedHashMap<string, object> data = new LinkedHashMap<string, object>(dataHistory + 64);
+        LinkedHashMap<string, KeyValuePair<int, object>> data = new LinkedHashMap<string, KeyValuePair<int, object>>(dataHistory + 80);
         internal int currentCount;
         int maxCount, removedCount;
-
-        Dictionary<string, int> loadIndex = new Dictionary<string, int>(128);
 
         // Meshes and textures from LoadWorker to MTWorker.
         ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>> mtQueue = new ConcurrentQueue<KeyValuePair<Package.Asset, byte[]>>(48);
@@ -66,7 +66,7 @@ namespace LoadingScreenModTest
                     // Some workshop assets contain dozens of materials. Probably by mistake.
                     if (type == Package.AssetType.Texture && (texturesMain.ContainsKey(checksum) || texturesLod.ContainsKey(checksum)) ||
                         type == Package.AssetType.StaticMesh && meshes.ContainsKey(checksum) ||
-                        type == Package.AssetType.Material && (materialsMain.ContainsKey(checksum) || materialsLod.ContainsKey(checksum) || ++matCount > 60))
+                        type == Package.AssetType.Material && (materialsMain.ContainsKey(checksum) || materialsLod.ContainsKey(checksum) || ++matCount > materialLimit))
                         continue;
 
                     if (data.ContainsKey(checksum))
@@ -74,7 +74,6 @@ namespace LoadingScreenModTest
                     else if (total < dataMax)
                     {
                         loadList.Add(asset);
-                        loadIndex[checksum] = index;
                         total++;
                     }
                 }
@@ -97,7 +96,7 @@ namespace LoadingScreenModTest
             {
                 foreach (var kvp in loadMap)
                     if (!data.ContainsKey(kvp.Key)) // this check is necessary
-                        data.Add(kvp.Key, kvp.Value);
+                        data.Add(kvp.Key, new KeyValuePair<int, object>(index, kvp.Value));
             }
         }
 
@@ -159,6 +158,7 @@ namespace LoadingScreenModTest
         {
             Thread.CurrentThread.Name = "MTWorker A";
             KeyValuePair<Package.Asset, byte[]> elem;
+            int index = 0;
 
             while (mtQueue.Dequeue(out elem))
             {
@@ -168,11 +168,12 @@ namespace LoadingScreenModTest
                     {
                         mtAhead.Increment();
                         loadAhead.Decrement();
+                        index++;
                     }
                     else if (elem.Key.type == Package.AssetType.Texture)
-                        DeserializeTextObj(elem.Key, elem.Value);
+                        DeserializeTextObj(elem.Key, elem.Value, index);
                     else if (elem.Key.type == Package.AssetType.StaticMesh)
-                        DeserializeMeshObj(elem.Key, elem.Value);
+                        DeserializeMeshObj(elem.Key, elem.Value, index);
                 }
                 catch (Exception e)
                 {
@@ -181,7 +182,7 @@ namespace LoadingScreenModTest
             }
         }
 
-        void DeserializeMeshObj(Package.Asset asset, byte[] bytes)
+        void DeserializeMeshObj(Package.Asset asset, byte[] bytes, int index)
         {
             MeshObj mo;
 
@@ -211,11 +212,11 @@ namespace LoadingScreenModTest
 
             lock (mutex)
             {
-                data[asset.checksum] = mo;
+                data[asset.checksum] = new KeyValuePair<int, object>(index, mo);
             }
         }
 
-        void DeserializeTextObj(Package.Asset asset, byte[] bytes)
+        void DeserializeTextObj(Package.Asset asset, byte[] bytes, int index)
         {
             TextObj to;
 
@@ -242,7 +243,7 @@ namespace LoadingScreenModTest
 
             lock (mutex)
             {
-                data[asset.checksum] = to;
+                data[asset.checksum] = new KeyValuePair<int, object>(index, to);
             }
         }
 
@@ -254,23 +255,29 @@ namespace LoadingScreenModTest
             return Type.GetType(reader.ReadString());
         }
 
-        internal void ManageLoadQueue()
+        internal void ManageLoadQueue(int index)
         {
             lock (mutex)
             {
                 currentCount = data.Count;
                 maxCount = Mathf.Max(currentCount, maxCount);
                 int target = Mathf.Min(removeTarget - removedCount, currentCount - dataHistory);
-                target = Mathf.Max(currentCount - dataMax + 6 * removeTarget, target);
+                target = Mathf.Max(currentCount - dataMax + evictLimit, target);
                 removedCount = 0;
                 int millis = Profiling.Millis;
 
                 for (int count = 0; count < target; count++)
                 {
                     string checksum = data.EldestKey;
-                    data.RemoveEldest();
-                    Util.DebugPrint("     Removed", checksum, "(" + loadIndex[checksum] + ")");
-                    loadIndex.Remove(checksum);
+                    KeyValuePair<int, object> kvp = data.RemoveEldest();
+
+                    if (kvp.Key > index)
+                    {
+                        data.Add(checksum, kvp);
+                        break;
+                    }
+
+                    Util.DebugPrint("     Removed", checksum, "(" + kvp.Key + ")");
                 }
             }
         }
@@ -278,19 +285,18 @@ namespace LoadingScreenModTest
         internal Stream GetStream(Package.Asset asset)
         {
             string checksum = asset.checksum;
-            object obj;
+            KeyValuePair<int, object> kvp;
 
             lock (mutex)
             {
-                if (data.TryGetValue(checksum, out obj) && asset.size > 32768)
+                if (data.TryGetValue(checksum, out kvp) && asset.size > 32768)
                 {
                     data.Remove(checksum);
                     removedCount++;
-                    loadIndex.Remove(checksum);
                 }
             }
 
-            byte[] bytes = obj as byte[];
+            byte[] bytes = kvp.Value as byte[];
 
             if (bytes != null)
                 return new MemStream(bytes, 0);
@@ -303,7 +309,7 @@ namespace LoadingScreenModTest
         internal Mesh GetMesh(string checksum, Package package, bool isMain)
         {
             Mesh mesh;
-            object obj;
+            KeyValuePair<int, object> kvp;
 
             lock (mutex)
             {
@@ -313,10 +319,10 @@ namespace LoadingScreenModTest
                     return mesh;
                 }
 
-                data.TryGetValue(checksum, out obj);
+                data.TryGetValue(checksum, out kvp);
             }
 
-            MeshObj mo = obj as MeshObj;
+            MeshObj mo = kvp.Value as MeshObj;
             byte[] bytes;
 
             if (mo != null)
@@ -336,7 +342,7 @@ namespace LoadingScreenModTest
 
                 mespre++;
             }
-            else if ((bytes = obj as byte[]) != null)
+            else if ((bytes = kvp.Value as byte[]) != null)
             {
                 Util.DebugPrint("MISS MESHO", checksum, WorkersAhead);
                 mesh = AssetDeserializer.Instantiate(package, bytes, isMain) as Mesh;
@@ -357,8 +363,6 @@ namespace LoadingScreenModTest
 
                     if (data.Remove(checksum))
                         removedCount++;
-
-                    loadIndex.Remove(checksum);
                 }
 
             return mesh;
@@ -367,7 +371,7 @@ namespace LoadingScreenModTest
         internal Texture2D GetTexture(string checksum, Package package, bool isMain)
         {
             Texture2D texture2D;
-            object obj;
+            KeyValuePair<int, object> kvp;
 
             lock (mutex)
             {
@@ -382,10 +386,10 @@ namespace LoadingScreenModTest
                     return UnityEngine.Object.Instantiate(texture2D);
                 }
 
-                data.TryGetValue(checksum, out obj);
+                data.TryGetValue(checksum, out kvp);
             }
 
-            TextObj to = obj as TextObj;
+            TextObj to = kvp.Value as TextObj;
             byte[] bytes;
 
             if (to != null)
@@ -396,7 +400,7 @@ namespace LoadingScreenModTest
                 texture2D.name = to.name;
                 texpre++;
             }
-            else if ((bytes = obj as byte[]) != null)
+            else if ((bytes = kvp.Value as byte[]) != null)
             {
                 Util.DebugPrint("MISS TEXTO", checksum, WorkersAhead);
                 texture2D = AssetDeserializer.Instantiate(package, bytes, isMain) as Texture2D;
@@ -420,8 +424,6 @@ namespace LoadingScreenModTest
 
                     if (data.Remove(checksum))
                         removedCount++;
-
-                    loadIndex.Remove(checksum);
                 }
 
             return texture2D;
@@ -430,7 +432,7 @@ namespace LoadingScreenModTest
         internal Material GetMaterial(string checksum, Package package, bool isMain)
         {
             MaterialData mat;
-            object obj;
+            KeyValuePair<int, object> kvp;
 
             lock (mutex)
             {
@@ -447,10 +449,10 @@ namespace LoadingScreenModTest
                     // return mat.material; TODO test
                 }
 
-                data.TryGetValue(checksum, out obj);
+                data.TryGetValue(checksum, out kvp);
             }
 
-            byte[] bytes = obj as byte[];
+            byte[] bytes = kvp.Value as byte[];
 
             if (bytes != null)
             {
@@ -475,8 +477,6 @@ namespace LoadingScreenModTest
 
                     if (data.Remove(checksum))
                         removedCount++;
-
-                    loadIndex.Remove(checksum);
                 }
 
             return mat.material;

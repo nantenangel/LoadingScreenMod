@@ -202,13 +202,15 @@ namespace LoadingScreenModTest
             return false;
         }
 
-        public void RemoveEldest()
+        public V RemoveEldest()
         {
             Node n = head.next;
             map.Remove(n.key);
             head.next = n.next;
             n.next.prev = head;
+            V ret = n.val;
             AddSpare(n);
+            return ret;
         }
 
         public void Clear()
