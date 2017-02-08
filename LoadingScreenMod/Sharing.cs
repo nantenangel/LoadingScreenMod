@@ -285,8 +285,6 @@ namespace LoadingScreenModTest
                         data.Add(checksum, kvp);
                         break;
                     }
-
-                    Util.DebugPrint("     Removed", checksum, "(" + kvp.Key + ")");
                 }
             }
         }
@@ -309,8 +307,6 @@ namespace LoadingScreenModTest
 
             if (bytes != null)
                 return new MemStream(bytes, 0);
-
-            Util.DebugPrint("     MISS ASSET", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
 
             return asset.GetStream();
         }
@@ -353,14 +349,12 @@ namespace LoadingScreenModTest
             }
             else if ((bytes = kvp.Value as byte[]) != null)
             {
-                Util.DebugPrint("     MISS MESHO", checksum, WorkersAhead);
                 mesh = AssetDeserializer.Instantiate(package, bytes, isMain) as Mesh;
                 mespre++;
             }
             else
             {
                 Package.Asset asset = package.FindByChecksum(checksum);
-                Util.DebugPrint("     MISS MESH ", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
                 mesh = AssetDeserializer.Instantiate(asset, isMain) as Mesh;
                 mesload++;
             }
@@ -411,14 +405,12 @@ namespace LoadingScreenModTest
             }
             else if ((bytes = kvp.Value as byte[]) != null)
             {
-                Util.DebugPrint("     MISS TEXTO", checksum, WorkersAhead);
                 texture2D = AssetDeserializer.Instantiate(package, bytes, isMain) as Texture2D;
                 texpre++;
             }
             else
             {
                 Package.Asset asset = package.FindByChecksum(checksum);
-                Util.DebugPrint("     MISS TEXT ", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
                 texture2D = AssetDeserializer.Instantiate(asset, isMain) as Texture2D;
                 texload++;
             }
@@ -471,7 +463,6 @@ namespace LoadingScreenModTest
             else
             {
                 Package.Asset asset = package.FindByChecksum(checksum);
-                Util.DebugPrint("     MISS MATR ", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
                 mat = (MaterialData) AssetDeserializer.Instantiate(asset, isMain);
                 matload++;
             }
