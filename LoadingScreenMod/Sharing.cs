@@ -12,10 +12,10 @@ namespace LoadingScreenModTest
     {
         const int cacheDepth = 3;
         const int dataHistory = cacheDepth * 50;
-        const int dataMax = 3 * dataHistory;
+        const int dataMax = 4 * dataHistory;
         const int evictLimit = dataMax / 6;
-        const int materialLimit = 3 * evictLimit / 4;
-        const int removeTarget = cacheDepth * 5;
+        const int materialMax = 3 * evictLimit / 4;
+        const int removeTarget = 15;
         ConcurrentCounter loadAhead = new ConcurrentCounter(0, 0, cacheDepth), mtAhead = new ConcurrentCounter(0, 0, cacheDepth);
         internal void WaitForWorkers() => mtAhead.Decrement();
         internal int WorkersAhead => loadAhead.Value + mtAhead.Value;
@@ -54,6 +54,7 @@ namespace LoadingScreenModTest
             lock (mutex)
             {
                 int total = data.Count, matCount = 0;
+                int materialLimit = Mathf.Min(materialMax, dataMax - total - 20);
 
                 foreach (Package.Asset asset in package)
                 {
@@ -63,7 +64,7 @@ namespace LoadingScreenModTest
                     if (!Supports(type) || name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot"))
                         continue;
 
-                    // Some workshop assets contain dozens of materials. Probably by mistake.
+                    // Some workshop assets contain hundreds of materials. Probably by mistake.
                     if (type == Package.AssetType.Texture && (texturesMain.ContainsKey(checksum) || texturesLod.ContainsKey(checksum)) ||
                         type == Package.AssetType.StaticMesh && meshes.ContainsKey(checksum) ||
                         type == Package.AssetType.Material && (materialsMain.ContainsKey(checksum) || materialsLod.ContainsKey(checksum) || ++matCount > materialLimit))
@@ -124,6 +125,14 @@ namespace LoadingScreenModTest
             return bytes;
         }
 
+        int Forward(Package p, Package.Asset[] q, int index)
+        {
+            while(++index < q.Length && ReferenceEquals(p, q[index].package))
+                ;
+
+            return index - 1;
+        }
+
         void LoadWorker()
         {
             Thread.CurrentThread.Name = "LoadWorker";
@@ -137,7 +146,7 @@ namespace LoadingScreenModTest
                 if (!ReferenceEquals(p, prevPackage))
                     try
                     {
-                        LoadPackage(p, index);
+                        LoadPackage(p, Forward(p, q, index));
                     }
                     catch (Exception e)
                     {
@@ -301,7 +310,7 @@ namespace LoadingScreenModTest
             if (bytes != null)
                 return new MemStream(bytes, 0);
 
-            Util.DebugPrint("MISS ASSET", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
+            Util.DebugPrint("     MISS ASSET", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
 
             return asset.GetStream();
         }
@@ -344,14 +353,14 @@ namespace LoadingScreenModTest
             }
             else if ((bytes = kvp.Value as byte[]) != null)
             {
-                Util.DebugPrint("MISS MESHO", checksum, WorkersAhead);
+                Util.DebugPrint("     MISS MESHO", checksum, WorkersAhead);
                 mesh = AssetDeserializer.Instantiate(package, bytes, isMain) as Mesh;
                 mespre++;
             }
             else
             {
                 Package.Asset asset = package.FindByChecksum(checksum);
-                Util.DebugPrint("MISS MESH ", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
+                Util.DebugPrint("     MISS MESH ", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
                 mesh = AssetDeserializer.Instantiate(asset, isMain) as Mesh;
                 mesload++;
             }
@@ -402,14 +411,14 @@ namespace LoadingScreenModTest
             }
             else if ((bytes = kvp.Value as byte[]) != null)
             {
-                Util.DebugPrint("MISS TEXTO", checksum, WorkersAhead);
+                Util.DebugPrint("     MISS TEXTO", checksum, WorkersAhead);
                 texture2D = AssetDeserializer.Instantiate(package, bytes, isMain) as Texture2D;
                 texpre++;
             }
             else
             {
                 Package.Asset asset = package.FindByChecksum(checksum);
-                Util.DebugPrint("MISS TEXT ", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
+                Util.DebugPrint("     MISS TEXT ", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
                 texture2D = AssetDeserializer.Instantiate(asset, isMain) as Texture2D;
                 texload++;
             }
@@ -462,7 +471,7 @@ namespace LoadingScreenModTest
             else
             {
                 Package.Asset asset = package.FindByChecksum(checksum);
-                Util.DebugPrint("MISS MATR ", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
+                Util.DebugPrint("     MISS MATR ", checksum, asset.type.ToString().PadRight(11), data.Count, WorkersAhead, asset.fullName);
                 mat = (MaterialData) AssetDeserializer.Instantiate(asset, isMain);
                 matload++;
             }
