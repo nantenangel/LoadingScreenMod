@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace LoadingScreenModTest
+namespace LoadingScreenMod
 {
     internal sealed class UsedAssets : Instance<UsedAssets>
     {

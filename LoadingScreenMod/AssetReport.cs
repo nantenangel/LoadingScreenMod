@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using ColossalFramework.Packaging;
 
-namespace LoadingScreenModTest
+namespace LoadingScreenMod
 {
     internal sealed class AssetReport : Instance<AssetReport>
     {

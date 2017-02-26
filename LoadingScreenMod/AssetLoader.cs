@@ -7,7 +7,7 @@ using ColossalFramework.Packaging;
 using ColossalFramework.PlatformServices;
 using UnityEngine;
 
-namespace LoadingScreenModTest
+namespace LoadingScreenMod
 {
     /// <summary>
     /// LoadCustomContent coroutine from LoadingManager.

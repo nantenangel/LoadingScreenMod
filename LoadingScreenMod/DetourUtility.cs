@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace LoadingScreenModTest
+namespace LoadingScreenMod
 {
     public class DetourUtility<T> : Instance<T>
     {

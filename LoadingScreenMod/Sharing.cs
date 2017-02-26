@@ -6,7 +6,7 @@ using ColossalFramework.Importers;
 using ColossalFramework.Packaging;
 using UnityEngine;
 
-namespace LoadingScreenModTest
+namespace LoadingScreenMod
 {
     internal sealed class Sharing : Instance<Sharing>
     {

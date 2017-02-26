@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Threading;
 using UnityEngine;
 
-namespace LoadingScreenModTest
+namespace LoadingScreenMod
 {
     public sealed class PrefabLoader : DetourUtility<PrefabLoader>
     {

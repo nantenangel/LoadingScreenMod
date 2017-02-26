@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using ColossalFramework.Packaging;
 using ColossalFramework.PlatformServices;
 
-namespace LoadingScreenModTest
+namespace LoadingScreenMod
 {
     internal sealed class CustomDeserializer : Instance<CustomDeserializer>
     {

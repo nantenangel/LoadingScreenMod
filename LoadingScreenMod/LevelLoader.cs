@@ -10,7 +10,7 @@ using ColossalFramework.UI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace LoadingScreenModTest
+namespace LoadingScreenMod
 {
     /// <summary>
     /// LoadLevelCoroutine from LoadingManager.

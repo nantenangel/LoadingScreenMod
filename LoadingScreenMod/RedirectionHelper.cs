@@ -25,7 +25,7 @@ THE SOFTWARE.
 using System;
 using System.Reflection;
 
-namespace LoadingScreenModTest
+namespace LoadingScreenMod
 {
     public struct RedirectCallsState
     {

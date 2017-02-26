@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace LoadingScreenModTest
+namespace LoadingScreenMod
 {
     /// <summary>
     /// I want to display the amount of memory used by the Cities process. Unfortunately, there is no working cross-platform way
