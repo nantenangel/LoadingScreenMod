@@ -273,7 +273,6 @@ namespace LoadingScreenModTest
                 int target = Mathf.Min(removeTarget - removedCount, currentCount - dataHistory);
                 target = Mathf.Max(currentCount - dataMax + evictLimit, target);
                 removedCount = 0;
-                int millis = Profiling.Millis;
 
                 for (int count = 0; count < target; count++)
                 {

@@ -425,10 +425,10 @@ namespace LoadingScreenModTest
                         {
                             CustomAssetMetaData.Type type = meta.type;
                             int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding || type == CustomAssetMetaData.Type.PropVariation ? -1 : 0;
-                            AddToQueue(queues, meta, offset);
+                            string fullName = AddToQueue(queues, meta, offset);
 
-                            if (!want)
-                                dontSpawnNormally.Add(meta.assetRef.fullName);
+                            if (!want && fullName != null)
+                                dontSpawnNormally.Add(fullName);
                         }
                     }
                     else
@@ -464,10 +464,10 @@ namespace LoadingScreenModTest
 
                             for (int i = 0; i < metas.Count; i++)
                             {
-                                AddToQueue(queues, metas[i], offset);
+                                string fullName = AddToQueue(queues, metas[i], offset);
 
-                                if (!want)
-                                    dontSpawnNormally.Add(metas[i].assetRef.fullName);
+                                if (!want && fullName != null)
+                                    dontSpawnNormally.Add(fullName);
                             }
                         }
                     }
@@ -486,9 +486,16 @@ namespace LoadingScreenModTest
             return queue;
         }
 
-        void AddToQueue(List<Package.Asset>[] queues, CustomAssetMetaData meta, int offset)
+        string AddToQueue(List<Package.Asset>[] queues, CustomAssetMetaData meta, int offset)
         {
             Package.Asset assetRef = meta.assetRef;
+
+            if (assetRef == null)
+            {
+                Util.DebugPrint(meta.name, " Warning : NULL asset");
+                return null;
+            }
+
             Package package = assetRef.package;
             string fullName = assetRef.fullName;
 
@@ -518,6 +525,8 @@ namespace LoadingScreenModTest
                         queues[5 + offset].Add(assetRef);
                     break;
             }
+
+            return fullName;
         }
 
         static bool IsEnabled(Package package)
