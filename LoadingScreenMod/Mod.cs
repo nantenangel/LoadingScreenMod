@@ -22,7 +22,7 @@ namespace LoadingScreenModTest
             {
                 //Trace.Start();
                 LevelLoader.Create().Deploy();
-                // new PackageManagerFix().Deploy();
+                //new PackageManagerFix().Deploy();
                 created = true;
             }
         }
@@ -32,7 +32,7 @@ namespace LoadingScreenModTest
             //Trace.Stop();
             LevelLoader.instance?.Dispose();
             Settings.helper = null;
-            // PackageManagerFix.instance?.Dispose();
+            //PackageManagerFix.instance?.Dispose();
             created = false;
         }
     }
