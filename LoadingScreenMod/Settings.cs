@@ -155,7 +155,7 @@ namespace LoadingScreenMod
             Check(group, "Share materials", "Replace exact duplicates by references", shareMaterials, b => { shareMaterials = b; dirty = true; });
             Check(group, "Share meshes", "Replace exact duplicates by references", shareMeshes, b => { shareMeshes = b; dirty = true; });
 
-            group = CreateGroup(helper, "Skip unused standard buildings  [Experimental]", "This means the buildings included in the base game and DLCs");
+            group = CreateGroup(helper, "Skip unused standard buildings", "This means the buildings included in the base game and DLCs");
             Check(group, "Residential Low", null, skipResLo, b => { skipResLo = b; dirty = true; });
             Check(group, "Residential High", null, skipResHi, b => { skipResHi = b; dirty = true; });
             Check(group, "Commercial Low", null, skipComLo, b => { skipComLo = b; dirty = true; });
