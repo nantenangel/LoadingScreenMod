@@ -13,7 +13,7 @@ namespace LoadingScreenMod
         public void OnSettingsUI(UIHelperBase helper) => Settings.OnSettingsUI(helper);
         public void OnCreated(ILoading loading) { }
         public void OnReleased() { }
-        public void OnLevelLoaded(LoadMode mode) { Util.DebugPrint("OnLevelLoaded at", Profiling.Millis); }
+        public void OnLevelLoaded(LoadMode mode) { }
         public void OnLevelUnloading() { }
 
         void Create()

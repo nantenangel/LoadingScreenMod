@@ -133,7 +133,6 @@ namespace LoadingScreenMod
             lastMillis = Profiling.Millis;
             LoadingScreen.instance.DualSource.Add("Custom Assets");
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Calculating asset load order");
-            Util.DebugPrint("GetLoadQueue", Profiling.Millis);
             Package.Asset[] queue = GetLoadQueue(styleBuildings);
             Util.DebugPrint("LoadQueue", queue.Length, Profiling.Millis);
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
@@ -145,11 +144,9 @@ namespace LoadingScreenMod
             for (i = 0; i < queue.Length; i++)
             {
                 Package.Asset asset = queue[i];
-                Console.WriteLine(string.Concat("[LSMT] ", i, ": ", Profiling.Millis, " ", assetCount, " ", Sharing.instance.currentCount, " ",
-                    asset.fullName, Sharing.instance.ThreadStatus));
 
-                if ((i & 31) == 0)
-                    PrintMem();
+                if ((i & 63) == 0)
+                    PrintMem(i);
 
                 Sharing.instance.WaitForWorkers();
                 Load(asset);
@@ -227,9 +224,9 @@ namespace LoadingScreenMod
             hasFinished = true;
         }
 
-        internal void PrintMem()
+        internal void PrintMem(int i = -1)
         {
-            string s = "[LSMT] Mem ";
+            string s = i >= 0 ? "[LSM] Mem " + i + " " : "[LSM] Mem ";
 
             try
             {
@@ -241,10 +238,8 @@ namespace LoadingScreenMod
                     s += string.Concat(wsMegas.ToString(), " ", pfMegas.ToString(), " ");
                 }
 
-                s = string.Concat(s, GC.CollectionCount(0).ToString());
-
                 if (Sharing.HasInstance)
-                    s += string.Concat(" ", Sharing.instance.Misses.ToString(), " ", Sharing.instance.WorkersAhead.ToString());
+                    s += string.Concat(Sharing.instance.Misses.ToString(), " ", Sharing.instance.WorkersAhead.ToString());
             }
             catch (Exception)
             {
@@ -390,7 +385,6 @@ namespace LoadingScreenMod
             List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4),
                                              new List<Package.Asset>(64), new List<Package.Asset>(32), new List<Package.Asset>(32) };
 
-            Util.DebugPrint("Sorted at", Profiling.Millis);
             SteamHelper.DLC_BitMask notMask = ~SteamHelper.GetOwnedDLCMask();
             bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, report = loadUsed && Settings.settings.reportAssets;
             //PrintPackages(packages);

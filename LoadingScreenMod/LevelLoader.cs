@@ -242,8 +242,7 @@ namespace LoadingScreenMod
                 if (skipAny)
                     LoadingManager.instance.QueueLoadingAction(PrefabLoader.DestroySkipped());
 
-                Queue<IEnumerator> mainThreadQueue = (Queue<IEnumerator>) queueField.GetValue(LoadingManager.instance);
-                Util.DebugPrint("mainThreadQueue len", mainThreadQueue.Count, "at", Profiling.Millis);
+                Queue<IEnumerator> mainThreadQueue;
 
                 // Some major mods (Network Extensions 1 & 2, Single Train Track, Metro Overhaul) have a race condition issue
                 // in their NetInfo Installer. Everything goes fine if LoadCustomContent() below is NOT queued before the
@@ -262,8 +261,6 @@ namespace LoadingScreenMod
                     }
                 }
                 while (i > 0);
-
-                Util.DebugPrint("mainThreadQueue len 0 at", Profiling.Millis);
 
                 LoadingManager.instance.QueueLoadingAction(AssetLoader.instance.LoadCustomContent());
                 RenderManager.Managers_CheckReferences();
@@ -350,7 +347,6 @@ namespace LoadingScreenMod
 
             LoadingManager.instance.QueueLoadingAction(LoadingComplete()); // OnLevelLoaded
             knownFastLoads.Add(asset.fullName);
-            Util.DebugPrint("Waiting at", Profiling.Millis);
             AssetLoader.instance.PrintMem();
         }
 
