@@ -15,6 +15,7 @@ namespace LoadingScreenMod
         Dictionary<string, HashSet<string>> notFoundIndirect = new Dictionary<string, HashSet<string>>();
         HashSet<string> packageNames = new HashSet<string>();
         StreamWriter w;
+        static char[] forbidden = { ':', '*', '?', '<', '>', '|', '#', '%', '&', '{', '}', '$', '!', '@', '+', '`', '=', '\\', '/', '"', '\'' };
         const string steamid = @"<a target=""_blank"" href=""https://steamcommunity.com/sharedfiles/filedetails/?id=";
 
         private AssetReport() { }
@@ -55,7 +56,12 @@ namespace LoadingScreenMod
         {
             try
             {
-                w = new StreamWriter(Util.GetFileName(AssetLoader.AssetName(LevelLoader.instance.cityName) + "-AssetsReport", "htm"));
+                string name = AssetLoader.AssetName(LevelLoader.instance.cityName);
+
+                foreach (char c in forbidden)
+                    name = name.Replace(c, 'x');
+
+                w = new StreamWriter(Util.GetFileName(name + "-AssetsReport", "htm"));
                 w.WriteLine(@"<!DOCTYPE html><html lang=""en""><head><meta charset=""UTF-8""><title>Assets Report</title><style>");
                 w.WriteLine(@"* {font-family: sans-serif;}");
                 w.WriteLine(@".my {display: -webkit-flex; display: flex;}");
