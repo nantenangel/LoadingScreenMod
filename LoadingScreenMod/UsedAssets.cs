@@ -8,7 +8,7 @@ namespace LoadingScreenModTest
         HashSet<string> allPackages = new HashSet<string>();
         HashSet<string>[] allAssets;
         HashSet<string> buildingAssets = new HashSet<string>(), propAssets = new HashSet<string>(), treeAssets = new HashSet<string>(), vehicleAssets = new HashSet<string>();
-        HashSet<string> indirectProps = new HashSet<string>(), indirectTrees = new HashSet<string>(), buildingPrefabs = new HashSet<string>();
+        HashSet<string> indirectProps = new HashSet<string>(), indirectTrees = new HashSet<string>();
 
         internal HashSet<string> Buildings => buildingAssets;
         internal HashSet<string> Props => propAssets;
@@ -33,8 +33,8 @@ namespace LoadingScreenModTest
 
         internal void Dispose()
         {
-            allPackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear(); buildingPrefabs.Clear();
-            allPackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null; buildingPrefabs = null;
+            allPackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear();
+            allPackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null;
             allAssets = null; instance = null;
         }
 
@@ -58,30 +58,6 @@ namespace LoadingScreenModTest
                     return true;
 
             return false;
-        }
-
-        internal bool GotPrefab(string fullName, string replace)
-        {
-            if (buildingPrefabs.Contains(fullName))
-                return true;
-
-            replace = replace?.Trim();
-
-            if (string.IsNullOrEmpty(replace))
-                return false;
-
-            if (replace.IndexOf(',') != -1)
-            {
-                string[] array = replace.Split(',');
-
-                for (int i = 0; i < array.Length; i++)
-                    if (buildingPrefabs.Contains(array[i].Trim()))
-                        return true;
-
-                return false;
-            }
-            else
-                return buildingPrefabs.Contains(replace);
         }
 
         internal void ReportMissingAssets()
@@ -110,8 +86,7 @@ namespace LoadingScreenModTest
         {
             return (!Settings.settings.loadUsed || AllAvailable<BuildingInfo>(buildingAssets, ignore) &&
                     AllAvailable<PropInfo>(propAssets, ignore) && AllAvailable<TreeInfo>(treeAssets, ignore) &&
-                    AllAvailable<VehicleInfo>(vehicleAssets, ignore)) &&
-                   (!Settings.settings.SkipAny || AllAvailable<BuildingInfo>(buildingPrefabs, new HashSet<string>()));
+                    AllAvailable<VehicleInfo>(vehicleAssets, ignore));
         }
 
         static bool AllAvailable<P>(HashSet<string> fullNames, HashSet<string> ignore) where P : PrefabInfo
@@ -153,11 +128,10 @@ namespace LoadingScreenModTest
             {
                 Building[] buffer = BuildingManager.instance.m_buildings.m_buffer;
                 int n = buffer.Length;
-                HashSet<string> prefabs = Settings.settings.SkipAny ? buildingPrefabs : null;
 
                 for (int i = 1; i < n; i++)
                     if (buffer[i].m_flags != Building.Flags.None)
-                        Add(PrefabCollection<BuildingInfo>.PrefabName(buffer[i].m_infoIndex), packages, assets, prefabs);
+                        Add(PrefabCollection<BuildingInfo>.PrefabName(buffer[i].m_infoIndex), packages, assets);
             }
             catch (Exception e)
             {
@@ -165,7 +139,7 @@ namespace LoadingScreenModTest
             }
         }
 
-        static void Add(string fullName, HashSet<string> packages, HashSet<string> assets, HashSet<string> prefabs = null)
+        static void Add(string fullName, HashSet<string> packages, HashSet<string> assets)
         {
             if (!string.IsNullOrEmpty(fullName))
             {
@@ -177,8 +151,6 @@ namespace LoadingScreenModTest
                     packages.Add(fullName.Substring(0, j)); // packagename (or pac in case the full name is pac.kagename.assetname)
                     assets.Add(fullName); // packagename.assetname
                 }
-                else if (prefabs != null)
-                    prefabs.Add(fullName);
             }
         }
     }

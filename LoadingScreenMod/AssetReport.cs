@@ -30,9 +30,7 @@ namespace LoadingScreenModTest
 
         internal void Duplicate(string name, string path)
         {
-            List<string> list;
-
-            if (duplicate.TryGetValue(name, out list) && list != null)
+            if (duplicate.TryGetValue(name, out List<string> list) && list != null)
                 list.Add(path);
             else
                 duplicate[name] = new List<string> { path };

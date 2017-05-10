@@ -91,11 +91,6 @@ namespace LoadingScreenModTest
                 districtStyle = new DistrictStyle(DistrictStyle.kEuropeanStyleName, true);
                 Util.InvokeVoid(LoadingManager.instance, "AddChildrenToBuiltinStyle", GameObject.Find("European Style new"), districtStyle, false);
                 Util.InvokeVoid(LoadingManager.instance, "AddChildrenToBuiltinStyle", GameObject.Find("European Style others"), districtStyle, true);
-
-                // If skipping of standard prefabs is enabled, we must ensure that there are no skipped prefabs in the default district syle.
-                if (Settings.settings.SkipAny)
-                    RemoveSkipped(districtStyle);
-
                 districtStyles.Add(districtStyle);
             }
 
@@ -235,8 +230,7 @@ namespace LoadingScreenModTest
             {
                 if (isWin)
                 {
-                    ulong pagefileUsage, workingSetSize;
-                    MemoryAPI.GetUsage(out pagefileUsage, out workingSetSize);
+                    MemoryAPI.GetUsage(out ulong pagefileUsage, out ulong workingSetSize);
                     int wsMegas = (int) (workingSetSize >> 20), pfMegas = (int) (pagefileUsage>> 20);
                     s += string.Concat(wsMegas.ToString(), " ", pfMegas.ToString(), " ");
                 }
@@ -348,34 +342,6 @@ namespace LoadingScreenModTest
 
             if (CustomDeserializer.FindLoaded<T>(fullName) == null)
                 throw new Exception(string.Concat(typeof(T).Name, " ", fullName, " failed"));
-        }
-
-        static void RemoveSkipped(DistrictStyle style)
-        {
-            HashSet<string> skippedPrefabs = PrefabLoader.instance?.skippedPrefabs;
-
-            if (skippedPrefabs == null || skippedPrefabs.Count == 0)
-                return;
-
-            try
-            {
-                BuildingInfo[] inStyle = style.GetBuildingInfos();
-                ((HashSet<BuildingInfo>) Util.Get(style, "m_Infos")).Clear();
-                ((HashSet<int>) Util.Get(style, "m_AffectedServices")).Clear();
-
-                foreach (BuildingInfo info in inStyle)
-                    if (info != null)
-                    {
-                        GameObject go = info.gameObject;
-
-                        if (go != null && !skippedPrefabs.Contains(go.name))
-                            style.Add(info);
-                    }
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogException(e);
-            }
         }
 
         Package.Asset[] GetLoadQueue(HashSet<string> styleBuildings)
