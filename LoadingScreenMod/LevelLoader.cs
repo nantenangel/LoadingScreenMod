@@ -356,7 +356,7 @@ namespace LoadingScreenMod
             LoadingManager.instance.m_supportsExpansion[0] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 369150u });
             LoadingManager.instance.m_supportsExpansion[1] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 420610u });
             LoadingManager.instance.m_supportsExpansion[2] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 515191u });
-
+            LoadingManager.instance.m_supportsExpansion[3] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 547502u });
             bool isWinter = SimulationManager.instance.m_metaData.m_environment == "Winter";
 
             if (isWinter && !LoadingManager.instance.m_supportsExpansion[1])
@@ -394,32 +394,38 @@ namespace LoadingScreenMod
             if (LoadingManager.instance.m_supportsExpansion[2])
                 levels.Add(new KeyValuePair<string, float>("Expansion3Prefabs", 0.128f));
 
+            if (LoadingManager.instance.m_supportsExpansion[3])
+                levels.Add(new KeyValuePair<string, float>("Expansion4Prefabs", 0.129f));
+
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 456200u }))
-                levels.Add(new KeyValuePair<string, float>("FootballPrefabs", 0.129f));
+                levels.Add(new KeyValuePair<string, float>("FootballPrefabs", 0.130f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 525940u }))
-                levels.Add(new KeyValuePair<string, float>("Football2Prefabs", 0.13f));
+                levels.Add(new KeyValuePair<string, float>("Football2Prefabs", 0.131f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526610u }))
-                levels.Add(new KeyValuePair<string, float>("Football3Prefabs", 0.131f));
+                levels.Add(new KeyValuePair<string, float>("Football3Prefabs", 0.132f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526611u }))
-                levels.Add(new KeyValuePair<string, float>("Football4Prefabs", 0.132f));
+                levels.Add(new KeyValuePair<string, float>("Football4Prefabs", 0.133f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526612u }))
-                levels.Add(new KeyValuePair<string, float>("Football5Prefabs", 0.133f));
+                levels.Add(new KeyValuePair<string, float>("Football5Prefabs", 0.134f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 547501u }))
-                levels.Add(new KeyValuePair<string, float>("Station1Prefabs", 0.134f));
+                levels.Add(new KeyValuePair<string, float>("Station1Prefabs", 0.135f));
+
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 614582u }))
+                levels.Add(new KeyValuePair<string, float>("Station2Prefabs", 0.136f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 515190u }))
-                levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.135f));
+                levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.137f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 547500u }))
-                levels.Add(new KeyValuePair<string, float>("ModderPack2Prefabs", 0.136f));
+                levels.Add(new KeyValuePair<string, float>("ModderPack2Prefabs", 0.138f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 563850u }))
-                levels.Add(new KeyValuePair<string, float>("ChinaPackPrefabs", 0.137f));
+                levels.Add(new KeyValuePair<string, float>("ChinaPackPrefabs", 0.139f));
 
             Package.Asset europeanStyles = PackageManager.FindAssetByName("System." + DistrictStyle.kEuropeanStyleName);
 
