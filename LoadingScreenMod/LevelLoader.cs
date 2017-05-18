@@ -23,7 +23,7 @@ namespace LoadingScreenMod
         internal readonly FieldInfo queueField = typeof(LoadingManager).GetField("m_mainThreadQueue", BindingFlags.NonPublic | BindingFlags.Instance);
         internal object loadingLock;
         DateTime fullLoadTime;
-        bool simulationFailed, fastLoad, skipAny;
+        bool simulationFailed, fastLoad;
 
         private LevelLoader()
         {
@@ -49,7 +49,6 @@ namespace LoadingScreenMod
             bool activated = ngs.m_updateMode == SimulationManager.UpdateMode.LoadGame || ngs.m_updateMode == SimulationManager.UpdateMode.NewGameFromMap ||
                 ngs.m_updateMode == SimulationManager.UpdateMode.NewGameFromScenario || Input.GetKey(KeyCode.LeftControl);
             instance.simulationFailed = false;
-            instance.skipAny = Settings.settings.SkipAny;
 
             if (!lm.m_currentlyLoading && !lm.m_applicationQuitting)
             {
@@ -58,10 +57,8 @@ namespace LoadingScreenMod
 
                 if (activated)
                 {
-                    Util.DebugPrint("Options:", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures, Settings.settings.shareMaterials,
-                        Settings.settings.shareMeshes, Settings.settings.reportAssets, Settings.settings.skipResLo, Settings.settings.skipResHi, Settings.settings.skipComLo,
-                        Settings.settings.skipComHi, Settings.settings.skipIndGen, Settings.settings.skipIndSpe, Settings.settings.skipComSpe, Settings.settings.skipOffice,
-                        Settings.settings.skipThese, Settings.settings.applyToEuropean);
+                    Util.DebugPrint("Options:", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
+                        Settings.settings.shareMaterials, Settings.settings.shareMeshes, Settings.settings.reportAssets);
 
                     LoadingManager.instance.SetSceneProgress(0f);
                     instance.cityName = asset?.name ?? "NewGame";
@@ -142,11 +139,11 @@ namespace LoadingScreenMod
                 // - environment (biome) stays the same
                 // - map theme stays the same
                 // - 'load used assets' is enabled
-                // - not all assets and prefabs used in the save being loaded are currently in memory.
+                // - not all assets used in the save being loaded are currently in memory.
 
                 if (fastLoad)
                 {
-                    if ((Settings.settings.loadUsed || skipAny) && !IsKnownFastLoad(asset))
+                    if (Settings.settings.loadUsed && !IsKnownFastLoad(asset))
                     {
                         i = Profiling.Millis;
 
@@ -219,13 +216,6 @@ namespace LoadingScreenMod
                 for (i = 0; i < levels.Length; i++)
                 {
                     scene = levels[i].Key;
-
-                    if (string.IsNullOrEmpty(scene)) // just a marker to stop prefab skipping
-                    {
-                        PrefabLoader.instance?.Revert();
-                        continue;
-                    }
-
                     LoadingManager.instance.m_loadingProfilerScenes.BeginLoading(scene);
                     op = SceneManager.LoadSceneAsync(scene, LoadSceneMode.Additive);
 
@@ -238,9 +228,6 @@ namespace LoadingScreenMod
                     LoadingManager.instance.m_loadingProfilerScenes.EndLoading();
                     currentProgress = levels[i].Value;
                 }
-
-                if (skipAny)
-                    LoadingManager.instance.QueueLoadingAction(PrefabLoader.DestroySkipped());
 
                 Queue<IEnumerator> mainThreadQueue;
 
@@ -342,9 +329,6 @@ namespace LoadingScreenMod
             if (Singleton<TelemetryManager>.exists)
                 Singleton<TelemetryManager>.instance.StartSession(asset?.name, playerScene, mode, SimulationManager.instance.m_metaData);
 
-            if (skipAny)
-                PrefabLoader.instance?.Dispose();
-
             LoadingManager.instance.QueueLoadingAction(LoadingComplete()); // OnLevelLoaded
             knownFastLoads.Add(asset.fullName);
             AssetLoader.instance.PrintMem();
@@ -359,7 +343,6 @@ namespace LoadingScreenMod
             AssetLoader.instance.Dispose();
             Fixes.instance?.Dispose();
             CustomDeserializer.instance?.Dispose();
-            Settings.helper = null;
             Profiling.Stop();
             yield break;
         }
@@ -369,9 +352,6 @@ namespace LoadingScreenMod
         /// </summary>
         KeyValuePair<string, float>[] SetLevels()
         {
-            if (skipAny)
-                PrefabLoader.Create().Deploy();
-
             MethodInfo dlcMethod = typeof(LoadingManager).GetMethod("DLC", BindingFlags.Instance | BindingFlags.NonPublic);
             LoadingManager.instance.m_supportsExpansion[0] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 369150u });
             LoadingManager.instance.m_supportsExpansion[1] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 420610u });
@@ -441,16 +421,10 @@ namespace LoadingScreenMod
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 563850u }))
                 levels.Add(new KeyValuePair<string, float>("ChinaPackPrefabs", 0.137f));
 
-            if (skipAny && !Settings.settings.applyToEuropean)
-                levels.Add(new KeyValuePair<string, float>(string.Empty, 0f));
-
             Package.Asset europeanStyles = PackageManager.FindAssetByName("System." + DistrictStyle.kEuropeanStyleName);
 
             if (europeanStyles != null && europeanStyles.isEnabled)
                 levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment.Equals("Europe") ? "EuropeNormalPrefabs" : "EuropeStylePrefabs", 0.15f));
-
-            if (skipAny && Settings.settings.applyToEuropean)
-                levels.Add(new KeyValuePair<string, float>(string.Empty, 0f));
 
             return levels.ToArray();
         }
@@ -525,7 +499,7 @@ namespace LoadingScreenMod
         }
 
         /// <summary>
-        /// Checks if the game has all required assets and prefabs currently in memory.
+        /// Checks if the game has all required assets currently in memory.
         /// </summary>
         bool AllAssetsAvailable()
         {

@@ -10,7 +10,7 @@ namespace LoadingScreenMod
 
         public void OnEnabled() => Create();
         public void OnDisabled() => Stopping();
-        public void OnSettingsUI(UIHelperBase helper) => Settings.OnSettingsUI(helper);
+        public void OnSettingsUI(UIHelperBase helper) => Settings.settings.OnSettingsUI(helper);
         public void OnCreated(ILoading loading) { }
         public void OnReleased() { }
         public void OnLevelLoaded(LoadMode mode) { }
@@ -20,7 +20,6 @@ namespace LoadingScreenMod
         {
             if (!created)
             {
-                //Trace.Start();
                 LevelLoader.Create().Deploy();
                 //new PackageManagerFix().Deploy();
                 created = true;
@@ -29,9 +28,7 @@ namespace LoadingScreenMod
 
         void Stopping()
         {
-            //Trace.Stop();
             LevelLoader.instance?.Dispose();
-            Settings.helper = null;
             //PackageManagerFix.instance?.Dispose();
             created = false;
         }
