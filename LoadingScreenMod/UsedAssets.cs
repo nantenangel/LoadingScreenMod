@@ -7,19 +7,20 @@ namespace LoadingScreenModTest
     {
         HashSet<string> allPackages = new HashSet<string>();
         HashSet<string>[] allAssets;
-        HashSet<string> buildingAssets = new HashSet<string>(), propAssets = new HashSet<string>(), treeAssets = new HashSet<string>(), vehicleAssets = new HashSet<string>();
+        HashSet<string> buildingAssets = new HashSet<string>(), propAssets = new HashSet<string>(), treeAssets = new HashSet<string>(), vehicleAssets = new HashSet<string>(), citizenAssets = new HashSet<string>();
         HashSet<string> indirectProps = new HashSet<string>(), indirectTrees = new HashSet<string>();
 
         internal HashSet<string> Buildings => buildingAssets;
         internal HashSet<string> Props => propAssets;
         internal HashSet<string> Trees => treeAssets;
         internal HashSet<string> Vehicles => vehicleAssets;
+        internal HashSet<string> Citizens => citizenAssets;
         internal HashSet<string> IndirectProps => indirectProps;
         internal HashSet<string> IndirectTrees => indirectTrees;
 
         private UsedAssets()
         {
-            allAssets = new HashSet<string>[] { buildingAssets, propAssets, treeAssets, vehicleAssets, vehicleAssets, buildingAssets, buildingAssets, propAssets };
+            allAssets = new HashSet<string>[] { buildingAssets, propAssets, treeAssets, vehicleAssets, vehicleAssets, buildingAssets, buildingAssets, propAssets, citizenAssets };
             LookupUsed();
         }
 
@@ -29,12 +30,13 @@ namespace LoadingScreenModTest
             LookupSimulationAssets<PropInfo>(allPackages, propAssets);
             LookupSimulationAssets<TreeInfo>(allPackages, treeAssets);
             LookupSimulationAssets<VehicleInfo>(allPackages, vehicleAssets);
+            LookupSimulationAssets<CitizenInfo>(allPackages, citizenAssets);
         }
 
         internal void Dispose()
         {
-            allPackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear();
-            allPackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; indirectProps = null; indirectTrees = null;
+            allPackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); citizenAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear();
+            allPackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; citizenAssets = null; indirectProps = null; indirectTrees = null;
             allAssets = null; instance = null;
         }
 
@@ -66,6 +68,7 @@ namespace LoadingScreenModTest
             ReportMissingAssets<PropInfo>(propAssets);
             ReportMissingAssets<TreeInfo>(treeAssets);
             ReportMissingAssets<VehicleInfo>(vehicleAssets);
+            ReportMissingAssets<CitizenInfo>(citizenAssets);
         }
 
         static void ReportMissingAssets<P>(HashSet<string> customAssets) where P : PrefabInfo
@@ -86,7 +89,7 @@ namespace LoadingScreenModTest
         {
             return (!Settings.settings.loadUsed || AllAvailable<BuildingInfo>(buildingAssets, ignore) &&
                     AllAvailable<PropInfo>(propAssets, ignore) && AllAvailable<TreeInfo>(treeAssets, ignore) &&
-                    AllAvailable<VehicleInfo>(vehicleAssets, ignore));
+                    AllAvailable<VehicleInfo>(vehicleAssets, ignore) && AllAvailable<CitizenInfo>(citizenAssets, ignore));
         }
 
         static bool AllAvailable<P>(HashSet<string> fullNames, HashSet<string> ignore) where P : PrefabInfo

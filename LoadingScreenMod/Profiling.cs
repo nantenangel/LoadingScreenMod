@@ -318,8 +318,7 @@ namespace LoadingScreenModTest
         {
             try
             {
-                ulong pagefileUsage, workingSetSize;
-                MemoryAPI.GetUsage(out pagefileUsage, out workingSetSize);
+                MemoryAPI.GetUsage(out ulong pagefileUsage, out ulong workingSetSize);
                 int pfMegas = (int) (pagefileUsage >> 20), wsMegas = (int) (workingSetSize >> 20);
                 string gigas = (wsMegas / 1024f).ToString("F2");
                 orange |= wsMegas > wsOrange | pfMegas > pfOrange;

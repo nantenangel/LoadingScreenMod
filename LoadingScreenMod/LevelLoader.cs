@@ -327,12 +327,12 @@ namespace LoadingScreenModTest
             if (ngs != null)
                 mode = ngs.m_updateMode;
 
-            LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "LoadLevelComplete", mode));
+            LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "LoadLevelComplete", mode)); // OnLevelLoaded
 
             if (Singleton<TelemetryManager>.exists)
                 Singleton<TelemetryManager>.instance.StartSession(asset?.name, playerScene, mode, SimulationManager.instance.m_metaData);
 
-            LoadingManager.instance.QueueLoadingAction(LoadingComplete()); // OnLevelLoaded
+            LoadingManager.instance.QueueLoadingAction(LoadingComplete());
             knownFastLoads.Add(asset.fullName);
             Util.DebugPrint("Waiting at", Profiling.Millis);
             AssetLoader.instance.PrintMem();

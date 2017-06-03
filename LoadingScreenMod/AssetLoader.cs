@@ -15,8 +15,9 @@ namespace LoadingScreenModTest
     public sealed class AssetLoader : Instance<AssetLoader>
     {
         HashSet<string> failedAssets = new HashSet<string>(), loadedProps = new HashSet<string>(), loadedTrees = new HashSet<string>(),
-            loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>(), loadedIntersections = new HashSet<string>(),
-            dontSpawnNormally = new HashSet<string>();
+            loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>(), loadedCitizens = new HashSet<string>(),
+            loadedIntersections = new HashSet<string>(), dontSpawnNormally = new HashSet<string>();
+        Dictionary<string, CustomAssetMetaData> citizenMetaDatas = new Dictionary<string, CustomAssetMetaData>();
         internal Stack<string> stack = new Stack<string>(4); // the asset loading stack
         int propCount, treeCount, buildingCount, vehicleCount, beginMillis, lastMillis, assetCount;
         readonly bool reportAssets = Settings.settings.reportAssets;
@@ -28,6 +29,7 @@ namespace LoadingScreenModTest
         internal HashSet<string> Trees => loadedTrees;
         internal HashSet<string> Buildings => loadedBuildings;
         internal HashSet<string> Vehicles => loadedVehicles;
+        internal HashSet<string> Citizens => loadedCitizens;
         internal bool IsIntersection(string fullName) => loadedIntersections.Contains(fullName);
         internal bool HasFailed(string fullName) => failedAssets.Contains(fullName);
         internal string Current => stack.Count > 0 ? stack.Peek() : string.Empty;
@@ -47,8 +49,10 @@ namespace LoadingScreenModTest
             UsedAssets.instance?.Dispose();
             Sharing.instance?.Dispose();
             LevelLoader.instance.AddFailedAssets(failedAssets);
-            failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear(); loadedIntersections.Clear(); dontSpawnNormally.Clear();
-            failedAssets = null; loadedProps = null; loadedTrees = null; loadedBuildings = null; loadedVehicles = null; loadedIntersections = null; dontSpawnNormally = null;
+            failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear(); loadedCitizens.Clear();
+            loadedIntersections.Clear(); dontSpawnNormally.Clear(); citizenMetaDatas.Clear();
+            failedAssets = null; loadedProps = null; loadedTrees = null; loadedBuildings = null; loadedVehicles = null; loadedCitizens = null;
+            loadedIntersections = null; dontSpawnNormally = null; citizenMetaDatas = null;
             instance = null;
         }
 
@@ -324,6 +328,24 @@ namespace LoadingScreenModTest
                     loadedVehicles.Add(fullName);
                     vehicleCount++;
                 }
+
+                CitizenInfo ci = go.GetComponent<CitizenInfo>();
+
+                if (ci != null)
+                {
+                    if (ci.m_lodObject != null)
+                        ci.m_lodObject.SetActive(false);
+
+                    if (ci.InitializeCustomPrefab(citizenMetaDatas[fullName]))
+                    {
+                        citizenMetaDatas.Remove(fullName);
+                        ci.gameObject.SetActive(true); // bug?
+                        Initialize(ci);
+                        loadedCitizens.Add(fullName);
+                    }
+                    else
+                        CODebugBase<LogChannel>.Warn(LogChannel.Modding, "Custom citizen [" + fullName + "] template not available in selected theme. Asset not added in game.");
+                }
             }
             finally
             {
@@ -352,7 +374,7 @@ namespace LoadingScreenModTest
             List<CustomAssetMetaData> metas = new List<CustomAssetMetaData>(8);
 
             // Why this asset ordering? By having related and identical assets close to each other, we get more cache hits and faster disk reads in Sharing.
-            // [0] propvar - prop  [1] prop & tree  [2] sub-building - building  [3] building  [4] trailer - vehicle  [5] vehicle
+            // [0] propvar and prop, citizen  [1] prop, tree  [2] sub-building and building  [3] building  [4] trailer and vehicle  [5] vehicle
             List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4),
                                              new List<Package.Asset>(64), new List<Package.Asset>(32), new List<Package.Asset>(32) };
 
@@ -467,6 +489,12 @@ namespace LoadingScreenModTest
 
             switch (meta.type)
             {
+                case CustomAssetMetaData.Type.Building:
+                case CustomAssetMetaData.Type.SubBuilding:
+                    if (!IsDuplicate(fullName, loadedBuildings, package))
+                        queues[3 + offset].Add(assetRef);
+                    break;
+
                 case CustomAssetMetaData.Type.Prop:
                 case CustomAssetMetaData.Type.PropVariation:
                     if (!IsDuplicate(fullName, loadedProps, package))
@@ -478,10 +506,12 @@ namespace LoadingScreenModTest
                         queues[1 + offset].Add(assetRef);
                     break;
 
-                case CustomAssetMetaData.Type.Building:
-                case CustomAssetMetaData.Type.SubBuilding:
-                    if (!IsDuplicate(fullName, loadedBuildings, package))
-                        queues[3 + offset].Add(assetRef);
+                case CustomAssetMetaData.Type.Citizen:
+                    if (!IsDuplicate(fullName, loadedCitizens, package))
+                    {
+                        queues[0].Add(assetRef);
+                        citizenMetaDatas[fullName] = meta;
+                    }
                     break;
 
                 //case CustomAssetMetaData.Type.Vehicle:
