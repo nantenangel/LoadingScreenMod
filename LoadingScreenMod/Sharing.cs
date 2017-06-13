@@ -555,24 +555,10 @@ namespace LoadingScreenMod
     // Critical fixes for loading performance.
     internal sealed class Fixes : DetourUtility<Fixes>
     {
-        // Delegates can be used to call non-public methods. Delegates have about the same performance as regular method calls.
-        static readonly Action<Image> Dispoze;
-
-        static Fixes()
-        {
-            Dispoze = Util.CreateAction<Image>("Dispose");
-        }
-
         private Fixes()
         {
-            init(typeof(Image), "Finalize", "Fnalize");
             init(typeof(BuildConfig), "ResolveCustomAssetName", typeof(CustomDeserializer), "ResolveCustomAssetName");
             init(typeof(PackageReader), "ReadByteArray", typeof(MemReader), "DreadByteArray");
-        }
-
-        static void Fnalize(Image image)
-        {
-            Dispoze(image);
         }
     }
 }

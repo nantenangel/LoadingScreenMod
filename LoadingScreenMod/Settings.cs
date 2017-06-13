@@ -92,20 +92,11 @@ namespace LoadingScreenMod
         UIHelper CreateGroup(UIHelperBase parent, string name, string tooltip = null)
         {
             UIHelper group = parent.AddGroup(name) as UIHelper;
-            UIPanel content = group.self as UIPanel;
-            UIPanel container = content?.parent as UIPanel;
-            RectOffset rect = content?.autoLayoutPadding;
-
-            if (rect != null)
-                rect.bottom /= 2;
-
-            rect = container?.autoLayoutPadding;
-
-            if (rect != null)
-                rect.bottom /= 4;
 
             if (!string.IsNullOrEmpty(tooltip))
             {
+                UIPanel content = group.self as UIPanel;
+                UIPanel container = content?.parent as UIPanel;
                 UILabel label = container?.Find<UILabel>("Label");
 
                 if (label != null)
@@ -135,7 +126,7 @@ namespace LoadingScreenMod
             try
             {
                 UITextField field = group.AddTextfield(" ", " ", action, null) as UITextField;
-                field.maxLength = 8192;
+                field.maxLength = 1024;
                 field.text = text;
                 field.width *= 2.8f;
                 UIComponent parent = field.parent;

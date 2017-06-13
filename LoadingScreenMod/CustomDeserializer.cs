@@ -26,7 +26,7 @@ namespace LoadingScreenMod
 
         internal void Dispose()
         {
-            Fetch<PropInfo>.Dispose(); Fetch<TreeInfo>.Dispose(); Fetch<VehicleInfo>.Dispose(); Fetch<BuildingInfo>.Dispose();
+            Fetch<PropInfo>.Dispose(); Fetch<TreeInfo>.Dispose(); Fetch<VehicleInfo>.Dispose(); Fetch<CitizenInfo>.Dispose(); Fetch<BuildingInfo>.Dispose();
             assets = null; packagesToPaths = null; instance = null;
         }
 
