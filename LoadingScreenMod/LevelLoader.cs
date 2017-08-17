@@ -418,14 +418,17 @@ namespace LoadingScreenMod
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 614582u }))
                 levels.Add(new KeyValuePair<string, float>("Station2Prefabs", 0.136f));
 
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 614581u }))
+                levels.Add(new KeyValuePair<string, float>("FestivalPrefabs", 0.137f));
+
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 515190u }))
-                levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.137f));
+                levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.138f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 547500u }))
-                levels.Add(new KeyValuePair<string, float>("ModderPack2Prefabs", 0.138f));
+                levels.Add(new KeyValuePair<string, float>("ModderPack2Prefabs", 0.139f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 563850u }))
-                levels.Add(new KeyValuePair<string, float>("ChinaPackPrefabs", 0.139f));
+                levels.Add(new KeyValuePair<string, float>("ChinaPackPrefabs", 0.140f));
 
             Package.Asset europeanStyles = PackageManager.FindAssetByName("System." + DistrictStyle.kEuropeanStyleName);
 
