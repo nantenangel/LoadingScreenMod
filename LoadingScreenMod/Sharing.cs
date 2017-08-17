@@ -239,11 +239,12 @@ namespace LoadingScreenModTest
 
                 string name = reader.ReadString();
                 bool linear = reader.ReadBoolean();
+                int anisoLevel = asset.package.version >= 6u ? reader.ReadInt32() : 1;
                 int count = reader.ReadInt32();
                 Image image = new Image(reader.ReadBytes(count));
                 byte[] pix = image.GetAllPixels();
 
-                to = new TextObj { name = name, pixels = pix, width = image.width, height = image.height,
+                to = new TextObj { name = name, pixels = pix, width = image.width, height = image.height, anisoLevel = anisoLevel,
                                    format = image.format, mipmap = image.mipmapCount > 1, linear = linear };
 
                 // image.Clear(); TODO test
@@ -400,6 +401,7 @@ namespace LoadingScreenModTest
                 texture2D.LoadRawTextureData(to.pixels);
                 texture2D.Apply();
                 texture2D.name = to.name;
+                texture2D.anisoLevel = to.anisoLevel;
                 texpre++;
             }
             else if ((bytes = kvp.Value as byte[]) != null)
@@ -547,6 +549,7 @@ namespace LoadingScreenModTest
         internal byte[] pixels;
         internal int width;
         internal int height;
+        internal int anisoLevel;
         internal TextureFormat format;
         internal bool mipmap;
         internal bool linear;

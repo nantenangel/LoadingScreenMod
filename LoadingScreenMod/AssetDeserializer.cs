@@ -204,10 +204,12 @@ namespace LoadingScreenModTest
         {
             string name = reader.ReadString();
             bool linear = reader.ReadBoolean();
+            int anisoLevel = package.version >= 6u ? reader.ReadInt32() : 1;
             int count = reader.ReadInt32();
             Image image = new Image(reader.ReadBytes(count));
             Texture2D texture2D = image.CreateTexture(linear);
             texture2D.name = name;
+            texture2D.anisoLevel = anisoLevel;
             return texture2D;
         }
 
