@@ -71,7 +71,7 @@ namespace LoadingScreenModTest
             if (typeof(GameObject).IsAssignableFrom(type))
                 return Instantiate(FindAsset(reader.ReadString()), isMain);
 
-            if (package.version < 3u && expectedType != null && expectedType == typeof(Package.Asset))
+            if (package.version < 3 && expectedType != null && expectedType == typeof(Package.Asset))
                 return reader.ReadUnityType(expectedType);
 
             return reader.ReadUnityType(type);
@@ -204,7 +204,7 @@ namespace LoadingScreenModTest
         {
             string name = reader.ReadString();
             bool linear = reader.ReadBoolean();
-            int anisoLevel = package.version >= 6u ? reader.ReadInt32() : 1;
+            int anisoLevel = package.version >= 6 ? reader.ReadInt32() : 1;
             int count = reader.ReadInt32();
             Image image = new Image(reader.ReadBytes(count));
             Texture2D texture2D = image.CreateTexture(linear);

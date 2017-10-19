@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using ColossalFramework;
 using ColossalFramework.Packaging;
 using ColossalFramework.PlatformServices;
@@ -19,7 +20,7 @@ namespace LoadingScreenModTest
             loadedIntersections = new HashSet<string>(), dontSpawnNormally = new HashSet<string>();
         Dictionary<string, CustomAssetMetaData> citizenMetaDatas = new Dictionary<string, CustomAssetMetaData>();
         internal Stack<string> stack = new Stack<string>(4); // the asset loading stack
-        int propCount, treeCount, buildingCount, vehicleCount, beginMillis, lastMillis, assetCount;
+        int propCount, treeCount, buildingCount, vehicleCount, netCount, beginMillis, lastMillis, assetCount;
         readonly bool reportAssets = Settings.settings.reportAssets;
         public bool hasStarted, hasFinished, isWin = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
 
@@ -98,7 +99,19 @@ namespace LoadingScreenModTest
                 districtStyles.Add(districtStyle);
             }
 
-            foreach(Package.Asset asset in PackageManager.FilterAssets(UserAssetType.DistrictStyleMetaData))
+            if ((bool) typeof(LoadingManager).GetMethod("DLC", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(LoadingManager.instance, new object[] { 715190u }))
+            {
+                Package.Asset asset = PackageManager.FindAssetByName("System." + DistrictStyle.kEuropeanSuburbiaStyleName);
+
+                if (asset != null && asset.isEnabled)
+                {
+                    districtStyle = new DistrictStyle(DistrictStyle.kEuropeanSuburbiaStyleName, true);
+                    Util.InvokeVoid(LoadingManager.instance, "AddChildrenToBuiltinStyle", GameObject.Find("Modder Pack 3"), districtStyle, false);
+                    districtStyles.Add(districtStyle);
+                }
+            }
+
+            foreach (Package.Asset asset in PackageManager.FilterAssets(UserAssetType.DistrictStyleMetaData))
             {
                 try
                 {

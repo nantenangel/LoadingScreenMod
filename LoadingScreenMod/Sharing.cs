@@ -239,7 +239,7 @@ namespace LoadingScreenModTest
 
                 string name = reader.ReadString();
                 bool linear = reader.ReadBoolean();
-                int anisoLevel = asset.package.version >= 6u ? reader.ReadInt32() : 1;
+                int anisoLevel = asset.package.version >= 6 ? reader.ReadInt32() : 1;
                 int count = reader.ReadInt32();
                 Image image = new Image(reader.ReadBytes(count));
                 byte[] pix = image.GetAllPixels();
