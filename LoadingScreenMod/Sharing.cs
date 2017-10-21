@@ -518,9 +518,13 @@ namespace LoadingScreenModTest
             }
         }
 
-        internal void Start(Package.Asset[] queue)
+        internal void Start(LoadEntry[] queue)
         {
-            assetsQueue = queue;
+            assetsQueue = new Package.Asset[queue.Length];
+
+            for (int i = 0; i < queue.Length; i++)
+                assetsQueue[i] = queue[i].assetRef;
+
             shareTextures = Settings.settings.shareTextures;
             shareMaterials = Settings.settings.shareMaterials;
             shareMeshes = Settings.settings.shareMeshes;

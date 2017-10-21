@@ -7,7 +7,8 @@ namespace LoadingScreenModTest
     {
         HashSet<string> allPackages = new HashSet<string>();
         HashSet<string>[] allAssets;
-        HashSet<string> buildingAssets = new HashSet<string>(), propAssets = new HashSet<string>(), treeAssets = new HashSet<string>(), vehicleAssets = new HashSet<string>(), citizenAssets = new HashSet<string>();
+        HashSet<string> buildingAssets = new HashSet<string>(), propAssets = new HashSet<string>(), treeAssets = new HashSet<string>(),
+            vehicleAssets = new HashSet<string>(), citizenAssets = new HashSet<string>(), netAssets = new HashSet<string>();
         HashSet<string> indirectProps = new HashSet<string>(), indirectTrees = new HashSet<string>();
 
         internal HashSet<string> Buildings => buildingAssets;
@@ -15,12 +16,14 @@ namespace LoadingScreenModTest
         internal HashSet<string> Trees => treeAssets;
         internal HashSet<string> Vehicles => vehicleAssets;
         internal HashSet<string> Citizens => citizenAssets;
+        internal HashSet<string> Nets => netAssets;
         internal HashSet<string> IndirectProps => indirectProps;
         internal HashSet<string> IndirectTrees => indirectTrees;
 
         private UsedAssets()
         {
-            allAssets = new HashSet<string>[] { buildingAssets, propAssets, treeAssets, vehicleAssets, vehicleAssets, buildingAssets, buildingAssets, propAssets, citizenAssets };
+            allAssets = new HashSet<string>[] { buildingAssets, propAssets, treeAssets, vehicleAssets, vehicleAssets, buildingAssets, buildingAssets,
+                propAssets, citizenAssets, netAssets, netAssets, buildingAssets };
             LookupUsed();
         }
 
@@ -35,8 +38,10 @@ namespace LoadingScreenModTest
 
         internal void Dispose()
         {
-            allPackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); citizenAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear();
-            allPackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; citizenAssets = null; indirectProps = null; indirectTrees = null;
+            allPackages.Clear(); buildingAssets.Clear(); propAssets.Clear(); treeAssets.Clear(); vehicleAssets.Clear(); citizenAssets.Clear();
+            netAssets.Clear(); indirectProps.Clear(); indirectTrees.Clear();
+            allPackages = null; buildingAssets = null; propAssets = null; treeAssets = null; vehicleAssets = null; citizenAssets = null;
+            netAssets = null; indirectProps = null; indirectTrees = null;
             allAssets = null; instance = null;
         }
 

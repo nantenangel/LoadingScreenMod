@@ -146,7 +146,7 @@ namespace LoadingScreenModTest
             LoadingScreen.instance.DualSource.Add("Custom Assets");
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Calculating asset load order");
             Util.DebugPrint("GetLoadQueue", Profiling.Millis);
-            Package.Asset[] queue = GetLoadQueue(styleBuildings);
+            LoadEntry[] queue = GetLoadQueue(styleBuildings);
             Util.DebugPrint("LoadQueue", queue.Length, Profiling.Millis);
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
 
@@ -156,15 +156,25 @@ namespace LoadingScreenModTest
 
             for (i = 0; i < queue.Length; i++)
             {
-                Package.Asset asset = queue[i];
+                LoadEntry entry = queue[i];
                 Console.WriteLine(string.Concat("[LSMT] ", i, ": ", Profiling.Millis, " ", assetCount, " ", Sharing.instance.currentCount, " ",
-                    asset.fullName, Sharing.instance.ThreadStatus));
+                    entry.assetRef.fullName, Sharing.instance.ThreadStatus));
 
                 if ((i & 31) == 0)
                     PrintMem();
 
                 Sharing.instance.WaitForWorkers();
-                Load(asset);
+
+                try
+                {
+                    stack.Clear();
+                    LoadImpl(entry.assetRef, entry.type);
+                }
+                catch (Exception e)
+                {
+                    AssetFailed(entry.assetRef.fullName, e);
+                }
+
                 Sharing.instance.ManageLoadQueue(i);
 
                 if (Profiling.Millis - lastMillis > yieldInterval)
@@ -264,28 +274,25 @@ namespace LoadingScreenModTest
             Console.WriteLine(s);
         }
 
-        void Load(Package.Asset assetRef)
-        {
-            try
-            {
-                stack.Clear();
-                LoadImpl(assetRef);
-            }
-            catch (Exception e)
-            {
-                AssetFailed(assetRef.fullName, e);
-            }
-        }
-
-        internal void LoadImpl(Package.Asset assetRef)
+        internal void LoadImpl(Package.Asset assetRef, CustomAssetMetaData.Type type)
         {
             try
             {
                 string fullName = assetRef.fullName;
                 stack.Push(fullName);
                 LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(assetRef.name));
-                GameObject go = AssetDeserializer.Instantiate(assetRef) as GameObject;
-                go.name = fullName;
+                GameObject go;
+
+                if (type < CustomAssetMetaData.Type.Road)
+                    go = AssetDeserializer.Instantiate(assetRef) as GameObject;
+                else
+                    go = assetRef.Instantiate<GameObject>();
+
+                if (type < CustomAssetMetaData.Type.RoadElevation)
+                    go.name = fullName;
+                else
+                    go.name = assetRef.package.packageName + "." + PackageHelper.StripName(go.name);
+
                 go.SetActive(false);
                 PrefabInfo info = go.GetComponent<PrefabInfo>();
                 info.m_isCustomContent = true;
@@ -359,6 +366,14 @@ namespace LoadingScreenModTest
                     else
                         CODebugBase<LogChannel>.Warn(LogChannel.Modding, "Custom citizen [" + fullName + "] template not available in selected theme. Asset not added in game.");
                 }
+
+                NetInfo ni = go.GetComponent<NetInfo>();
+
+                if (ni != null)
+                {
+                    Initialize(ni);
+                    netCount++;
+                }
             }
             finally
             {
@@ -379,17 +394,19 @@ namespace LoadingScreenModTest
                 throw new Exception(string.Concat(typeof(T).Name, " ", fullName, " failed"));
         }
 
-        Package.Asset[] GetLoadQueue(HashSet<string> styleBuildings)
+        LoadEntry[] GetLoadQueue(HashSet<string> styleBuildings)
         {
             Package[] packages = PackageManager.allPackages.ToArray();
             Array.Sort(packages, (a, b) => string.Compare(a.packageName, b.packageName));
             List<Package.Asset> assets = new List<Package.Asset>(8);
             List<CustomAssetMetaData> metas = new List<CustomAssetMetaData>(8);
 
-            // Why this asset ordering? By having related and identical assets close to each other, we get more cache hits and faster disk reads in Sharing.
-            // [0] propvar and prop, citizen  [1] prop, tree  [2] sub-building and building  [3] building  [4] trailer and vehicle  [5] vehicle
-            List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4),
-                                             new List<Package.Asset>(64), new List<Package.Asset>(32), new List<Package.Asset>(32) };
+            // Why this load order? By having related and identical assets close to each other, we get more loader cache hits (of meshes and textures)
+            // in Sharing. We also get faster disk reads.
+            // [0] propvar and prop, citizen  [1] prop, tree  [2] pillar and elevation and road  [3] road
+            // [4] sub-building and building  [5] building    [6] trailer and vehicle            [7] vehicle
+            List<LoadEntry>[] queues = { new List<LoadEntry>(4), new List<LoadEntry>(64), new List<LoadEntry>(4),  new List<LoadEntry>(4),
+                                         new List<LoadEntry>(4), new List<LoadEntry>(64), new List<LoadEntry>(32), new List<LoadEntry>(32) };
 
             Util.DebugPrint("Sorted at", Profiling.Millis);
             SteamHelper.DLC_BitMask notMask = ~SteamHelper.GetOwnedDLCMask();
@@ -425,7 +442,8 @@ namespace LoadingScreenModTest
                         if ((want || inStyle) && (AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0)
                         {
                             CustomAssetMetaData.Type type = meta.type;
-                            int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding || type == CustomAssetMetaData.Type.PropVariation ? -1 : 0;
+                            int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding ||
+                                type == CustomAssetMetaData.Type.PropVariation || type >= CustomAssetMetaData.Type.RoadElevation ? -1 : 0;
                             string fullName = AddToQueue(queues, meta, offset);
 
                             if (!want && fullName != null)
@@ -459,9 +477,10 @@ namespace LoadingScreenModTest
 
                         if ((want || inStyle) && metas.Count > 0)
                         {
-                            metas.Sort((a, b) => b.type - a.type); // prop variation, sub-building, trailer before main asset
+                            metas.Sort((a, b) => b.type - a.type); // prop variation, sub-building, trailer, elevation, pillar before main asset
                             CustomAssetMetaData.Type type = metas[0].type;
-                            int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding || type == CustomAssetMetaData.Type.PropVariation ? -1 : 0;
+                            int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding ||
+                                type == CustomAssetMetaData.Type.PropVariation || type >= CustomAssetMetaData.Type.RoadElevation ? -1 : 0;
 
                             for (int i = 0; i < metas.Count; i++)
                             {
@@ -479,7 +498,7 @@ namespace LoadingScreenModTest
                 }
             }
 
-            Package.Asset[] queue = new Package.Asset[queues.Select(lst => lst.Count).Sum()];
+            LoadEntry[] queue = new LoadEntry[queues.Select(lst => lst.Count).Sum()];
 
             for (int i = 0, k = 0; i < queues.Length; k += queues[i].Count, i++)
                 queues[i].CopyTo(queue, k);
@@ -487,7 +506,7 @@ namespace LoadingScreenModTest
             return queue;
         }
 
-        string AddToQueue(List<Package.Asset>[] queues, CustomAssetMetaData meta, int offset)
+        string AddToQueue(List<LoadEntry>[] queues, CustomAssetMetaData meta, int offset)
         {
             Package.Asset assetRef = meta.assetRef;
 
@@ -499,39 +518,49 @@ namespace LoadingScreenModTest
 
             Package package = assetRef.package;
             string fullName = assetRef.fullName;
+            CustomAssetMetaData.Type type = meta.type;
 
-            switch (meta.type)
+            // [0] propvar and prop, citizen  [1] prop, tree  [2] pillar and elevation and road  [3] road
+            // [4] sub-building and building  [5] building    [6] trailer and vehicle            [7] vehicle
+
+            switch (type)
             {
                 case CustomAssetMetaData.Type.Building:
                 case CustomAssetMetaData.Type.SubBuilding:
                     if (!IsDuplicate(fullName, loadedBuildings, package))
-                        queues[3 + offset].Add(assetRef);
+                        queues[5 + offset].Add(new LoadEntry(assetRef, type));
                     break;
 
                 case CustomAssetMetaData.Type.Prop:
                 case CustomAssetMetaData.Type.PropVariation:
                     if (!IsDuplicate(fullName, loadedProps, package))
-                        queues[1 + offset].Add(assetRef);
+                        queues[1 + offset].Add(new LoadEntry(assetRef, type));
                     break;
 
                 case CustomAssetMetaData.Type.Tree:
                     if (!IsDuplicate(fullName, loadedTrees, package))
-                        queues[1 + offset].Add(assetRef);
+                        queues[1].Add(new LoadEntry(assetRef, type));
+                    break;
+
+                case CustomAssetMetaData.Type.Vehicle:
+                case CustomAssetMetaData.Type.Trailer:
+                    if (!IsDuplicate(fullName, loadedVehicles, package))
+                        queues[7 + offset].Add(new LoadEntry(assetRef, type));
                     break;
 
                 case CustomAssetMetaData.Type.Citizen:
                     if (!IsDuplicate(fullName, loadedCitizens, package))
                     {
-                        queues[0].Add(assetRef);
+                        queues[0].Add(new LoadEntry(assetRef, type));
                         citizenMetaDatas[fullName] = meta;
                     }
                     break;
 
-                //case CustomAssetMetaData.Type.Vehicle:
-                //case CustomAssetMetaData.Type.Trailer:
+                //case CustomAssetMetaData.Type.RoadElevation:
+                //case CustomAssetMetaData.Type.Pillar:
+                //case CustomAssetMetaData.Type.Road:
                 default:
-                    if (!IsDuplicate(fullName, loadedVehicles, package))
-                        queues[5 + offset].Add(assetRef);
+                    queues[3 + offset].Add(new LoadEntry(assetRef, type));
                     break;
             }
 
@@ -623,9 +652,21 @@ namespace LoadingScreenModTest
         //        Trace.Pr(p.packageName, "\t\t", p.packagePath, "   ", p.version);
 
         //        foreach (Package.Asset a in p)
-        //            Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(94), a.checksum, a.type.ToString().PadRight(19),
+        //            Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(96), a.checksum, a.type.ToString().PadRight(19),
         //                a.offset.ToString().PadLeft(8), a.size.ToString().PadLeft(8));
         //    }
         //}
+    }
+
+    internal struct LoadEntry
+    {
+        internal Package.Asset assetRef;
+        internal CustomAssetMetaData.Type type;
+
+        internal LoadEntry(Package.Asset a, CustomAssetMetaData.Type t)
+        {
+            this.assetRef = a;
+            this.type = t;
+        }
     }
 }

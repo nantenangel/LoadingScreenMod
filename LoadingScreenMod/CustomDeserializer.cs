@@ -26,7 +26,8 @@ namespace LoadingScreenModTest
 
         internal void Dispose()
         {
-            Fetch<PropInfo>.Dispose(); Fetch<TreeInfo>.Dispose(); Fetch<VehicleInfo>.Dispose(); Fetch<CitizenInfo>.Dispose(); Fetch<BuildingInfo>.Dispose();
+            Fetch<PropInfo>.Dispose(); Fetch<TreeInfo>.Dispose(); Fetch<VehicleInfo>.Dispose(); Fetch<CitizenInfo>.Dispose();
+            Fetch<NetInfo>.Dispose(); Fetch<BuildingInfo>.Dispose();
             assets = null; packagesToPaths = null; instance = null;
         }
 
@@ -285,7 +286,7 @@ namespace LoadingScreenModTest
                     // certainly no longer accepts that but in the early days, it was possible.
                     if (fullName != AssetLoader.instance.Current && !AssetLoader.instance.HasFailed(fullName))
                     {
-                        AssetLoader.instance.LoadImpl(data);
+                        AssetLoader.instance.LoadImpl(data, CustomAssetMetaData.Type.Unknown);
                         return true;
                     }
                 }
