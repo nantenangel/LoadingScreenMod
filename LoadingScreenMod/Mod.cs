@@ -23,6 +23,7 @@ namespace LoadingScreenMod
                 LevelLoader.Create().Deploy();
                 //new PackageManagerFix().Deploy();
                 created = true;
+                //Trace.Start();
             }
         }
 
@@ -31,6 +32,8 @@ namespace LoadingScreenMod
             LevelLoader.instance?.Dispose();
             //PackageManagerFix.instance?.Dispose();
             created = false;
+            //Trace.Flush();
+            //Trace.Stop();
         }
     }
 }

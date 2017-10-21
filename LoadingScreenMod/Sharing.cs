@@ -239,7 +239,7 @@ namespace LoadingScreenMod
 
                 string name = reader.ReadString();
                 bool linear = reader.ReadBoolean();
-                int anisoLevel = asset.package.version >= 6u ? reader.ReadInt32() : 1;
+                int anisoLevel = asset.package.version >= 6 ? reader.ReadInt32() : 1;
                 int count = reader.ReadInt32();
                 Image image = new Image(reader.ReadBytes(count));
                 byte[] pix = image.GetAllPixels();
@@ -518,9 +518,13 @@ namespace LoadingScreenMod
             }
         }
 
-        internal void Start(Package.Asset[] queue)
+        internal void Start(LoadEntry[] queue)
         {
-            assetsQueue = queue;
+            assetsQueue = new Package.Asset[queue.Length];
+
+            for (int i = 0; i < queue.Length; i++)
+                assetsQueue[i] = queue[i].assetRef;
+
             shareTextures = Settings.settings.shareTextures;
             shareMaterials = Settings.settings.shareMaterials;
             shareMeshes = Settings.settings.shareMeshes;
