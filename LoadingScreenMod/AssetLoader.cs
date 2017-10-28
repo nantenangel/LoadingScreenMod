@@ -17,10 +17,12 @@ namespace LoadingScreenModTest
     {
         HashSet<string> failedAssets = new HashSet<string>(), loadedProps = new HashSet<string>(), loadedTrees = new HashSet<string>(),
             loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>(), loadedCitizens = new HashSet<string>(),
-            loadedIntersections = new HashSet<string>(), dontSpawnNormally = new HashSet<string>();
+            loadedNets = new HashSet<string>(), loadedIntersections = new HashSet<string>(), dontSpawnNormally = new HashSet<string>();
+        HashSet<string>[] allLoads;
+        int[] loadQueueIndex;
         Dictionary<string, CustomAssetMetaData> citizenMetaDatas = new Dictionary<string, CustomAssetMetaData>();
         internal Stack<string> stack = new Stack<string>(4); // the asset loading stack
-        int propCount, treeCount, buildingCount, vehicleCount, netCount, beginMillis, lastMillis, assetCount;
+        int propCount, treeCount, buildingCount, vehicleCount, beginMillis, lastMillis, assetCount;
         readonly bool reportAssets = Settings.settings.reportAssets;
         public bool hasStarted, hasFinished, isWin = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
 
@@ -31,11 +33,18 @@ namespace LoadingScreenModTest
         internal HashSet<string> Buildings => loadedBuildings;
         internal HashSet<string> Vehicles => loadedVehicles;
         internal HashSet<string> Citizens => loadedCitizens;
+        internal HashSet<string> Nets => loadedNets;
         internal bool IsIntersection(string fullName) => loadedIntersections.Contains(fullName);
         internal bool HasFailed(string fullName) => failedAssets.Contains(fullName);
         internal string Current => stack.Count > 0 ? stack.Peek() : string.Empty;
 
-        private AssetLoader() { }
+        private AssetLoader()
+        {
+            allLoads = new HashSet<string>[] { loadedBuildings, loadedProps, loadedTrees, loadedVehicles, loadedVehicles, loadedBuildings, loadedBuildings,
+                loadedProps, loadedCitizens, loadedNets, loadedNets, loadedBuildings };
+
+            loadQueueIndex = new int[] { 5, 1, 1, 7, 7, 5, 5, 1, 0, 3, 3, 3 };
+        }
 
         public void Setup()
         {
@@ -51,10 +60,10 @@ namespace LoadingScreenModTest
             Sharing.instance?.Dispose();
             LevelLoader.instance.AddFailedAssets(failedAssets);
             failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear(); loadedCitizens.Clear();
-            loadedIntersections.Clear(); dontSpawnNormally.Clear(); citizenMetaDatas.Clear();
+            loadedNets.Clear(); loadedIntersections.Clear(); dontSpawnNormally.Clear(); citizenMetaDatas.Clear();
             failedAssets = null; loadedProps = null; loadedTrees = null; loadedBuildings = null; loadedVehicles = null; loadedCitizens = null;
-            loadedIntersections = null; dontSpawnNormally = null; citizenMetaDatas = null;
-            instance = null;
+            loadedNets = null;  loadedIntersections = null; dontSpawnNormally = null; citizenMetaDatas = null;
+            allLoads = null; loadQueueIndex = null; instance = null;
         }
 
         void Report()
@@ -278,20 +287,15 @@ namespace LoadingScreenModTest
         {
             try
             {
-                string fullName = assetRef.fullName;
-                stack.Push(fullName);
+                stack.Push(assetRef.fullName);
                 LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(assetRef.name));
-                GameObject go;
+                GameObject go = AssetDeserializer.Instantiate(assetRef) as GameObject;
+                string packageName = assetRef.package.packageName;
+                string fullName = type < CustomAssetMetaData.Type.RoadElevation ? packageName + "." + go.name : PillarOrElevationName(packageName, go.name);
+                go.name = fullName;
 
-                if (type < CustomAssetMetaData.Type.Road)
-                    go = AssetDeserializer.Instantiate(assetRef) as GameObject;
-                else
-                    go = assetRef.Instantiate<GameObject>();
-
-                if (type < CustomAssetMetaData.Type.RoadElevation)
-                    go.name = fullName;
-                else
-                    go.name = assetRef.package.packageName + "." + PackageHelper.StripName(go.name);
+                if (assetRef.fullName != fullName)
+                    Util.DebugPrint(assetRef.fullName, " diff ", fullName);
 
                 go.SetActive(false);
                 PrefabInfo info = go.GetComponent<PrefabInfo>();
@@ -359,7 +363,7 @@ namespace LoadingScreenModTest
                     if (ci.InitializeCustomPrefab(citizenMetaDatas[fullName]))
                     {
                         citizenMetaDatas.Remove(fullName);
-                        ci.gameObject.SetActive(true); // bug?
+                        ci.gameObject.SetActive(true);
                         Initialize(ci);
                         loadedCitizens.Add(fullName);
                     }
@@ -371,8 +375,8 @@ namespace LoadingScreenModTest
 
                 if (ni != null)
                 {
+                    loadedNets.Add(fullName);
                     Initialize(ni);
-                    netCount++;
                 }
             }
             finally
@@ -516,52 +520,19 @@ namespace LoadingScreenModTest
                 return null;
             }
 
-            Package package = assetRef.package;
-            string fullName = assetRef.fullName;
             CustomAssetMetaData.Type type = meta.type;
+            Package package = assetRef.package;
+            string fullName = type < CustomAssetMetaData.Type.RoadElevation ? assetRef.fullName : PillarOrElevationName(package.packageName, assetRef.name);
 
-            // [0] propvar and prop, citizen  [1] prop, tree  [2] pillar and elevation and road  [3] road
-            // [4] sub-building and building  [5] building    [6] trailer and vehicle            [7] vehicle
+            if (assetRef.fullName != fullName)
+                Util.DebugPrint(assetRef.fullName, " diff ", fullName);
 
-            switch (type)
+            if (!IsDuplicate(fullName, allLoads[(int) type], package))
             {
-                case CustomAssetMetaData.Type.Building:
-                case CustomAssetMetaData.Type.SubBuilding:
-                    if (!IsDuplicate(fullName, loadedBuildings, package))
-                        queues[5 + offset].Add(new LoadEntry(assetRef, type));
-                    break;
+                queues[loadQueueIndex[(int) type] + offset].Add(new LoadEntry(assetRef, type));
 
-                case CustomAssetMetaData.Type.Prop:
-                case CustomAssetMetaData.Type.PropVariation:
-                    if (!IsDuplicate(fullName, loadedProps, package))
-                        queues[1 + offset].Add(new LoadEntry(assetRef, type));
-                    break;
-
-                case CustomAssetMetaData.Type.Tree:
-                    if (!IsDuplicate(fullName, loadedTrees, package))
-                        queues[1].Add(new LoadEntry(assetRef, type));
-                    break;
-
-                case CustomAssetMetaData.Type.Vehicle:
-                case CustomAssetMetaData.Type.Trailer:
-                    if (!IsDuplicate(fullName, loadedVehicles, package))
-                        queues[7 + offset].Add(new LoadEntry(assetRef, type));
-                    break;
-
-                case CustomAssetMetaData.Type.Citizen:
-                    if (!IsDuplicate(fullName, loadedCitizens, package))
-                    {
-                        queues[0].Add(new LoadEntry(assetRef, type));
-                        citizenMetaDatas[fullName] = meta;
-                    }
-                    break;
-
-                //case CustomAssetMetaData.Type.RoadElevation:
-                //case CustomAssetMetaData.Type.Pillar:
-                //case CustomAssetMetaData.Type.Road:
-                default:
-                    queues[3 + offset].Add(new LoadEntry(assetRef, type));
-                    break;
+                if (type == CustomAssetMetaData.Type.Citizen)
+                    citizenMetaDatas[fullName] = meta;
             }
 
             return fullName;
@@ -573,6 +544,7 @@ namespace LoadingScreenModTest
             return mainAsset?.isEnabled ?? true;
         }
 
+        static string PillarOrElevationName(string packageName, string fullName) => packageName + "." + PackageHelper.StripName(fullName);
         internal static string AssetName(string name_Data) => name_Data.Length > 5 && name_Data.EndsWith("_Data") ? name_Data.Substring(0, name_Data.Length - 5) : name_Data;
 
         static string ShorterAssetName(string fullName_Data)

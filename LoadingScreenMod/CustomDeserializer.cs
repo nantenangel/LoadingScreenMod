@@ -7,6 +7,8 @@ namespace LoadingScreenModTest
 {
     internal sealed class CustomDeserializer : Instance<CustomDeserializer>
     {
+        internal int buildingMeshInfos, vehicleMeshInfos;
+
         Package.Asset[] assets;
         Dictionary<PublishedFileId, HashSet<string>> packagesToPaths;
         readonly bool report = Settings.settings.reportAssets && Settings.settings.loadUsed;
@@ -143,6 +145,44 @@ namespace LoadingScreenModTest
                 subInfo.m_angle = r.ReadSingle();
                 subInfo.m_fixedHeight = r.ReadBoolean();
                 return subInfo;
+            }
+
+            if (t == typeof(BuildingInfo.MeshInfo))
+                instance.buildingMeshInfos++;
+
+            if (t == typeof(VehicleInfo.MeshInfo))
+                instance.vehicleMeshInfos++;
+
+            if (t == typeof(NetInfo))
+            {
+                Package.Asset asset = p.Find(p.packageMainAsset);
+                CustomAssetMetaData customAssetMetaData = (!(asset != null)) ? null : asset.Instantiate<CustomAssetMetaData>();
+                string fullName = r.ReadString();
+
+                if (customAssetMetaData != null && customAssetMetaData.type == CustomAssetMetaData.Type.Road)
+                {
+                    Util.DebugPrint("  NetInfo A:", p.packageName, fullName);
+                    return PrefabCollection<NetInfo>.FindLoaded(p.packageName + "." + PackageHelper.StripName(fullName));
+                }
+
+                Util.DebugPrint("  NetInfo B:", fullName);
+                return PrefabCollection<NetInfo>.FindLoaded(fullName);
+            }
+
+            if (t == typeof(BuildingInfo))
+            {
+                Package.Asset asset = p.Find(p.packageMainAsset);
+                CustomAssetMetaData customAssetMetaData = (!(asset != null)) ? null : asset.Instantiate<CustomAssetMetaData>();
+                string fullName = r.ReadString();
+
+                if (customAssetMetaData != null && customAssetMetaData.type == CustomAssetMetaData.Type.Road)
+                {
+                    Util.DebugPrint("  BuildingInfo A:", p.packageName, fullName);
+                    return PrefabCollection<BuildingInfo>.FindLoaded(p.packageName + "." + PackageHelper.StripName(fullName));
+                }
+
+                Util.DebugPrint("  BuildingInfo B:", fullName);
+                return PrefabCollection<BuildingInfo>.FindLoaded(fullName);
             }
 
             return PackageHelper.CustomDeserialize(p, t, r);

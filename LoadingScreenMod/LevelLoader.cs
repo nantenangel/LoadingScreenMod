@@ -342,6 +342,7 @@ namespace LoadingScreenModTest
         public IEnumerator LoadingComplete()
         {
             Util.DebugPrint("All completed at", Profiling.Millis);
+            Util.DebugPrint("buildingMeshInfos:", CustomDeserializer.instance.buildingMeshInfos, "vehicleMeshInfos:", CustomDeserializer.instance.vehicleMeshInfos);
             AssetLoader.instance.PrintMem();
             Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
             AssetLoader.instance.Dispose();
