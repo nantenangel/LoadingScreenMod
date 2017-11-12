@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using ColossalFramework.Packaging;
 
 namespace LoadingScreenModTest
 {
@@ -60,8 +61,8 @@ namespace LoadingScreenModTest
         /// </summary>
         internal bool GotAnyContainer()
         {
-            foreach (string fullName in AssetLoader.instance.stack)
-                if (buildingAssets.Contains(fullName))
+            foreach (Package.Asset assetRef in AssetLoader.instance.stack)
+                if (buildingAssets.Contains(assetRef.fullName))
                     return true;
 
             return false;

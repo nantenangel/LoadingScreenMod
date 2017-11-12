@@ -20,8 +20,9 @@ namespace LoadingScreenModTest
             loadedNets = new HashSet<string>(), loadedIntersections = new HashSet<string>(), dontSpawnNormally = new HashSet<string>();
         HashSet<string>[] allLoads;
         int[] loadQueueIndex;
+        Dictionary<string, CustomAssetMetaData.Type> metaTypes = new Dictionary<string, CustomAssetMetaData.Type>(64);
         Dictionary<string, CustomAssetMetaData> citizenMetaDatas = new Dictionary<string, CustomAssetMetaData>();
-        internal Stack<string> stack = new Stack<string>(4); // the asset loading stack
+        internal Stack<Package.Asset> stack = new Stack<Package.Asset>(4); // the asset loading stack
         int propCount, treeCount, buildingCount, vehicleCount, beginMillis, lastMillis, assetCount;
         readonly bool reportAssets = Settings.settings.reportAssets;
         public bool hasStarted, hasFinished, isWin = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
@@ -36,7 +37,7 @@ namespace LoadingScreenModTest
         internal HashSet<string> Nets => loadedNets;
         internal bool IsIntersection(string fullName) => loadedIntersections.Contains(fullName);
         internal bool HasFailed(string fullName) => failedAssets.Contains(fullName);
-        internal string Current => stack.Count > 0 ? stack.Peek() : string.Empty;
+        internal Package.Asset Current => stack.Count > 0 ? stack.Peek() : null;
 
         private AssetLoader()
         {
@@ -60,9 +61,9 @@ namespace LoadingScreenModTest
             Sharing.instance?.Dispose();
             LevelLoader.instance.AddFailedAssets(failedAssets);
             failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear(); loadedCitizens.Clear();
-            loadedNets.Clear(); loadedIntersections.Clear(); dontSpawnNormally.Clear(); citizenMetaDatas.Clear();
+            loadedNets.Clear(); loadedIntersections.Clear(); dontSpawnNormally.Clear(); metaTypes.Clear(); citizenMetaDatas.Clear();
             failedAssets = null; loadedProps = null; loadedTrees = null; loadedBuildings = null; loadedVehicles = null; loadedCitizens = null;
-            loadedNets = null;  loadedIntersections = null; dontSpawnNormally = null; citizenMetaDatas = null;
+            loadedNets = null;  loadedIntersections = null; dontSpawnNormally = null; metaTypes = null; citizenMetaDatas = null;
             allLoads = null; loadQueueIndex = null; instance = null;
         }
 
@@ -155,7 +156,7 @@ namespace LoadingScreenModTest
             LoadingScreen.instance.DualSource.Add("Custom Assets");
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Calculating asset load order");
             Util.DebugPrint("GetLoadQueue", Profiling.Millis);
-            LoadEntry[] queue = GetLoadQueue(styleBuildings);
+            Package.Asset[] queue = GetLoadQueue(styleBuildings);
             Util.DebugPrint("LoadQueue", queue.Length, Profiling.Millis);
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
 
@@ -165,9 +166,9 @@ namespace LoadingScreenModTest
 
             for (i = 0; i < queue.Length; i++)
             {
-                LoadEntry entry = queue[i];
+                Package.Asset assetRef = queue[i];
                 Console.WriteLine(string.Concat("[LSMT] ", i, ": ", Profiling.Millis, " ", assetCount, " ", Sharing.instance.currentCount, " ",
-                    entry.assetRef.fullName, Sharing.instance.ThreadStatus));
+                    assetRef.fullName, Sharing.instance.ThreadStatus));
 
                 if ((i & 31) == 0)
                     PrintMem();
@@ -177,11 +178,11 @@ namespace LoadingScreenModTest
                 try
                 {
                     stack.Clear();
-                    LoadImpl(entry.assetRef, entry.type);
+                    LoadImpl(assetRef);
                 }
                 catch (Exception e)
                 {
-                    AssetFailed(entry.assetRef.fullName, e);
+                    AssetFailed(assetRef.fullName, e);
                 }
 
                 Sharing.instance.ManageLoadQueue(i);
@@ -283,13 +284,14 @@ namespace LoadingScreenModTest
             Console.WriteLine(s);
         }
 
-        internal void LoadImpl(Package.Asset assetRef, CustomAssetMetaData.Type type)
+        internal void LoadImpl(Package.Asset assetRef)
         {
             try
             {
-                stack.Push(assetRef.fullName);
+                stack.Push(assetRef);
                 LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(assetRef.name));
                 GameObject go = AssetDeserializer.Instantiate(assetRef) as GameObject;
+                CustomAssetMetaData.Type type = GetMetaType(assetRef.fullName);
                 string packageName = assetRef.package.packageName;
                 string fullName = type < CustomAssetMetaData.Type.RoadElevation ? packageName + "." + go.name : PillarOrElevationName(packageName, go.name);
                 go.name = fullName;
@@ -360,15 +362,15 @@ namespace LoadingScreenModTest
                     if (ci.m_lodObject != null)
                         ci.m_lodObject.SetActive(false);
 
-                    if (ci.InitializeCustomPrefab(citizenMetaDatas[fullName]))
+                    if (ci.InitializeCustomPrefab(citizenMetaDatas[assetRef.fullName]))
                     {
-                        citizenMetaDatas.Remove(fullName);
+                        citizenMetaDatas.Remove(assetRef.fullName);
                         ci.gameObject.SetActive(true);
                         Initialize(ci);
                         loadedCitizens.Add(fullName);
                     }
                     else
-                        CODebugBase<LogChannel>.Warn(LogChannel.Modding, "Custom citizen [" + fullName + "] template not available in selected theme. Asset not added in game.");
+                        CODebugBase<LogChannel>.Warn(LogChannel.Modding, "Custom citizen [" + assetRef.fullName + "] template not available in selected theme. Asset not added in game.");
                 }
 
                 NetInfo ni = go.GetComponent<NetInfo>();
@@ -398,7 +400,7 @@ namespace LoadingScreenModTest
                 throw new Exception(string.Concat(typeof(T).Name, " ", fullName, " failed"));
         }
 
-        LoadEntry[] GetLoadQueue(HashSet<string> styleBuildings)
+        Package.Asset[] GetLoadQueue(HashSet<string> styleBuildings)
         {
             Package[] packages = PackageManager.allPackages.ToArray();
             Array.Sort(packages, (a, b) => string.Compare(a.packageName, b.packageName));
@@ -409,13 +411,13 @@ namespace LoadingScreenModTest
             // in Sharing. We also get faster disk reads.
             // [0] propvar and prop, citizen  [1] prop, tree  [2] pillar and elevation and road  [3] road
             // [4] sub-building and building  [5] building    [6] trailer and vehicle            [7] vehicle
-            List<LoadEntry>[] queues = { new List<LoadEntry>(4), new List<LoadEntry>(64), new List<LoadEntry>(4),  new List<LoadEntry>(4),
-                                         new List<LoadEntry>(4), new List<LoadEntry>(64), new List<LoadEntry>(32), new List<LoadEntry>(32) };
+            List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4),  new List<Package.Asset>(4),
+                                             new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(32), new List<Package.Asset>(32) };
 
             Util.DebugPrint("Sorted at", Profiling.Millis);
             SteamHelper.DLC_BitMask notMask = ~SteamHelper.GetOwnedDLCMask();
             bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, report = loadUsed && Settings.settings.reportAssets;
-            //PrintPackages(packages);
+            PrintPackages(packages);
 
             foreach (Package p in packages)
             {
@@ -502,7 +504,7 @@ namespace LoadingScreenModTest
                 }
             }
 
-            LoadEntry[] queue = new LoadEntry[queues.Select(lst => lst.Count).Sum()];
+            Package.Asset[] queue = new Package.Asset[queues.Select(lst => lst.Count).Sum()];
 
             for (int i = 0, k = 0; i < queues.Length; k += queues[i].Count, i++)
                 queues[i].CopyTo(queue, k);
@@ -510,7 +512,7 @@ namespace LoadingScreenModTest
             return queue;
         }
 
-        string AddToQueue(List<LoadEntry>[] queues, CustomAssetMetaData meta, int offset)
+        string AddToQueue(List<Package.Asset>[] queues, CustomAssetMetaData meta, int offset)
         {
             Package.Asset assetRef = meta.assetRef;
 
@@ -529,7 +531,8 @@ namespace LoadingScreenModTest
 
             if (!IsDuplicate(fullName, allLoads[(int) type], package))
             {
-                queues[loadQueueIndex[(int) type] + offset].Add(new LoadEntry(assetRef, type));
+                queues[loadQueueIndex[(int) type] + offset].Add(assetRef);
+                metaTypes[assetRef.fullName] = type;
 
                 if (type == CustomAssetMetaData.Type.Citizen)
                     citizenMetaDatas[fullName] = meta;
@@ -542,6 +545,14 @@ namespace LoadingScreenModTest
         {
             Package.Asset mainAsset = package.Find(package.packageMainAsset);
             return mainAsset?.isEnabled ?? true;
+        }
+
+        internal CustomAssetMetaData.Type GetMetaType(string assetRefFullName)
+        {
+            if (metaTypes.TryGetValue(assetRefFullName, out CustomAssetMetaData.Type type))
+                return type;
+            Util.DebugPrint(" No metatype:", assetRefFullName);
+            return CustomAssetMetaData.Type.Unknown;
         }
 
         static string PillarOrElevationName(string packageName, string fullName) => packageName + "." + PackageHelper.StripName(fullName);
@@ -591,8 +602,10 @@ namespace LoadingScreenModTest
             {
                 if (reportAssets)
                 {
-                    if (!string.IsNullOrEmpty(Current))
-                        AssetReport.instance.NotFound(fullName, Current);
+                    Package.Asset refBy = Current;
+
+                    if (refBy != null)
+                        AssetReport.instance.NotFound(fullName, refBy.fullName);
                     else
                         AssetReport.instance.NotFound(fullName);
                 }
@@ -617,28 +630,16 @@ namespace LoadingScreenModTest
                 return false;
         }
 
-        //static void PrintPackages(Package[] packages)
-        //{
-        //    foreach (Package p in packages)
-        //    {
-        //        Trace.Pr(p.packageName, "\t\t", p.packagePath, "   ", p.version);
-
-        //        foreach (Package.Asset a in p)
-        //            Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(96), a.checksum, a.type.ToString().PadRight(19),
-        //                a.offset.ToString().PadLeft(8), a.size.ToString().PadLeft(8));
-        //    }
-        //}
-    }
-
-    internal struct LoadEntry
-    {
-        internal Package.Asset assetRef;
-        internal CustomAssetMetaData.Type type;
-
-        internal LoadEntry(Package.Asset a, CustomAssetMetaData.Type t)
+        static void PrintPackages(Package[] packages)
         {
-            this.assetRef = a;
-            this.type = t;
+            foreach (Package p in packages)
+            {
+                Trace.Pr(p.packageName, "\t\t", p.packagePath, "   ", p.version);
+
+                foreach (Package.Asset a in p)
+                    Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(112), a.checksum, a.type.ToString().PadRight(19),
+                        a.offset.ToString().PadLeft(8), a.size.ToString().PadLeft(8));
+            }
         }
     }
 }

@@ -57,7 +57,7 @@ namespace LoadingScreenModTest
 
                 if (activated)
                 {
-                    Util.DebugPrint("Options:", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
+                    Util.DebugPrint("Options: 1112", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
                         Settings.settings.shareMaterials, Settings.settings.shareMeshes, Settings.settings.reportAssets);
 
                     LoadingManager.instance.SetSceneProgress(0f);
@@ -342,6 +342,7 @@ namespace LoadingScreenModTest
         public IEnumerator LoadingComplete()
         {
             Util.DebugPrint("All completed at", Profiling.Millis);
+            Util.DebugPrint("pathInfos:", CustomDeserializer.instance.pathInfos, "netInfos:", CustomDeserializer.instance.netInfos);
             Util.DebugPrint("buildingMeshInfos:", CustomDeserializer.instance.buildingMeshInfos, "vehicleMeshInfos:", CustomDeserializer.instance.vehicleMeshInfos);
             AssetLoader.instance.PrintMem();
             Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;

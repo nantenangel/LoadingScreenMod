@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using ColossalFramework.Packaging;
 using ColossalFramework.PlatformServices;
+using UnityEngine;
 
 namespace LoadingScreenModTest
 {
     internal sealed class CustomDeserializer : Instance<CustomDeserializer>
     {
-        internal int buildingMeshInfos, vehicleMeshInfos;
+        internal int pathInfos, netInfos, buildingMeshInfos, vehicleMeshInfos;
 
         Package.Asset[] assets;
         Dictionary<PublishedFileId, HashSet<string>> packagesToPaths;
@@ -74,6 +75,65 @@ namespace LoadingScreenModTest
             if (t == typeof(Package.Asset))
                 return p.FindByChecksum(r.ReadString());
 
+            // It seems that trailers are listed in the save game so this is not necessary. Better to be safe however
+            // because a missing trailer reference is fatal for the simulation thread.
+            if (t == typeof(VehicleInfo.VehicleTrailer))
+            {
+                string name = r.ReadString();
+                string fullName = p.packageName + "." + name;
+                VehicleInfo vi = Get<VehicleInfo>(p, fullName, name, false);
+
+                VehicleInfo.VehicleTrailer trailer;
+                trailer.m_info = vi;
+                trailer.m_probability = r.ReadInt32();
+                trailer.m_invertProbability = r.ReadInt32();
+                return trailer;
+            }
+
+            // Paths (nets) in buildings.
+            if (t == typeof(BuildingInfo.PathInfo))
+            {
+                string fullName = r.ReadString();
+                instance.pathInfos++;
+                Util.DebugPrint("  BuildingInfo.PathInfo:", p.packageName, p.packagePath, fullName);
+                NetInfo ni = Get<NetInfo>(fullName);
+                BuildingInfo.PathInfo path = new BuildingInfo.PathInfo();
+                path.m_netInfo = ni;
+                path.m_nodes = r.ReadVector3Array();
+                path.m_curveTargets = r.ReadVector3Array();
+                path.m_invertSegments = r.ReadBoolean();
+                path.m_maxSnapDistance = r.ReadSingle();
+
+                if (p.version >= 5)
+                {
+                    path.m_forbidLaneConnection = r.ReadBooleanArray();
+                    path.m_trafficLights = (BuildingInfo.TrafficLights[]) (object) r.ReadInt32Array();
+                    path.m_yieldSigns = r.ReadBooleanArray();
+                }
+
+                return path;
+            }
+
+            // Sub-buildings in buildings.
+            if (t == typeof(BuildingInfo.SubInfo))
+            {
+                string name = r.ReadString();
+                string fullName = p.packageName + "." + name;
+                BuildingInfo bi = null;
+
+                if (fullName == AssetLoader.instance.Current.fullName || name == AssetLoader.instance.Current.fullName)
+                    Util.DebugPrint("Warning:", fullName, "wants to be a sub-building for itself");
+                else
+                    bi = Get<BuildingInfo>(p, fullName, name, true);
+
+                BuildingInfo.SubInfo subInfo = new BuildingInfo.SubInfo();
+                subInfo.m_buildingInfo = bi;
+                subInfo.m_position = r.ReadVector3();
+                subInfo.m_angle = r.ReadSingle();
+                subInfo.m_fixedHeight = r.ReadBoolean();
+                return subInfo;
+            }
+
             // Prop variations in props.
             if (t == typeof(PropInfo.Variation))
             {
@@ -81,7 +141,7 @@ namespace LoadingScreenModTest
                 string fullName = p.packageName + "." + name;
                 PropInfo pi = null;
 
-                if (fullName == AssetLoader.instance.Current)
+                if (fullName == AssetLoader.instance.Current.fullName)
                     Util.DebugPrint("Warning:", fullName, "wants to be a prop variation for itself");
                 else
                     pi = Get<PropInfo>(p, fullName, name, false);
@@ -100,7 +160,7 @@ namespace LoadingScreenModTest
                 string fullName = p.packageName + "." + name;
                 TreeInfo ti = null;
 
-                if (fullName == AssetLoader.instance.Current)
+                if (fullName == AssetLoader.instance.Current.fullName)
                     Util.DebugPrint("Warning:", fullName, "wants to be a tree variation for itself");
                 else
                     ti = Get<TreeInfo>(p, fullName, name, false);
@@ -112,61 +172,56 @@ namespace LoadingScreenModTest
                 };
             }
 
-            // It seems that trailers are listed in the save game so this is not necessary. Better to be safe however
-            // because a missing trailer reference is fatal for the simulation thread.
-            if (t == typeof(VehicleInfo.VehicleTrailer))
+            if (t == typeof(VehicleInfo.MeshInfo))
             {
-                string name = r.ReadString();
-                string fullName = p.packageName + "." + name;
-                VehicleInfo vi = Get<VehicleInfo>(p, fullName, name, false);
+                VehicleInfo.MeshInfo meshinfo = new VehicleInfo.MeshInfo();
+                string checksum = r.ReadString();
 
-                VehicleInfo.VehicleTrailer trailer;
-                trailer.m_info = vi;
-                trailer.m_probability = r.ReadInt32();
-                trailer.m_invertProbability = r.ReadInt32();
-                return trailer;
-            }
+                if (!string.IsNullOrEmpty(checksum))
+                {
+                    instance.vehicleMeshInfos++;
+                    Util.DebugPrint("  VehicleInfo.MeshInfo:", p.packageName, p.packagePath, checksum);
+                    Package.Asset asset = p.FindByChecksum(checksum);
+                    GameObject go = AssetDeserializer.Instantiate(asset) as GameObject;
+                    meshinfo.m_subInfo = go.GetComponent<VehicleInfoBase>();
+                    go.SetActive(false);
 
-            // Sub-buildings in buildings.
-            if (t == typeof(BuildingInfo.SubInfo))
-            {
-                string name = r.ReadString();
-                string fullName = p.packageName + "." + name;
-                BuildingInfo bi = null;
-
-                if (fullName == AssetLoader.instance.Current || name == AssetLoader.instance.Current)
-                    Util.DebugPrint("Warning:", fullName, "wants to be a sub-building for itself");
+                    if (meshinfo.m_subInfo.m_lodObject != null)
+                        meshinfo.m_subInfo.m_lodObject.SetActive(false);
+                }
                 else
-                    bi = Get<BuildingInfo>(p, fullName, name, true);
+                    meshinfo.m_subInfo = null;
 
-                BuildingInfo.SubInfo subInfo = new BuildingInfo.SubInfo();
-                subInfo.m_buildingInfo = bi;
-                subInfo.m_position = r.ReadVector3();
-                subInfo.m_angle = r.ReadSingle();
-                subInfo.m_fixedHeight = r.ReadBoolean();
-                return subInfo;
+                meshinfo.m_vehicleFlagsForbidden = (Vehicle.Flags) PackageHelper.CustomDeserialize(p, typeof(Vehicle.Flags), r);
+                meshinfo.m_vehicleFlagsRequired = (Vehicle.Flags) PackageHelper.CustomDeserialize(p, typeof(Vehicle.Flags), r);
+                meshinfo.m_parkedFlagsForbidden = (VehicleParked.Flags) PackageHelper.CustomDeserialize(p, typeof(VehicleParked.Flags), r);
+                meshinfo.m_parkedFlagsRequired = (VehicleParked.Flags) PackageHelper.CustomDeserialize(p, typeof(VehicleParked.Flags), r);
+                return meshinfo;
             }
 
             if (t == typeof(BuildingInfo.MeshInfo))
+            {
                 instance.buildingMeshInfos++;
-
-            if (t == typeof(VehicleInfo.MeshInfo))
-                instance.vehicleMeshInfos++;
+                Util.DebugPrint("  BuildingInfo.MeshInfo:", p.packageName, p.packagePath);
+            }
 
             if (t == typeof(NetInfo))
             {
-                Package.Asset asset = p.Find(p.packageMainAsset);
-                CustomAssetMetaData customAssetMetaData = (!(asset != null)) ? null : asset.Instantiate<CustomAssetMetaData>();
                 string fullName = r.ReadString();
+                Package.Asset container = AssetLoader.instance.Current;
+                CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(container.fullName);
+                instance.netInfos++;
 
-                if (customAssetMetaData != null && customAssetMetaData.type == CustomAssetMetaData.Type.Road)
+                if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
                 {
-                    Util.DebugPrint("  NetInfo A:", p.packageName, fullName);
-                    return PrefabCollection<NetInfo>.FindLoaded(p.packageName + "." + PackageHelper.StripName(fullName));
+                    Util.DebugPrint("  NetInfo A:", p.packageName, p.packagePath, fullName);
+                    return Get<NetInfo>(p.packageName + "." + PackageHelper.StripName(fullName));
                 }
-
-                Util.DebugPrint("  NetInfo B:", fullName);
-                return PrefabCollection<NetInfo>.FindLoaded(fullName);
+                else
+                {
+                    Util.DebugPrint("  NetInfo B:", p.packageName, p.packagePath, fullName);
+                    return Get<NetInfo>(fullName);
+                }
             }
 
             if (t == typeof(BuildingInfo))
@@ -207,14 +262,14 @@ namespace LoadingScreenModTest
         {
             T info = FindLoaded<T>(fullName);
 
-            if (info == null && tryName)
+            if (tryName && info == null)
                 info = FindLoaded<T>(name);
 
             if (info == null)
             {
                 Package.Asset data = package.Find(name);
 
-                if (data == null && tryName)
+                if (tryName && data == null)
                     data = FindAsset(name); // yes, name
 
                 if (data != null)
@@ -324,9 +379,9 @@ namespace LoadingScreenModTest
 
                     // There is at least one asset (411236307) on the workshop that wants to include itself. Asset Editor quite
                     // certainly no longer accepts that but in the early days, it was possible.
-                    if (fullName != AssetLoader.instance.Current && !AssetLoader.instance.HasFailed(fullName))
+                    if (fullName != AssetLoader.instance.Current.fullName && !AssetLoader.instance.HasFailed(fullName))
                     {
-                        AssetLoader.instance.LoadImpl(data, CustomAssetMetaData.Type.Unknown);
+                        AssetLoader.instance.LoadImpl(data);
                         return true;
                     }
                 }
