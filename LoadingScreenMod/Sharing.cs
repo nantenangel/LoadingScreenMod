@@ -448,7 +448,6 @@ namespace LoadingScreenModTest
                 {
                     matpre++;
                     return new Material(mat.material);
-                    // return mat.material; TODO test
                 }
 
                 data.TryGetValue(checksum, out kvp);
@@ -490,7 +489,7 @@ namespace LoadingScreenModTest
         }
 
         // Texture / material / mesh sharing begins here.
-        int texhit, texpre, texload, mathit, matpre, matload, meshit, mespre, mesload;
+        internal int texhit, texpre, texload, mathit, matpre, matload, meshit, mespre, mesload;
         internal int Misses => texload + matload + mesload;
         Dictionary<string, Texture2D> texturesMain = new Dictionary<string, Texture2D>(128);
         Dictionary<string, Texture2D> texturesLod = new Dictionary<string, Texture2D>(128);

@@ -8,7 +8,7 @@ namespace LoadingScreenModTest
 {
     internal sealed class CustomDeserializer : Instance<CustomDeserializer>
     {
-        internal int pathInfos, netInfos, buildingMeshInfos, vehicleMeshInfos, lanes;
+        internal int pathInfos, netInfos, buildingMeshInfos, vehicleMeshInfos, netLanes, netSegments, netNodes;
 
         Package.Asset[] assets;
         Dictionary<PublishedFileId, HashSet<string>> packagesToPaths;
@@ -116,7 +116,7 @@ namespace LoadingScreenModTest
 
             if (t == typeof(NetInfo.Lane))
             {
-                instance.lanes++;
+                instance.netLanes++;
 
                 return new NetInfo.Lane
                 {
@@ -226,6 +226,55 @@ namespace LoadingScreenModTest
             {
                 instance.buildingMeshInfos++;
                 Util.DebugPrint("  BuildingInfo.MeshInfo:", p.packageName, p.packagePath);
+            }
+
+            if (t == typeof(NetInfo.Segment))
+            {
+                instance.netSegments++;
+                NetInfo.Segment segment = new NetInfo.Segment();
+                Util.DebugPrint("  Segm Mes in ", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
+                Util.DebugPrint("  Segm Mat in ", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
+                string checksum = r.ReadString();
+                segment.m_mesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, true);
+                checksum = r.ReadString();
+                segment.m_material = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, true);
+                checksum = r.ReadString();
+                segment.m_lodMesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, false);
+                checksum = r.ReadString();
+                segment.m_lodMaterial = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, false);
+                Util.DebugPrint("  Segm Mes out", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
+                Util.DebugPrint("  Segm Mat out", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
+                segment.m_forwardRequired = (NetSegment.Flags) r.ReadInt32();
+                segment.m_forwardForbidden = (NetSegment.Flags) r.ReadInt32();
+                segment.m_backwardRequired = (NetSegment.Flags) r.ReadInt32();
+                segment.m_backwardForbidden = (NetSegment.Flags) r.ReadInt32();
+                segment.m_emptyTransparent = r.ReadBoolean();
+                segment.m_disableBendNodes = r.ReadBoolean();
+                return segment;
+            }
+
+            if (t == typeof(NetInfo.Node))
+            {
+                instance.netNodes++;
+                NetInfo.Node node = new NetInfo.Node();
+                Util.DebugPrint("  Node Mes in ", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
+                Util.DebugPrint("  Node Mat in ", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
+                string checksum = r.ReadString();
+                node.m_mesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, true);
+                checksum = r.ReadString();
+                node.m_material = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, true);
+                checksum = r.ReadString();
+                node.m_lodMesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, false);
+                checksum = r.ReadString();
+                node.m_lodMaterial = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, false);
+                Util.DebugPrint("  Node Mes out", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
+                Util.DebugPrint("  Node Mat out", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
+                node.m_flagsRequired = (NetNode.Flags) r.ReadInt32();
+                node.m_flagsForbidden = (NetNode.Flags) r.ReadInt32();
+                node.m_connectGroup = (NetInfo.ConnectGroup) r.ReadInt32();
+                node.m_directConnect = r.ReadBoolean();
+                node.m_emptyTransparent = r.ReadBoolean();
+                return node;
             }
 
             if (t == typeof(NetInfo))

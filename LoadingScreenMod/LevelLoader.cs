@@ -344,7 +344,8 @@ namespace LoadingScreenModTest
             Util.DebugPrint("All completed at", Profiling.Millis);
             Util.DebugPrint("pathInfos:", CustomDeserializer.instance.pathInfos, "netInfos:", CustomDeserializer.instance.netInfos);
             Util.DebugPrint("buildingMeshInfos:", CustomDeserializer.instance.buildingMeshInfos, "vehicleMeshInfos:", CustomDeserializer.instance.vehicleMeshInfos);
-            Util.DebugPrint("lanes:", CustomDeserializer.instance.lanes);
+            Util.DebugPrint("netLanes:", CustomDeserializer.instance.netLanes);
+            Util.DebugPrint("netSegments:", CustomDeserializer.instance.netSegments, "netNodes:", CustomDeserializer.instance.netNodes);
             AssetLoader.instance.PrintMem();
             Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
             AssetLoader.instance.Dispose();
