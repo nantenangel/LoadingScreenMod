@@ -8,7 +8,7 @@ namespace LoadingScreenModTest
 {
     internal sealed class CustomDeserializer : Instance<CustomDeserializer>
     {
-        internal int pathInfos, netInfos, buildingMeshInfos, vehicleMeshInfos;
+        internal int pathInfos, netInfos, buildingMeshInfos, vehicleMeshInfos, lanes;
 
         Package.Asset[] assets;
         Dictionary<PublishedFileId, HashSet<string>> packagesToPaths;
@@ -114,6 +114,29 @@ namespace LoadingScreenModTest
                 return path;
             }
 
+            if (t == typeof(NetInfo.Lane))
+            {
+                instance.lanes++;
+
+                return new NetInfo.Lane
+                {
+                    m_position = r.ReadSingle(),
+                    m_width = r.ReadSingle(),
+                    m_verticalOffset = r.ReadSingle(),
+                    m_stopOffset = r.ReadSingle(),
+                    m_speedLimit = r.ReadSingle(),
+                    m_direction = (NetInfo.Direction) r.ReadInt32(),
+                    m_laneType = (NetInfo.LaneType) r.ReadInt32(),
+                    m_vehicleType = (VehicleInfo.VehicleType) r.ReadInt32(),
+                    m_stopType = (VehicleInfo.VehicleType) r.ReadInt32(),
+                    m_laneProps = GetNetLaneProps(p, r),
+                    m_allowConnect = r.ReadBoolean(),
+                    m_useTerrainHeight = r.ReadBoolean(),
+                    m_centerPlatform = r.ReadBoolean(),
+                    m_elevated = r.ReadBoolean()
+                };
+            }
+
             // Sub-buildings in buildings.
             if (t == typeof(BuildingInfo.SubInfo))
             {
@@ -192,10 +215,10 @@ namespace LoadingScreenModTest
                 else
                     meshinfo.m_subInfo = null;
 
-                meshinfo.m_vehicleFlagsForbidden = (Vehicle.Flags) PackageHelper.CustomDeserialize(p, typeof(Vehicle.Flags), r);
-                meshinfo.m_vehicleFlagsRequired = (Vehicle.Flags) PackageHelper.CustomDeserialize(p, typeof(Vehicle.Flags), r);
-                meshinfo.m_parkedFlagsForbidden = (VehicleParked.Flags) PackageHelper.CustomDeserialize(p, typeof(VehicleParked.Flags), r);
-                meshinfo.m_parkedFlagsRequired = (VehicleParked.Flags) PackageHelper.CustomDeserialize(p, typeof(VehicleParked.Flags), r);
+                meshinfo.m_vehicleFlagsForbidden = (Vehicle.Flags) r.ReadInt32();
+                meshinfo.m_vehicleFlagsRequired = (Vehicle.Flags) r.ReadInt32();
+                meshinfo.m_parkedFlagsForbidden = (VehicleParked.Flags) r.ReadInt32();
+                meshinfo.m_parkedFlagsRequired = (VehicleParked.Flags) r.ReadInt32();
                 return meshinfo;
             }
 
@@ -226,21 +249,64 @@ namespace LoadingScreenModTest
 
             if (t == typeof(BuildingInfo))
             {
-                Package.Asset asset = p.Find(p.packageMainAsset);
-                CustomAssetMetaData customAssetMetaData = (!(asset != null)) ? null : asset.Instantiate<CustomAssetMetaData>();
                 string fullName = r.ReadString();
+                Package.Asset container = AssetLoader.instance.Current;
+                CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(container.fullName);
 
-                if (customAssetMetaData != null && customAssetMetaData.type == CustomAssetMetaData.Type.Road)
+                if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
                 {
-                    Util.DebugPrint("  BuildingInfo A:", p.packageName, fullName);
-                    return PrefabCollection<BuildingInfo>.FindLoaded(p.packageName + "." + PackageHelper.StripName(fullName));
+                    Util.DebugPrint("  BuildingInfo A:", p.packageName, p.packagePath, fullName);
+                    return Get<BuildingInfo>(p.packageName + "." + PackageHelper.StripName(fullName));
                 }
-
-                Util.DebugPrint("  BuildingInfo B:", fullName);
-                return PrefabCollection<BuildingInfo>.FindLoaded(fullName);
+                else
+                {
+                    Util.DebugPrint("  BuildingInfo B:", p.packageName, p.packagePath, fullName);
+                    return Get<BuildingInfo>(fullName);
+                }
             }
 
+            if (t == typeof(NetLaneProps))
+                Util.DebugPrint("  NetLaneProps!");
+
+            if (t == typeof(NetLaneProps.Prop))
+                Util.DebugPrint("  NetLaneProps.Prop!");
+
             return PackageHelper.CustomDeserialize(p, t, r);
+        }
+
+        static NetLaneProps GetNetLaneProps(Package p, PackageReader r)
+        {
+            int count = r.ReadInt32();
+            NetLaneProps laneProps = ScriptableObject.CreateInstance<NetLaneProps>();
+            laneProps.m_props = new NetLaneProps.Prop[count];
+
+            for (int i = 0; i < count; i++)
+                laneProps.m_props[i] = GetNetLaneProp(p, r);
+
+            return laneProps;
+        }
+
+        static NetLaneProps.Prop GetNetLaneProp(Package p, PackageReader r)
+        {
+            return new NetLaneProps.Prop
+            {
+                m_flagsRequired = (NetLane.Flags) r.ReadInt32(),
+                m_flagsForbidden = (NetLane.Flags) r.ReadInt32(),
+                m_startFlagsRequired = (NetNode.Flags) r.ReadInt32(),
+                m_startFlagsForbidden = (NetNode.Flags) r.ReadInt32(),
+                m_endFlagsRequired = (NetNode.Flags) r.ReadInt32(),
+                m_endFlagsForbidden = (NetNode.Flags) r.ReadInt32(),
+                m_colorMode = (NetLaneProps.ColorMode) r.ReadInt32(),
+                m_prop = Get<PropInfo>(r.ReadString()),
+                m_tree = Get<TreeInfo>(r.ReadString()),
+                m_position = r.ReadVector3(),
+                m_angle = r.ReadSingle(),
+                m_segmentOffset = r.ReadSingle(),
+                m_repeatDistance = r.ReadSingle(),
+                m_minLength = r.ReadSingle(),
+                m_cornerAngle = r.ReadSingle(),
+                m_probability = r.ReadInt32()
+            };
         }
 
         // Works with (fullName = asset name), too.
