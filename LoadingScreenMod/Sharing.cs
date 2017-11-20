@@ -61,6 +61,9 @@ namespace LoadingScreenModTest
                     string name = asset.name, checksum = asset.checksum;
                     Package.AssetType type = asset.type;
 
+                    if (checksum == "024194c8cf4045985b3059020f57495c" || checksum == "0e77dc36e4a9ed5542e0ca15ac0c0c6d")
+                        Util.DebugPrint("Check this:", asset.fullName, checksum, type, texturesMain.ContainsKey(checksum), texturesLod.ContainsKey(checksum), data.ContainsKey(checksum));
+
                     if (!Supports(type) || name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot"))
                         continue;
 
@@ -77,6 +80,8 @@ namespace LoadingScreenModTest
                         loadList.Add(asset);
                         total++;
                     }
+                    else
+                        Util.DebugPrint("Loader skips: ", asset.fullName, checksum);
                 }
             }
 
@@ -308,6 +313,7 @@ namespace LoadingScreenModTest
             if (bytes != null)
                 return new MemStream(bytes, 0);
 
+            Util.DebugPrint("        GetStream miss:", asset.fullName, asset.package.packagePath, checksum);
             return asset.GetStream();
         }
 

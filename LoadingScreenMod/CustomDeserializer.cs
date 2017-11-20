@@ -8,7 +8,7 @@ namespace LoadingScreenModTest
 {
     internal sealed class CustomDeserializer : Instance<CustomDeserializer>
     {
-        internal int pathInfos, netInfos, buildingMeshInfos, vehicleMeshInfos, netLanes, netSegments, netNodes;
+        internal int pathInfos, netInfos, buildingMeshInfos, vehicleMeshInfos, netLanes, netSegments, netNodes, readUnityTypes;
 
         Package.Asset[] assets;
         Dictionary<PublishedFileId, HashSet<string>> packagesToPaths;
@@ -73,7 +73,7 @@ namespace LoadingScreenModTest
             }
 
             if (t == typeof(Package.Asset))
-                return p.FindByChecksum(r.ReadString());
+                return r.ReadAsset(p);
 
             // It seems that trailers are listed in the save game so this is not necessary. Better to be safe however
             // because a missing trailer reference is fatal for the simulation thread.
@@ -288,6 +288,7 @@ namespace LoadingScreenModTest
                 {
                     Util.DebugPrint("  NetInfo A:", p.packageName, p.packagePath, fullName);
                     return Get<NetInfo>(p.packageName + "." + PackageHelper.StripName(fullName));
+                    // TODO Catch Train Connection Track. Do not return null, no need to fail the asset. Or catch MissingMethodException
                 }
                 else
                 {
@@ -429,34 +430,27 @@ namespace LoadingScreenModTest
         /// </summary>
         internal static Package.Asset FindAsset(string fullName)
         {
-            try
+            int j = fullName.IndexOf('.');
+
+            if (j > 0 && j < fullName.Length - 1)
             {
-                int j = fullName.IndexOf('.');
+                // The fast path.
+                Package.Asset asset = instance.FindByName(fullName.Substring(0, j), fullName.Substring(j + 1));
 
-                if (j > 0 && j < fullName.Length - 1)
-                {
-                    // The fast path.
-                    Package.Asset asset = instance.FindByName(fullName.Substring(0, j), fullName.Substring(j + 1));
-
-                    if (asset != null)
-                        return asset;
-                }
-
-                // Fast fail.
-                if (AssetLoader.instance.HasFailed(fullName))
-                    return null;
-
-                Package.Asset[] a = Assets;
-
-                // We also try the old (early 2015) naming that does not contain the package name. FindLoaded does this, too.
-                for (int i = 0; i < a.Length; i++)
-                    if (fullName == a[i].fullName || fullName == a[i].name)
-                        return a[i];
+                if (asset != null)
+                    return asset;
             }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogException(e);
-            }
+
+            // Fast fail.
+            if (AssetLoader.instance.HasFailed(fullName))
+                return null;
+
+            Package.Asset[] a = Assets;
+
+            // We also try the old (early 2015) naming that does not contain the package name. FindLoaded does this, too.
+            for (int i = 0; i < a.Length; i++)
+                if (fullName == a[i].fullName || fullName == a[i].name)
+                    return a[i];
 
             return null;
         }

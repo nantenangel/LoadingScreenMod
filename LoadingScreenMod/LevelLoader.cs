@@ -57,7 +57,7 @@ namespace LoadingScreenModTest
 
                 if (activated)
                 {
-                    Util.DebugPrint("Options: 1112", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
+                    Util.DebugPrint("Options: 1119", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
                         Settings.settings.shareMaterials, Settings.settings.shareMeshes, Settings.settings.reportAssets);
 
                     LoadingManager.instance.SetSceneProgress(0f);
@@ -346,6 +346,14 @@ namespace LoadingScreenModTest
             Util.DebugPrint("buildingMeshInfos:", CustomDeserializer.instance.buildingMeshInfos, "vehicleMeshInfos:", CustomDeserializer.instance.vehicleMeshInfos);
             Util.DebugPrint("netLanes:", CustomDeserializer.instance.netLanes);
             Util.DebugPrint("netSegments:", CustomDeserializer.instance.netSegments, "netNodes:", CustomDeserializer.instance.netNodes);
+            Util.DebugPrint("readUnityTypes:", CustomDeserializer.instance.readUnityTypes);
+
+            var keys = Fetch<NetInfo>.PrefabDict.Keys;
+            Util.DebugPrint("All loaded NetInfos: (", keys.Count, ")");
+
+            foreach (string fullName in keys)
+                Util.DebugPrint(fullName);
+
             AssetLoader.instance.PrintMem();
             Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
             AssetLoader.instance.Dispose();

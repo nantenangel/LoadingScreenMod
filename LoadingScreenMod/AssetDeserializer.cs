@@ -71,10 +71,20 @@ namespace LoadingScreenModTest
             if (typeof(GameObject).IsAssignableFrom(type))
                 return Instantiate(FindAsset(reader.ReadString()), isMain);
 
-            if (package.version < 3 && expectedType != null && expectedType == typeof(Package.Asset))
-                return reader.ReadUnityType(expectedType);
+            try
+            {
+                CustomDeserializer.instance.readUnityTypes++;
 
-            return reader.ReadUnityType(type);
+                if (package.version < 3 && expectedType != null && expectedType == typeof(Package.Asset))
+                    return reader.ReadUnityType(expectedType);
+
+                return reader.ReadUnityType(type, package);
+            }
+            catch (MissingMethodException)
+            {
+                Util.DebugPrint("Unsupported type for deserialization:", type.Name);
+                return null;
+            }
         }
 
         UnityEngine.Object DeserializeScriptableObject(Type type)
