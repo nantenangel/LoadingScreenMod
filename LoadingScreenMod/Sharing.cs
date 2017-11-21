@@ -298,9 +298,21 @@ namespace LoadingScreenModTest
         {
             string checksum = asset.checksum;
             KeyValuePair<int, object> kvp;
+            string s = "";
 
             lock (mutex)
             {
+                if (meshes.ContainsKey(checksum))
+                    s += "in mesh ";
+                if (materialsMain.ContainsKey(checksum))
+                    s += "in matm ";
+                if (materialsLod.ContainsKey(checksum))
+                    s += "in matl ";
+                if (texturesMain.ContainsKey(checksum))
+                    s += "in texm ";
+                if (texturesLod.ContainsKey(checksum))
+                    s += "in texl ";
+
                 if (data.TryGetValue(checksum, out kvp) && asset.size > 32768)
                 {
                     data.Remove(checksum);
@@ -313,7 +325,7 @@ namespace LoadingScreenModTest
             if (bytes != null)
                 return new MemStream(bytes, 0);
 
-            Util.DebugPrint("        GetStream miss:", asset.fullName, asset.package.packagePath, checksum);
+            Util.DebugPrint("        GetStream miss:", s, asset.fullName, asset.package.packagePath, checksum);
             return asset.GetStream();
         }
 
@@ -389,7 +401,7 @@ namespace LoadingScreenModTest
                     texhit++;
                     return texture2D;
                 }
-                else if (!isMain && texturesLod.TryGetValue(checksum, out texture2D))
+                else if (!isMain && (texturesLod.TryGetValue(checksum, out texture2D) || texturesMain.TryGetValue(checksum, out texture2D)))
                 {
                     texpre++;
                     return UnityEngine.Object.Instantiate(texture2D);
@@ -450,7 +462,7 @@ namespace LoadingScreenModTest
                     texhit += mat.textureCount;
                     return mat.material;
                 }
-                else if (!isMain && materialsLod.TryGetValue(checksum, out mat))
+                else if (!isMain && (materialsLod.TryGetValue(checksum, out mat) || materialsMain.TryGetValue(checksum, out mat)))
                 {
                     matpre++;
                     return new Material(mat.material);

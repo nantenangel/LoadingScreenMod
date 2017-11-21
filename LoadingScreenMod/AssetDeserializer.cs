@@ -106,17 +106,13 @@ namespace LoadingScreenModTest
 
             for (int i = 0; i < count; i++)
             {
-                Type t;
-                string name;
-
-                if (DeserializeHeader(out t, out name))
+                if (DeserializeHeader(out Type t, out string name))
                 {
                     FieldInfo field = type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
                     if (field == null && resolveMember)
                         field = type.GetField(ResolveLegacyMember(t, type, name), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-                    Type expectedType = field?.FieldType;
                     object value;
 
                     if (t.IsArray)
@@ -142,9 +138,10 @@ namespace LoadingScreenModTest
                         else
                         {
                             Array array = Array.CreateInstance(elementType, n); value = array;
+                            Type fieldType = field?.FieldType;
 
                             for (int j = 0; j < n; j++)
-                                array.SetValue(DeserializeSingleObject(elementType, expectedType), j);
+                                array.SetValue(DeserializeSingleObject(elementType, fieldType), j);
                         }
                     }
                     else
@@ -159,7 +156,7 @@ namespace LoadingScreenModTest
                         else if (t == typeof(float))
                             value = reader.ReadSingle();
                         else
-                            value = DeserializeSingleObject(t, expectedType);
+                            value = DeserializeSingleObject(t, field?.FieldType);
                     }
 
                     field?.SetValue(obj, value);

@@ -555,7 +555,7 @@ namespace LoadingScreenModTest
             return CustomAssetMetaData.Type.Unknown;
         }
 
-        static string PillarOrElevationName(string packageName, string fullName) => packageName + "." + PackageHelper.StripName(fullName);
+        internal static string PillarOrElevationName(string packageName, string fullName) => packageName + "." + PackageHelper.StripName(fullName);
         internal static string AssetName(string name_Data) => name_Data.Length > 5 && name_Data.EndsWith("_Data") ? name_Data.Substring(0, name_Data.Length - 5) : name_Data;
 
         static string ShorterAssetName(string fullName_Data)

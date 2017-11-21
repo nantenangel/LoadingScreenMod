@@ -232,18 +232,19 @@ namespace LoadingScreenModTest
             {
                 instance.netSegments++;
                 NetInfo.Segment segment = new NetInfo.Segment();
-                Util.DebugPrint("  Segm Mes in ", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
-                Util.DebugPrint("  Segm Mat in ", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 string checksum = r.ReadString();
+                Util.DebugPrint("  Segm mesh", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
                 segment.m_mesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, true);
                 checksum = r.ReadString();
+                Util.DebugPrint("  Segm matm", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 segment.m_material = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, true);
                 checksum = r.ReadString();
+                Util.DebugPrint("  Segm mesl", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
                 segment.m_lodMesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, false);
                 checksum = r.ReadString();
+                Util.DebugPrint("  Segm matl", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 segment.m_lodMaterial = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, false);
-                Util.DebugPrint("  Segm Mes out", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
-                Util.DebugPrint("  Segm Mat out", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
+                Util.DebugPrint("  Segm out ", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 segment.m_forwardRequired = (NetSegment.Flags) r.ReadInt32();
                 segment.m_forwardForbidden = (NetSegment.Flags) r.ReadInt32();
                 segment.m_backwardRequired = (NetSegment.Flags) r.ReadInt32();
@@ -257,18 +258,19 @@ namespace LoadingScreenModTest
             {
                 instance.netNodes++;
                 NetInfo.Node node = new NetInfo.Node();
-                Util.DebugPrint("  Node Mes in ", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
-                Util.DebugPrint("  Node Mat in ", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 string checksum = r.ReadString();
+                Util.DebugPrint("  Node mesh", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
                 node.m_mesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, true);
                 checksum = r.ReadString();
+                Util.DebugPrint("  Node matm", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 node.m_material = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, true);
                 checksum = r.ReadString();
+                Util.DebugPrint("  Node mesl", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
                 node.m_lodMesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, false);
                 checksum = r.ReadString();
+                Util.DebugPrint("  Node matl", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 node.m_lodMaterial = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, false);
-                Util.DebugPrint("  Node Mes out", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
-                Util.DebugPrint("  Node Mat out", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
+                Util.DebugPrint("  Node out ", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 node.m_flagsRequired = (NetNode.Flags) r.ReadInt32();
                 node.m_flagsForbidden = (NetNode.Flags) r.ReadInt32();
                 node.m_connectGroup = (NetInfo.ConnectGroup) r.ReadInt32();
@@ -279,39 +281,38 @@ namespace LoadingScreenModTest
 
             if (t == typeof(NetInfo))
             {
-                string fullName = r.ReadString();
+                string name = r.ReadString();
                 Package.Asset container = AssetLoader.instance.Current;
                 CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(container.fullName);
                 instance.netInfos++;
 
                 if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
                 {
-                    Util.DebugPrint("  NetInfo A:", p.packageName, p.packagePath, fullName);
-                    return Get<NetInfo>(p.packageName + "." + PackageHelper.StripName(fullName));
-                    // TODO Catch Train Connection Track. Do not return null, no need to fail the asset. Or catch MissingMethodException
+                    Util.DebugPrint("  NetInfo A:", p.packageName, p.packagePath, name);
+                    return Get<NetInfo>(p, name);
                 }
                 else
                 {
-                    Util.DebugPrint("  NetInfo B:", p.packageName, p.packagePath, fullName);
-                    return Get<NetInfo>(fullName);
+                    Util.DebugPrint("  NetInfo B:", p.packageName, p.packagePath, name);
+                    return Get<NetInfo>(name);
                 }
             }
 
             if (t == typeof(BuildingInfo))
             {
-                string fullName = r.ReadString();
+                string name = r.ReadString();
                 Package.Asset container = AssetLoader.instance.Current;
                 CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(container.fullName);
 
                 if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
                 {
-                    Util.DebugPrint("  BuildingInfo A:", p.packageName, p.packagePath, fullName);
-                    return Get<BuildingInfo>(p.packageName + "." + PackageHelper.StripName(fullName));
+                    Util.DebugPrint("  BuildingInfo A:", p.packageName, p.packagePath, name);
+                    return Get<BuildingInfo>(p, name);
                 }
                 else
                 {
-                    Util.DebugPrint("  BuildingInfo B:", p.packageName, p.packagePath, fullName);
-                    return Get<BuildingInfo>(fullName);
+                    Util.DebugPrint("  BuildingInfo B:", p.packageName, p.packagePath, name);
+                    return Get<BuildingInfo>(name);
                 }
             }
 
@@ -369,6 +370,33 @@ namespace LoadingScreenModTest
 
             if (info == null && Load(ref fullName, FindAsset(fullName)))
                 info = FindLoaded<T>(fullName);
+
+            return info;
+        }
+
+        // For nets and pillars, the reference can be to a custom asset (dotted) or a built-in asset.
+        static T Get<T>(Package package, string name) where T : PrefabInfo
+        {
+            if (string.IsNullOrEmpty(name))
+                return null;
+
+            string stripName = PackageHelper.StripName(name);
+            T info = FindLoaded<T>(package.packageName + "." + stripName);
+
+            if (info == null)
+            {
+                Package.Asset data = package.Find(stripName);
+
+                if (data != null)
+                {
+                    string fullName = data.fullName;
+
+                    if (Load(ref fullName, data))
+                        info = FindLoaded<T>(fullName);
+                }
+                else
+                    info = Get<T>(name);
+            }
 
             return info;
         }
