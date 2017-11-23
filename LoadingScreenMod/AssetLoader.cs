@@ -447,6 +447,9 @@ namespace LoadingScreenModTest
                         meta = AssetDeserializer.Instantiate(assets[0]) as CustomAssetMetaData;
                         bool used = loadUsed && UsedAssets.instance.IsUsed(meta);
 
+                        if (AssetImporterAssetTemplate.GetAssetDLCMask(meta) > 0)
+                            Util.DebugPrint("  GetAssetDLCMask", assets[0].fullName, AssetImporterAssetTemplate.GetAssetDLCMask(meta), ~notMask);
+
                         if (used || want && (AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0)
                         {
                             CustomAssetMetaData.Type type = meta.type;
@@ -475,12 +478,16 @@ namespace LoadingScreenModTest
                         for (int i = 0; i < assets.Count; i++)
                         {
                             meta = AssetDeserializer.Instantiate(assets[i]) as CustomAssetMetaData;
+
+                            if (AssetImporterAssetTemplate.GetAssetDLCMask(meta) > 0)
+                                Util.DebugPrint("  GetAssetDLCMask", assets[i].fullName, AssetImporterAssetTemplate.GetAssetDLCMask(meta), ~notMask);
+
                             metas.Add(meta);
                             want = want && (AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0;
                             used = used || loadUsed && UsedAssets.instance.IsUsed(meta);
                         }
 
-                        if (used | want)
+                        if (want | used)
                         {
                             metas.Sort((a, b) => b.type - a.type); // prop variation, sub-building, trailer, elevation, pillar before main asset
                             CustomAssetMetaData.Type type = metas[0].type;
@@ -633,7 +640,7 @@ namespace LoadingScreenModTest
                 Trace.Pr(p.packageName, "\t\t", p.packagePath, "   ", p.version);
 
                 foreach (Package.Asset a in p)
-                    Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(112), a.checksum, a.type.ToString().PadRight(19),
+                    Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(116), a.checksum, a.type.ToString().PadRight(19),
                         a.offset.ToString().PadLeft(8), a.size.ToString().PadLeft(8));
             }
         }

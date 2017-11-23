@@ -354,6 +354,12 @@ namespace LoadingScreenModTest
             foreach (string fullName in keys)
                 Util.DebugPrint(fullName);
 
+            var nets = UsedAssets.instance.Nets;
+            Util.DebugPrint("All used NetInfos: (", nets.Count, ")");
+
+            foreach (string fullName in nets)
+                Util.DebugPrint(fullName);
+
             AssetLoader.instance.PrintMem();
             Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;
             AssetLoader.instance.Dispose();

@@ -35,6 +35,7 @@ namespace LoadingScreenModTest
             LookupSimulationAssets<TreeInfo>(allPackages, treeAssets);
             LookupSimulationAssets<VehicleInfo>(allPackages, vehicleAssets);
             LookupSimulationAssets<CitizenInfo>(allPackages, citizenAssets);
+            LookupSimulationAssets<NetInfo>(allPackages, netAssets);
         }
 
         internal void Dispose()
@@ -54,7 +55,11 @@ namespace LoadingScreenModTest
         /// <summary>
         /// Is the asset used in the city?
         /// </summary>
-        internal bool IsUsed(CustomAssetMetaData meta) => allAssets[(int) meta.type].Contains(meta.assetRef.fullName);
+        internal bool IsUsed(CustomAssetMetaData meta)
+        {
+            Package.Asset assetRef = meta.assetRef;
+            return assetRef != null ? allAssets[(int) meta.type].Contains(assetRef.fullName) : false;
+        }
 
         /// <summary>
         /// Dynamic check to find out if at least one asset in the current load chain is used in the city. At this time, only buildings are considered containers.
@@ -75,15 +80,16 @@ namespace LoadingScreenModTest
             ReportMissingAssets<TreeInfo>(treeAssets);
             ReportMissingAssets<VehicleInfo>(vehicleAssets);
             ReportMissingAssets<CitizenInfo>(citizenAssets);
+            ReportMissingAssets<NetInfo>(netAssets);
         }
 
         static void ReportMissingAssets<P>(HashSet<string> customAssets) where P : PrefabInfo
         {
             try
             {
-                foreach (string name in customAssets)
-                    if (CustomDeserializer.FindLoaded<P>(name) == null)
-                        AssetLoader.instance.NotFound(name);
+                foreach (string fullName in customAssets)
+                    if (CustomDeserializer.FindLoaded<P>(fullName) == null)
+                        AssetLoader.instance.NotFound(fullName);
             }
             catch (Exception e)
             {
@@ -95,7 +101,8 @@ namespace LoadingScreenModTest
         {
             return (!Settings.settings.loadUsed || AllAvailable<BuildingInfo>(buildingAssets, ignore) &&
                     AllAvailable<PropInfo>(propAssets, ignore) && AllAvailable<TreeInfo>(treeAssets, ignore) &&
-                    AllAvailable<VehicleInfo>(vehicleAssets, ignore) && AllAvailable<CitizenInfo>(citizenAssets, ignore));
+                    AllAvailable<VehicleInfo>(vehicleAssets, ignore) && AllAvailable<CitizenInfo>(citizenAssets, ignore) &&
+                    AllAvailable<NetInfo>(netAssets, ignore));
         }
 
         static bool AllAvailable<P>(HashSet<string> fullNames, HashSet<string> ignore) where P : PrefabInfo
