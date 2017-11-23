@@ -57,7 +57,7 @@ namespace LoadingScreenModTest
 
                 if (activated)
                 {
-                    Util.DebugPrint("Options: 1119", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
+                    Util.DebugPrint("Options: 1123", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
                         Settings.settings.shareMaterials, Settings.settings.shareMeshes, Settings.settings.reportAssets);
 
                     LoadingManager.instance.SetSceneProgress(0f);
@@ -343,7 +343,7 @@ namespace LoadingScreenModTest
         {
             Util.DebugPrint("All completed at", Profiling.Millis);
             Util.DebugPrint("pathInfos:", CustomDeserializer.instance.pathInfos, "netInfos:", CustomDeserializer.instance.netInfos);
-            Util.DebugPrint("buildingMeshInfos:", CustomDeserializer.instance.buildingMeshInfos, "vehicleMeshInfos:", CustomDeserializer.instance.vehicleMeshInfos);
+            Util.DebugPrint("vehicleMeshInfos:", CustomDeserializer.instance.vehicleMeshInfos);
             Util.DebugPrint("netLanes:", CustomDeserializer.instance.netLanes);
             Util.DebugPrint("netSegments:", CustomDeserializer.instance.netSegments, "netNodes:", CustomDeserializer.instance.netNodes);
             Util.DebugPrint("readUnityTypes:", CustomDeserializer.instance.readUnityTypes);

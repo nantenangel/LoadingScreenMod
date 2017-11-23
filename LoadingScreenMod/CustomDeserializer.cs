@@ -8,7 +8,7 @@ namespace LoadingScreenModTest
 {
     internal sealed class CustomDeserializer : Instance<CustomDeserializer>
     {
-        internal int pathInfos, netInfos, buildingMeshInfos, vehicleMeshInfos, netLanes, netSegments, netNodes, readUnityTypes;
+        internal int pathInfos, netInfos, vehicleMeshInfos, netLanes, netSegments, netNodes, readUnityTypes;
 
         Package.Asset[] assets;
         Dictionary<PublishedFileId, HashSet<string>> packagesToPaths;
@@ -72,30 +72,12 @@ namespace LoadingScreenModTest
                 };
             }
 
-            if (t == typeof(Package.Asset))
-                return r.ReadAsset(p);
-
-            // It seems that trailers are listed in the save game so this is not necessary. Better to be safe however
-            // because a missing trailer reference is fatal for the simulation thread.
-            if (t == typeof(VehicleInfo.VehicleTrailer))
-            {
-                string name = r.ReadString();
-                string fullName = p.packageName + "." + name;
-                VehicleInfo vi = Get<VehicleInfo>(p, fullName, name, false);
-
-                VehicleInfo.VehicleTrailer trailer;
-                trailer.m_info = vi;
-                trailer.m_probability = r.ReadInt32();
-                trailer.m_invertProbability = r.ReadInt32();
-                return trailer;
-            }
-
             // Paths (nets) in buildings.
             if (t == typeof(BuildingInfo.PathInfo))
             {
                 string fullName = r.ReadString();
                 instance.pathInfos++;
-                Util.DebugPrint("  BuildingInfo.PathInfo:", p.packageName, p.packagePath, fullName);
+                Util.DebugPrint("  BuildingInfo.PathInfo:", p.packageName, fullName);
                 NetInfo ni = Get<NetInfo>(fullName);
                 BuildingInfo.PathInfo path = new BuildingInfo.PathInfo();
                 path.m_netInfo = ni;
@@ -112,6 +94,24 @@ namespace LoadingScreenModTest
                 }
 
                 return path;
+            }
+
+            if (t == typeof(Package.Asset))
+                return r.ReadAsset(p);
+
+            // It seems that trailers are listed in the save game so this is not necessary. Better to be safe however
+            // because a missing trailer reference is fatal for the simulation thread.
+            if (t == typeof(VehicleInfo.VehicleTrailer))
+            {
+                string name = r.ReadString();
+                string fullName = p.packageName + "." + name;
+                VehicleInfo vi = Get<VehicleInfo>(p, fullName, name, false);
+
+                VehicleInfo.VehicleTrailer trailer;
+                trailer.m_info = vi;
+                trailer.m_probability = r.ReadInt32();
+                trailer.m_invertProbability = r.ReadInt32();
+                return trailer;
             }
 
             if (t == typeof(NetInfo.Lane))
@@ -135,97 +135,6 @@ namespace LoadingScreenModTest
                     m_centerPlatform = r.ReadBoolean(),
                     m_elevated = r.ReadBoolean()
                 };
-            }
-
-            // Sub-buildings in buildings.
-            if (t == typeof(BuildingInfo.SubInfo))
-            {
-                string name = r.ReadString();
-                string fullName = p.packageName + "." + name;
-                BuildingInfo bi = null;
-
-                if (fullName == AssetLoader.instance.Current.fullName || name == AssetLoader.instance.Current.fullName)
-                    Util.DebugPrint("Warning:", fullName, "wants to be a sub-building for itself");
-                else
-                    bi = Get<BuildingInfo>(p, fullName, name, true);
-
-                BuildingInfo.SubInfo subInfo = new BuildingInfo.SubInfo();
-                subInfo.m_buildingInfo = bi;
-                subInfo.m_position = r.ReadVector3();
-                subInfo.m_angle = r.ReadSingle();
-                subInfo.m_fixedHeight = r.ReadBoolean();
-                return subInfo;
-            }
-
-            // Prop variations in props.
-            if (t == typeof(PropInfo.Variation))
-            {
-                string name = r.ReadString();
-                string fullName = p.packageName + "." + name;
-                PropInfo pi = null;
-
-                if (fullName == AssetLoader.instance.Current.fullName)
-                    Util.DebugPrint("Warning:", fullName, "wants to be a prop variation for itself");
-                else
-                    pi = Get<PropInfo>(p, fullName, name, false);
-
-                return new PropInfo.Variation
-                {
-                    m_prop = pi,
-                    m_probability = r.ReadInt32()
-                };
-            }
-
-            // Tree variations in trees.
-            if (t == typeof(TreeInfo.Variation))
-            {
-                string name = r.ReadString();
-                string fullName = p.packageName + "." + name;
-                TreeInfo ti = null;
-
-                if (fullName == AssetLoader.instance.Current.fullName)
-                    Util.DebugPrint("Warning:", fullName, "wants to be a tree variation for itself");
-                else
-                    ti = Get<TreeInfo>(p, fullName, name, false);
-
-                return new TreeInfo.Variation
-                {
-                    m_tree = ti,
-                    m_probability = r.ReadInt32()
-                };
-            }
-
-            if (t == typeof(VehicleInfo.MeshInfo))
-            {
-                VehicleInfo.MeshInfo meshinfo = new VehicleInfo.MeshInfo();
-                string checksum = r.ReadString();
-
-                if (!string.IsNullOrEmpty(checksum))
-                {
-                    instance.vehicleMeshInfos++;
-                    Util.DebugPrint("  VehicleInfo.MeshInfo:", p.packageName, p.packagePath, checksum);
-                    Package.Asset asset = p.FindByChecksum(checksum);
-                    GameObject go = AssetDeserializer.Instantiate(asset) as GameObject;
-                    meshinfo.m_subInfo = go.GetComponent<VehicleInfoBase>();
-                    go.SetActive(false);
-
-                    if (meshinfo.m_subInfo.m_lodObject != null)
-                        meshinfo.m_subInfo.m_lodObject.SetActive(false);
-                }
-                else
-                    meshinfo.m_subInfo = null;
-
-                meshinfo.m_vehicleFlagsForbidden = (Vehicle.Flags) r.ReadInt32();
-                meshinfo.m_vehicleFlagsRequired = (Vehicle.Flags) r.ReadInt32();
-                meshinfo.m_parkedFlagsForbidden = (VehicleParked.Flags) r.ReadInt32();
-                meshinfo.m_parkedFlagsRequired = (VehicleParked.Flags) r.ReadInt32();
-                return meshinfo;
-            }
-
-            if (t == typeof(BuildingInfo.MeshInfo))
-            {
-                instance.buildingMeshInfos++;
-                Util.DebugPrint("  BuildingInfo.MeshInfo:", p.packageName, p.packagePath);
             }
 
             if (t == typeof(NetInfo.Segment))
@@ -314,6 +223,91 @@ namespace LoadingScreenModTest
                     Util.DebugPrint("  BuildingInfo B:", p.packageName, p.packagePath, name);
                     return Get<BuildingInfo>(name);
                 }
+            }
+
+            // Sub-buildings in buildings.
+            if (t == typeof(BuildingInfo.SubInfo))
+            {
+                string name = r.ReadString();
+                string fullName = p.packageName + "." + name;
+                BuildingInfo bi = null;
+
+                if (fullName == AssetLoader.instance.Current.fullName || name == AssetLoader.instance.Current.fullName)
+                    Util.DebugPrint("Warning:", fullName, "wants to be a sub-building for itself");
+                else
+                    bi = Get<BuildingInfo>(p, fullName, name, true);
+
+                BuildingInfo.SubInfo subInfo = new BuildingInfo.SubInfo();
+                subInfo.m_buildingInfo = bi;
+                subInfo.m_position = r.ReadVector3();
+                subInfo.m_angle = r.ReadSingle();
+                subInfo.m_fixedHeight = r.ReadBoolean();
+                return subInfo;
+            }
+
+            // Prop variations in props.
+            if (t == typeof(PropInfo.Variation))
+            {
+                string name = r.ReadString();
+                string fullName = p.packageName + "." + name;
+                PropInfo pi = null;
+
+                if (fullName == AssetLoader.instance.Current.fullName)
+                    Util.DebugPrint("Warning:", fullName, "wants to be a prop variation for itself");
+                else
+                    pi = Get<PropInfo>(p, fullName, name, false);
+
+                return new PropInfo.Variation
+                {
+                    m_prop = pi,
+                    m_probability = r.ReadInt32()
+                };
+            }
+
+            // Tree variations in trees.
+            if (t == typeof(TreeInfo.Variation))
+            {
+                string name = r.ReadString();
+                string fullName = p.packageName + "." + name;
+                TreeInfo ti = null;
+
+                if (fullName == AssetLoader.instance.Current.fullName)
+                    Util.DebugPrint("Warning:", fullName, "wants to be a tree variation for itself");
+                else
+                    ti = Get<TreeInfo>(p, fullName, name, false);
+
+                return new TreeInfo.Variation
+                {
+                    m_tree = ti,
+                    m_probability = r.ReadInt32()
+                };
+            }
+
+            if (t == typeof(VehicleInfo.MeshInfo))
+            {
+                VehicleInfo.MeshInfo meshinfo = new VehicleInfo.MeshInfo();
+                string checksum = r.ReadString();
+
+                if (!string.IsNullOrEmpty(checksum))
+                {
+                    instance.vehicleMeshInfos++;
+                    Util.DebugPrint("  VehicleInfo.MeshInfo:", p.packageName, p.packagePath, checksum);
+                    Package.Asset asset = p.FindByChecksum(checksum);
+                    GameObject go = AssetDeserializer.Instantiate(asset) as GameObject;
+                    meshinfo.m_subInfo = go.GetComponent<VehicleInfoBase>();
+                    go.SetActive(false);
+
+                    if (meshinfo.m_subInfo.m_lodObject != null)
+                        meshinfo.m_subInfo.m_lodObject.SetActive(false);
+                }
+                else
+                    meshinfo.m_subInfo = null;
+
+                meshinfo.m_vehicleFlagsForbidden = (Vehicle.Flags) r.ReadInt32();
+                meshinfo.m_vehicleFlagsRequired = (Vehicle.Flags) r.ReadInt32();
+                meshinfo.m_parkedFlagsForbidden = (VehicleParked.Flags) r.ReadInt32();
+                meshinfo.m_parkedFlagsRequired = (VehicleParked.Flags) r.ReadInt32();
+                return meshinfo;
             }
 
             if (t == typeof(NetLaneProps))

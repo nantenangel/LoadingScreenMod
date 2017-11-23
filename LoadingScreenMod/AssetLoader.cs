@@ -554,7 +554,7 @@ namespace LoadingScreenModTest
         {
             if (metaTypes.TryGetValue(assetRefFullName, out CustomAssetMetaData.Type type))
                 return type;
-            Util.DebugPrint(" No metatype:", assetRefFullName);
+            Util.DebugPrint("No metatype:", assetRefFullName);
             return CustomAssetMetaData.Type.Unknown;
         }
 
