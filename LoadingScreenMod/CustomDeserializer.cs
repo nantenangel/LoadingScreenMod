@@ -191,8 +191,7 @@ namespace LoadingScreenModTest
             if (t == typeof(NetInfo))
             {
                 string name = r.ReadString();
-                Package.Asset container = AssetLoader.instance.Current;
-                CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(container.fullName);
+                CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(AssetLoader.instance.Current);
                 instance.netInfos++;
 
                 if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
@@ -210,8 +209,7 @@ namespace LoadingScreenModTest
             if (t == typeof(BuildingInfo))
             {
                 string name = r.ReadString();
-                Package.Asset container = AssetLoader.instance.Current;
-                CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(container.fullName);
+                CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(AssetLoader.instance.Current);
 
                 if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
                 {

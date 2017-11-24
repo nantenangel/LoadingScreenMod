@@ -31,11 +31,11 @@ namespace LoadingScreenModTest
         void LookupUsed()
         {
             LookupSimulationBuildings(allPackages, buildingAssets);
+            LookupSimulationNets(allPackages, netAssets);
+            LookupSimulationAssets<CitizenInfo>(allPackages, citizenAssets);
             LookupSimulationAssets<PropInfo>(allPackages, propAssets);
             LookupSimulationAssets<TreeInfo>(allPackages, treeAssets);
             LookupSimulationAssets<VehicleInfo>(allPackages, vehicleAssets);
-            LookupSimulationAssets<CitizenInfo>(allPackages, citizenAssets);
-            LookupSimulationAssets<NetInfo>(allPackages, netAssets);
         }
 
         internal void Dispose()
@@ -148,6 +148,39 @@ namespace LoadingScreenModTest
                 for (int i = 1; i < n; i++)
                     if (buffer[i].m_flags != Building.Flags.None)
                         Add(PrefabCollection<BuildingInfo>.PrefabName(buffer[i].m_infoIndex), packages, assets);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
+        }
+
+        /// <summary>
+        /// NetInfos require more effort because the NotUsedGuide/UnlockMilestone stuff gets into way.
+        /// </summary>
+        void LookupSimulationNets(HashSet<string> packages, HashSet<string> assets)
+        {
+            try
+            {
+                NetNode[] buffer1 = NetManager.instance.m_nodes.m_buffer;
+                int n = buffer1.Length;
+
+                for (int i = 1; i < n; i++)
+                    if (buffer1[i].m_flags != NetNode.Flags.None)
+                    {
+                        string fullName = PrefabCollection<NetInfo>.PrefabName(buffer1[i].m_infoIndex);
+                        Add(fullName, packages, assets);
+                    }
+
+                NetSegment[] buffer2 = NetManager.instance.m_segments.m_buffer;
+                n = buffer2.Length;
+
+                for (int i = 1; i < n; i++)
+                    if (buffer2[i].m_flags != NetSegment.Flags.None)
+                    {
+                        string fullName = PrefabCollection<NetInfo>.PrefabName(buffer2[i].m_infoIndex);
+                        Add(fullName, packages, assets);
+                    }
             }
             catch (Exception e)
             {

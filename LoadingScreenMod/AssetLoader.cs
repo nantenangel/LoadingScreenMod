@@ -291,7 +291,7 @@ namespace LoadingScreenModTest
                 stack.Push(assetRef);
                 LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(assetRef.name));
                 GameObject go = AssetDeserializer.Instantiate(assetRef) as GameObject;
-                CustomAssetMetaData.Type type = GetMetaType(assetRef.fullName);
+                CustomAssetMetaData.Type type = GetMetaType(assetRef);
                 string packageName = assetRef.package.packageName;
                 string fullName = type < CustomAssetMetaData.Type.RoadElevation ? packageName + "." + go.name : PillarOrElevationName(packageName, go.name);
                 go.name = fullName;
@@ -550,11 +550,29 @@ namespace LoadingScreenModTest
             return mainAsset?.isEnabled ?? true;
         }
 
-        internal CustomAssetMetaData.Type GetMetaType(string assetRefFullName)
+        internal CustomAssetMetaData.Type GetMetaType(Package.Asset assetRef)
         {
-            if (metaTypes.TryGetValue(assetRefFullName, out CustomAssetMetaData.Type type))
+            if (metaTypes.TryGetValue(assetRef.fullName, out CustomAssetMetaData.Type type))
                 return type;
-            Util.DebugPrint("No metatype:", assetRefFullName);
+
+            Util.DebugPrint("Metatype not cached:", assetRef.fullName);
+
+            try
+            {
+                foreach (Package.Asset asset in assetRef.package.FilterAssets(UserAssetType.CustomAssetMetaData))
+                {
+                    CustomAssetMetaData meta = AssetDeserializer.Instantiate(asset) as CustomAssetMetaData;
+
+                    if (meta?.assetRef != null)
+                        metaTypes[meta.assetRef.fullName] = meta.type;
+                }
+
+                if (metaTypes.TryGetValue(assetRef.fullName, out type))
+                    return type;
+            }
+            catch (Exception) { }
+
+            Util.DebugPrint("Cannot resolve metatype:", assetRef.fullName);
             return CustomAssetMetaData.Type.Unknown;
         }
 

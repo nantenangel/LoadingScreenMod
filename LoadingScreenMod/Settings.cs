@@ -61,6 +61,8 @@ namespace LoadingScreenModTest
 
         void Save()
         {
+            Util.DebugPrint("Saving");
+
             try
             {
                 XmlSerializer serializer = new XmlSerializer(typeof(Settings));
@@ -148,6 +150,7 @@ namespace LoadingScreenModTest
         void OnReportDirChanged(string text)
         {
             reportDir = text;
+            Util.DebugPrint("Going to save");
             Save();
         }
     }
