@@ -348,17 +348,23 @@ namespace LoadingScreenModTest
             Util.DebugPrint("netSegments:", CustomDeserializer.instance.netSegments, "netNodes:", CustomDeserializer.instance.netNodes);
             Util.DebugPrint("readUnityTypes:", CustomDeserializer.instance.readUnityTypes);
 
-            var keys = Fetch<NetInfo>.PrefabDict.Keys;
-            Util.DebugPrint("All loaded NetInfos: (", keys.Count, ")");
+            if (CustomDeserializer.HasInstance)
+            {
+                var keys = Fetch<NetInfo>.PrefabDict.Keys;
+                Util.DebugPrint("All loaded NetInfos: (", keys.Count, ")");
 
-            foreach (string fullName in keys)
-                Util.DebugPrint(fullName);
+                foreach (string fullName in keys)
+                    Util.DebugPrint(fullName);
+            }
 
-            var nets = UsedAssets.instance.Nets;
-            Util.DebugPrint("All used NetInfos: (", nets.Count, ")");
+            if (UsedAssets.HasInstance)
+            {
+                var nets = UsedAssets.instance.Nets;
+                Util.DebugPrint("All used NetInfos: (", nets.Count, ")");
 
-            foreach (string fullName in nets)
-                Util.DebugPrint(fullName);
+                foreach (string fullName in nets)
+                    Util.DebugPrint(fullName);
+            }
 
             AssetLoader.instance.PrintMem();
             Singleton<LoadingManager>.instance.LoadingAnimationComponent.enabled = false;

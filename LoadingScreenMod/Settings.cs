@@ -149,9 +149,11 @@ namespace LoadingScreenModTest
 
         void OnReportDirChanged(string text)
         {
-            reportDir = text;
-            Util.DebugPrint("Going to save");
-            Save();
+            if (text != reportDir)
+            {
+                reportDir = text;
+                Save();
+            }
         }
     }
 }
