@@ -61,8 +61,6 @@ namespace LoadingScreenModTest
 
         void Save()
         {
-            Util.DebugPrint("Saving");
-
             try
             {
                 XmlSerializer serializer = new XmlSerializer(typeof(Settings));

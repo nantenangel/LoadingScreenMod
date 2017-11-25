@@ -73,8 +73,6 @@ namespace LoadingScreenModTest
 
             try
             {
-                CustomDeserializer.instance.readUnityTypes++;
-
                 if (package.version < 3 && expectedType != null && expectedType == typeof(Package.Asset))
                     return reader.ReadUnityType(expectedType);
 

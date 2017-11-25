@@ -8,8 +8,6 @@ namespace LoadingScreenModTest
 {
     internal sealed class CustomDeserializer : Instance<CustomDeserializer>
     {
-        internal int pathInfos, netInfos, vehicleMeshInfos, netLanes, netSegments, netNodes, readUnityTypes;
-
         Package.Asset[] assets;
         Dictionary<PublishedFileId, HashSet<string>> packagesToPaths;
         readonly bool report = Settings.settings.reportAssets && Settings.settings.loadUsed;
@@ -76,8 +74,6 @@ namespace LoadingScreenModTest
             if (t == typeof(BuildingInfo.PathInfo))
             {
                 string fullName = r.ReadString();
-                instance.pathInfos++;
-                Util.DebugPrint("  BuildingInfo.PathInfo:", p.packageName, fullName);
                 NetInfo ni = Get<NetInfo>(fullName);
                 BuildingInfo.PathInfo path = new BuildingInfo.PathInfo();
                 path.m_netInfo = ni;
@@ -116,8 +112,6 @@ namespace LoadingScreenModTest
 
             if (t == typeof(NetInfo.Lane))
             {
-                instance.netLanes++;
-
                 return new NetInfo.Lane
                 {
                     m_position = r.ReadSingle(),
@@ -139,21 +133,15 @@ namespace LoadingScreenModTest
 
             if (t == typeof(NetInfo.Segment))
             {
-                instance.netSegments++;
                 NetInfo.Segment segment = new NetInfo.Segment();
                 string checksum = r.ReadString();
-                Util.DebugPrint("  Segm mesh", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
                 segment.m_mesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, true);
                 checksum = r.ReadString();
-                Util.DebugPrint("  Segm matm", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 segment.m_material = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, true);
                 checksum = r.ReadString();
-                Util.DebugPrint("  Segm mesl", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
                 segment.m_lodMesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, false);
                 checksum = r.ReadString();
-                Util.DebugPrint("  Segm matl", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 segment.m_lodMaterial = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, false);
-                Util.DebugPrint("  Segm out ", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 segment.m_forwardRequired = (NetSegment.Flags) r.ReadInt32();
                 segment.m_forwardForbidden = (NetSegment.Flags) r.ReadInt32();
                 segment.m_backwardRequired = (NetSegment.Flags) r.ReadInt32();
@@ -165,21 +153,15 @@ namespace LoadingScreenModTest
 
             if (t == typeof(NetInfo.Node))
             {
-                instance.netNodes++;
                 NetInfo.Node node = new NetInfo.Node();
                 string checksum = r.ReadString();
-                Util.DebugPrint("  Node mesh", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
                 node.m_mesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, true);
                 checksum = r.ReadString();
-                Util.DebugPrint("  Node matm", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 node.m_material = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, true);
                 checksum = r.ReadString();
-                Util.DebugPrint("  Node mesl", Sharing.instance.meshit, Sharing.instance.mespre, Sharing.instance.mesload);
                 node.m_lodMesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, false);
                 checksum = r.ReadString();
-                Util.DebugPrint("  Node matl", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 node.m_lodMaterial = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, false);
-                Util.DebugPrint("  Node out ", Sharing.instance.mathit, Sharing.instance.matpre, Sharing.instance.matload);
                 node.m_flagsRequired = (NetNode.Flags) r.ReadInt32();
                 node.m_flagsForbidden = (NetNode.Flags) r.ReadInt32();
                 node.m_connectGroup = (NetInfo.ConnectGroup) r.ReadInt32();
@@ -192,18 +174,11 @@ namespace LoadingScreenModTest
             {
                 string name = r.ReadString();
                 CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(AssetLoader.instance.Current);
-                instance.netInfos++;
 
                 if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
-                {
-                    Util.DebugPrint("  NetInfo A:", p.packageName, p.packagePath, name);
                     return Get<NetInfo>(p, name);
-                }
                 else
-                {
-                    Util.DebugPrint("  NetInfo B:", p.packageName, p.packagePath, name);
                     return Get<NetInfo>(name);
-                }
             }
 
             if (t == typeof(BuildingInfo))
@@ -212,15 +187,9 @@ namespace LoadingScreenModTest
                 CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(AssetLoader.instance.Current);
 
                 if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
-                {
-                    Util.DebugPrint("  BuildingInfo A:", p.packageName, p.packagePath, name);
                     return Get<BuildingInfo>(p, name);
-                }
                 else
-                {
-                    Util.DebugPrint("  BuildingInfo B:", p.packageName, p.packagePath, name);
                     return Get<BuildingInfo>(name);
-                }
             }
 
             // Sub-buildings in buildings.
@@ -288,8 +257,6 @@ namespace LoadingScreenModTest
 
                 if (!string.IsNullOrEmpty(checksum))
                 {
-                    instance.vehicleMeshInfos++;
-                    Util.DebugPrint("  VehicleInfo.MeshInfo:", p.packageName, p.packagePath, checksum);
                     Package.Asset asset = p.FindByChecksum(checksum);
                     GameObject go = AssetDeserializer.Instantiate(asset) as GameObject;
                     meshinfo.m_subInfo = go.GetComponent<VehicleInfoBase>();
@@ -307,12 +274,6 @@ namespace LoadingScreenModTest
                 meshinfo.m_parkedFlagsRequired = (VehicleParked.Flags) r.ReadInt32();
                 return meshinfo;
             }
-
-            if (t == typeof(NetLaneProps))
-                Util.DebugPrint("  NetLaneProps!");
-
-            if (t == typeof(NetLaneProps.Prop))
-                Util.DebugPrint("  NetLaneProps.Prop!");
 
             return PackageHelper.CustomDeserialize(p, t, r);
         }

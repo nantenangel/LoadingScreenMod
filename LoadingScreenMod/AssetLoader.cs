@@ -295,10 +295,6 @@ namespace LoadingScreenModTest
                 string packageName = assetRef.package.packageName;
                 string fullName = type < CustomAssetMetaData.Type.RoadElevation ? packageName + "." + go.name : PillarOrElevationName(packageName, go.name);
                 go.name = fullName;
-
-                if (assetRef.fullName != fullName)
-                    Util.DebugPrint(assetRef.fullName, " diff ", fullName);
-
                 go.SetActive(false);
                 PrefabInfo info = go.GetComponent<PrefabInfo>();
                 info.m_isCustomContent = true;
@@ -417,7 +413,7 @@ namespace LoadingScreenModTest
             Util.DebugPrint("Sorted at", Profiling.Millis);
             SteamHelper.DLC_BitMask notMask = ~SteamHelper.GetOwnedDLCMask();
             bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, report = loadUsed && Settings.settings.reportAssets;
-            PrintPackages(packages);
+            //PrintPackages(packages);
 
             foreach (Package p in packages)
             {
@@ -447,9 +443,6 @@ namespace LoadingScreenModTest
                         meta = AssetDeserializer.Instantiate(assets[0]) as CustomAssetMetaData;
                         bool used = loadUsed && UsedAssets.instance.IsUsed(meta);
 
-                        if (AssetImporterAssetTemplate.GetAssetDLCMask(meta) > 0)
-                            Util.DebugPrint("  GetAssetDLCMask", assets[0].fullName, AssetImporterAssetTemplate.GetAssetDLCMask(meta), ~notMask);
-
                         if (used || want && (AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0)
                         {
                             CustomAssetMetaData.Type type = meta.type;
@@ -458,7 +451,7 @@ namespace LoadingScreenModTest
                             AddToQueue(queues, meta, offset, !(enabled | used));
                         }
                     }
-                    else if (assets.Count > 1)
+                    else
                     {
                         bool want = enabled;
 
@@ -478,10 +471,6 @@ namespace LoadingScreenModTest
                         for (int i = 0; i < assets.Count; i++)
                         {
                             meta = AssetDeserializer.Instantiate(assets[i]) as CustomAssetMetaData;
-
-                            if (AssetImporterAssetTemplate.GetAssetDLCMask(meta) > 0)
-                                Util.DebugPrint("  GetAssetDLCMask", assets[i].fullName, AssetImporterAssetTemplate.GetAssetDLCMask(meta), ~notMask);
-
                             metas.Add(meta);
                             want = want && (AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0;
                             used = used || loadUsed && UsedAssets.instance.IsUsed(meta);
@@ -528,9 +517,6 @@ namespace LoadingScreenModTest
             Package package = assetRef.package;
             string fullName = type < CustomAssetMetaData.Type.RoadElevation ? assetRef.fullName : PillarOrElevationName(package.packageName, assetRef.name);
 
-            if (assetRef.fullName != fullName)
-                Util.DebugPrint(assetRef.fullName, " diff ", fullName);
-
             if (!IsDuplicate(fullName, allLoads[(int) type], package))
             {
                 queues[loadQueueIndex[(int) type] + offset].Add(assetRef);
@@ -554,8 +540,6 @@ namespace LoadingScreenModTest
         {
             if (metaTypes.TryGetValue(assetRef.fullName, out CustomAssetMetaData.Type type))
                 return type;
-
-            Util.DebugPrint("Metatype not cached:", assetRef.fullName);
 
             try
             {
@@ -651,16 +635,16 @@ namespace LoadingScreenModTest
                 return false;
         }
 
-        static void PrintPackages(Package[] packages)
-        {
-            foreach (Package p in packages)
-            {
-                Trace.Pr(p.packageName, "\t\t", p.packagePath, "   ", p.version);
+        //static void PrintPackages(Package[] packages)
+        //{
+        //    foreach (Package p in packages)
+        //    {
+        //        Trace.Pr(p.packageName, "\t\t", p.packagePath, "   ", p.version);
 
-                foreach (Package.Asset a in p)
-                    Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(116), a.checksum, a.type.ToString().PadRight(19),
-                        a.offset.ToString().PadLeft(8), a.size.ToString().PadLeft(8));
-            }
-        }
+        //        foreach (Package.Asset a in p)
+        //            Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(116), a.checksum, a.type.ToString().PadRight(19),
+        //                a.offset.ToString().PadLeft(8), a.size.ToString().PadLeft(8));
+        //    }
+        //}
     }
 }
