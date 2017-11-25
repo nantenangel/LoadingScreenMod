@@ -490,7 +490,7 @@ namespace LoadingScreenModTest
         }
 
         // Texture / material / mesh sharing begins here.
-        internal int texhit, texpre, texload, mathit, matpre, matload, meshit, mespre, mesload;
+        int texhit, texpre, texload, mathit, matpre, matload, meshit, mespre, mesload;
         internal int Misses => texload + matload + mesload;
         Dictionary<string, Texture2D> texturesMain = new Dictionary<string, Texture2D>(128);
         Dictionary<string, Texture2D> texturesLod = new Dictionary<string, Texture2D>(128);
