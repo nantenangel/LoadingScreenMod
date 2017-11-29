@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using ColossalFramework.Packaging;
 using ColossalFramework.PlatformServices;
+using UnityEngine;
 
 namespace LoadingScreenMod
 {
@@ -69,8 +70,147 @@ namespace LoadingScreenMod
                 };
             }
 
+            // Paths (nets) in buildings.
+            if (t == typeof(BuildingInfo.PathInfo))
+            {
+                string fullName = r.ReadString();
+                NetInfo ni = Get<NetInfo>(fullName);
+                BuildingInfo.PathInfo path = new BuildingInfo.PathInfo();
+                path.m_netInfo = ni;
+                path.m_nodes = r.ReadVector3Array();
+                path.m_curveTargets = r.ReadVector3Array();
+                path.m_invertSegments = r.ReadBoolean();
+                path.m_maxSnapDistance = r.ReadSingle();
+
+                if (p.version >= 5)
+                {
+                    path.m_forbidLaneConnection = r.ReadBooleanArray();
+                    path.m_trafficLights = (BuildingInfo.TrafficLights[]) (object) r.ReadInt32Array();
+                    path.m_yieldSigns = r.ReadBooleanArray();
+                }
+
+                return path;
+            }
+
             if (t == typeof(Package.Asset))
-                return p.FindByChecksum(r.ReadString());
+                return r.ReadAsset(p);
+
+            // It seems that trailers are listed in the save game so this is not necessary. Better to be safe however
+            // because a missing trailer reference is fatal for the simulation thread.
+            if (t == typeof(VehicleInfo.VehicleTrailer))
+            {
+                string name = r.ReadString();
+                string fullName = p.packageName + "." + name;
+                VehicleInfo vi = Get<VehicleInfo>(p, fullName, name, false);
+
+                VehicleInfo.VehicleTrailer trailer;
+                trailer.m_info = vi;
+                trailer.m_probability = r.ReadInt32();
+                trailer.m_invertProbability = r.ReadInt32();
+                return trailer;
+            }
+
+            if (t == typeof(NetInfo.Lane))
+            {
+                return new NetInfo.Lane
+                {
+                    m_position = r.ReadSingle(),
+                    m_width = r.ReadSingle(),
+                    m_verticalOffset = r.ReadSingle(),
+                    m_stopOffset = r.ReadSingle(),
+                    m_speedLimit = r.ReadSingle(),
+                    m_direction = (NetInfo.Direction) r.ReadInt32(),
+                    m_laneType = (NetInfo.LaneType) r.ReadInt32(),
+                    m_vehicleType = (VehicleInfo.VehicleType) r.ReadInt32(),
+                    m_stopType = (VehicleInfo.VehicleType) r.ReadInt32(),
+                    m_laneProps = GetNetLaneProps(p, r),
+                    m_allowConnect = r.ReadBoolean(),
+                    m_useTerrainHeight = r.ReadBoolean(),
+                    m_centerPlatform = r.ReadBoolean(),
+                    m_elevated = r.ReadBoolean()
+                };
+            }
+
+            if (t == typeof(NetInfo.Segment))
+            {
+                NetInfo.Segment segment = new NetInfo.Segment();
+                string checksum = r.ReadString();
+                segment.m_mesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, true);
+                checksum = r.ReadString();
+                segment.m_material = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, true);
+                checksum = r.ReadString();
+                segment.m_lodMesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, false);
+                checksum = r.ReadString();
+                segment.m_lodMaterial = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, false);
+                segment.m_forwardRequired = (NetSegment.Flags) r.ReadInt32();
+                segment.m_forwardForbidden = (NetSegment.Flags) r.ReadInt32();
+                segment.m_backwardRequired = (NetSegment.Flags) r.ReadInt32();
+                segment.m_backwardForbidden = (NetSegment.Flags) r.ReadInt32();
+                segment.m_emptyTransparent = r.ReadBoolean();
+                segment.m_disableBendNodes = r.ReadBoolean();
+                return segment;
+            }
+
+            if (t == typeof(NetInfo.Node))
+            {
+                NetInfo.Node node = new NetInfo.Node();
+                string checksum = r.ReadString();
+                node.m_mesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, true);
+                checksum = r.ReadString();
+                node.m_material = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, true);
+                checksum = r.ReadString();
+                node.m_lodMesh = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMesh(checksum, p, false);
+                checksum = r.ReadString();
+                node.m_lodMaterial = string.IsNullOrEmpty(checksum) ? null : Sharing.instance.GetMaterial(checksum, p, false);
+                node.m_flagsRequired = (NetNode.Flags) r.ReadInt32();
+                node.m_flagsForbidden = (NetNode.Flags) r.ReadInt32();
+                node.m_connectGroup = (NetInfo.ConnectGroup) r.ReadInt32();
+                node.m_directConnect = r.ReadBoolean();
+                node.m_emptyTransparent = r.ReadBoolean();
+                return node;
+            }
+
+            if (t == typeof(NetInfo))
+            {
+                string name = r.ReadString();
+                CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(AssetLoader.instance.Current);
+
+                if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
+                    return Get<NetInfo>(p, name);
+                else
+                    return Get<NetInfo>(name);
+            }
+
+            if (t == typeof(BuildingInfo))
+            {
+                string name = r.ReadString();
+                CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(AssetLoader.instance.Current);
+
+                if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
+                    return Get<BuildingInfo>(p, name);
+                else
+                    return Get<BuildingInfo>(name);
+            }
+
+            // Sub-buildings in buildings.
+            if (t == typeof(BuildingInfo.SubInfo))
+            {
+                string name = r.ReadString();
+                string fullName = p.packageName + "." + name;
+                BuildingInfo bi = null;
+
+                if (fullName == AssetLoader.instance.Current.fullName || name == AssetLoader.instance.Current.fullName)
+                    Util.DebugPrint("Warning:", fullName, "wants to be a sub-building for itself");
+                else
+                    bi = Get<BuildingInfo>(p, fullName, name, true);
+
+                BuildingInfo.SubInfo subInfo = new BuildingInfo.SubInfo();
+                subInfo.m_buildingInfo = bi;
+                subInfo.m_position = r.ReadVector3();
+                subInfo.m_angle = r.ReadSingle();
+                subInfo.m_fixedHeight = r.ReadBoolean();
+                return subInfo;
+            }
 
             // Prop variations in props.
             if (t == typeof(PropInfo.Variation))
@@ -79,7 +219,7 @@ namespace LoadingScreenMod
                 string fullName = p.packageName + "." + name;
                 PropInfo pi = null;
 
-                if (fullName == AssetLoader.instance.Current)
+                if (fullName == AssetLoader.instance.Current.fullName)
                     Util.DebugPrint("Warning:", fullName, "wants to be a prop variation for itself");
                 else
                     pi = Get<PropInfo>(p, fullName, name, false);
@@ -98,7 +238,7 @@ namespace LoadingScreenMod
                 string fullName = p.packageName + "." + name;
                 TreeInfo ti = null;
 
-                if (fullName == AssetLoader.instance.Current)
+                if (fullName == AssetLoader.instance.Current.fullName)
                     Util.DebugPrint("Warning:", fullName, "wants to be a tree variation for itself");
                 else
                     ti = Get<TreeInfo>(p, fullName, name, false);
@@ -110,42 +250,67 @@ namespace LoadingScreenMod
                 };
             }
 
-            // It seems that trailers are listed in the save game so this is not necessary. Better to be safe however
-            // because a missing trailer reference is fatal for the simulation thread.
-            if (t == typeof(VehicleInfo.VehicleTrailer))
+            if (t == typeof(VehicleInfo.MeshInfo))
             {
-                string name = r.ReadString();
-                string fullName = p.packageName + "." + name;
-                VehicleInfo vi = Get<VehicleInfo>(p, fullName, name, false);
+                VehicleInfo.MeshInfo meshinfo = new VehicleInfo.MeshInfo();
+                string checksum = r.ReadString();
 
-                VehicleInfo.VehicleTrailer trailer;
-                trailer.m_info = vi;
-                trailer.m_probability = r.ReadInt32();
-                trailer.m_invertProbability = r.ReadInt32();
-                return trailer;
-            }
+                if (!string.IsNullOrEmpty(checksum))
+                {
+                    Package.Asset asset = p.FindByChecksum(checksum);
+                    GameObject go = AssetDeserializer.Instantiate(asset) as GameObject;
+                    meshinfo.m_subInfo = go.GetComponent<VehicleInfoBase>();
+                    go.SetActive(false);
 
-            // Sub-buildings in buildings.
-            if (t == typeof(BuildingInfo.SubInfo))
-            {
-                string name = r.ReadString();
-                string fullName = p.packageName + "." + name;
-                BuildingInfo bi = null;
-
-                if (fullName == AssetLoader.instance.Current || name == AssetLoader.instance.Current)
-                    Util.DebugPrint("Warning:", fullName, "wants to be a sub-building for itself");
+                    if (meshinfo.m_subInfo.m_lodObject != null)
+                        meshinfo.m_subInfo.m_lodObject.SetActive(false);
+                }
                 else
-                    bi = Get<BuildingInfo>(p, fullName, name, true);
+                    meshinfo.m_subInfo = null;
 
-                BuildingInfo.SubInfo subInfo = new BuildingInfo.SubInfo();
-                subInfo.m_buildingInfo = bi;
-                subInfo.m_position = r.ReadVector3();
-                subInfo.m_angle = r.ReadSingle();
-                subInfo.m_fixedHeight = r.ReadBoolean();
-                return subInfo;
+                meshinfo.m_vehicleFlagsForbidden = (Vehicle.Flags) r.ReadInt32();
+                meshinfo.m_vehicleFlagsRequired = (Vehicle.Flags) r.ReadInt32();
+                meshinfo.m_parkedFlagsForbidden = (VehicleParked.Flags) r.ReadInt32();
+                meshinfo.m_parkedFlagsRequired = (VehicleParked.Flags) r.ReadInt32();
+                return meshinfo;
             }
 
             return PackageHelper.CustomDeserialize(p, t, r);
+        }
+
+        static NetLaneProps GetNetLaneProps(Package p, PackageReader r)
+        {
+            int count = r.ReadInt32();
+            NetLaneProps laneProps = ScriptableObject.CreateInstance<NetLaneProps>();
+            laneProps.m_props = new NetLaneProps.Prop[count];
+
+            for (int i = 0; i < count; i++)
+                laneProps.m_props[i] = GetNetLaneProp(p, r);
+
+            return laneProps;
+        }
+
+        static NetLaneProps.Prop GetNetLaneProp(Package p, PackageReader r)
+        {
+            return new NetLaneProps.Prop
+            {
+                m_flagsRequired = (NetLane.Flags) r.ReadInt32(),
+                m_flagsForbidden = (NetLane.Flags) r.ReadInt32(),
+                m_startFlagsRequired = (NetNode.Flags) r.ReadInt32(),
+                m_startFlagsForbidden = (NetNode.Flags) r.ReadInt32(),
+                m_endFlagsRequired = (NetNode.Flags) r.ReadInt32(),
+                m_endFlagsForbidden = (NetNode.Flags) r.ReadInt32(),
+                m_colorMode = (NetLaneProps.ColorMode) r.ReadInt32(),
+                m_prop = Get<PropInfo>(r.ReadString()),
+                m_tree = Get<TreeInfo>(r.ReadString()),
+                m_position = r.ReadVector3(),
+                m_angle = r.ReadSingle(),
+                m_segmentOffset = r.ReadSingle(),
+                m_repeatDistance = r.ReadSingle(),
+                m_minLength = r.ReadSingle(),
+                m_cornerAngle = r.ReadSingle(),
+                m_probability = r.ReadInt32()
+            };
         }
 
         // Works with (fullName = asset name), too.
@@ -162,19 +327,46 @@ namespace LoadingScreenMod
             return info;
         }
 
+        // For nets and pillars, the reference can be to a custom asset (dotted) or a built-in asset.
+        static T Get<T>(Package package, string name) where T : PrefabInfo
+        {
+            if (string.IsNullOrEmpty(name))
+                return null;
+
+            string stripName = PackageHelper.StripName(name);
+            T info = FindLoaded<T>(package.packageName + "." + stripName);
+
+            if (info == null)
+            {
+                Package.Asset data = package.Find(stripName);
+
+                if (data != null)
+                {
+                    string fullName = data.fullName;
+
+                    if (Load(ref fullName, data))
+                        info = FindLoaded<T>(fullName);
+                }
+                else
+                    info = Get<T>(name);
+            }
+
+            return info;
+        }
+
         // For sub-buildings, name may be package.assetname.
         static T Get<T>(Package package, string fullName, string name, bool tryName) where T : PrefabInfo
         {
             T info = FindLoaded<T>(fullName);
 
-            if (info == null && tryName)
+            if (tryName && info == null)
                 info = FindLoaded<T>(name);
 
             if (info == null)
             {
                 Package.Asset data = package.Find(name);
 
-                if (data == null && tryName)
+                if (tryName && data == null)
                     data = FindAsset(name); // yes, name
 
                 if (data != null)
@@ -219,34 +411,27 @@ namespace LoadingScreenMod
         /// </summary>
         internal static Package.Asset FindAsset(string fullName)
         {
-            try
+            int j = fullName.IndexOf('.');
+
+            if (j > 0 && j < fullName.Length - 1)
             {
-                int j = fullName.IndexOf('.');
+                // The fast path.
+                Package.Asset asset = instance.FindByName(fullName.Substring(0, j), fullName.Substring(j + 1));
 
-                if (j > 0 && j < fullName.Length - 1)
-                {
-                    // The fast path.
-                    Package.Asset asset = instance.FindByName(fullName.Substring(0, j), fullName.Substring(j + 1));
-
-                    if (asset != null)
-                        return asset;
-                }
-
-                // Fast fail.
-                if (AssetLoader.instance.HasFailed(fullName))
-                    return null;
-
-                Package.Asset[] a = Assets;
-
-                // We also try the old (early 2015) naming that does not contain the package name. FindLoaded does this, too.
-                for (int i = 0; i < a.Length; i++)
-                    if (fullName == a[i].fullName || fullName == a[i].name)
-                        return a[i];
+                if (asset != null)
+                    return asset;
             }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogException(e);
-            }
+
+            // Fast fail.
+            if (AssetLoader.instance.HasFailed(fullName))
+                return null;
+
+            Package.Asset[] a = Assets;
+
+            // We also try the old (early 2015) naming that does not contain the package name. FindLoaded does this, too.
+            for (int i = 0; i < a.Length; i++)
+                if (fullName == a[i].fullName || fullName == a[i].name)
+                    return a[i];
 
             return null;
         }
@@ -284,9 +469,9 @@ namespace LoadingScreenMod
 
                     // There is at least one asset (411236307) on the workshop that wants to include itself. Asset Editor quite
                     // certainly no longer accepts that but in the early days, it was possible.
-                    if (fullName != AssetLoader.instance.Current && !AssetLoader.instance.HasFailed(fullName))
+                    if (fullName != AssetLoader.instance.Current.fullName && !AssetLoader.instance.HasFailed(fullName))
                     {
-                        AssetLoader.instance.LoadImpl(data, CustomAssetMetaData.Type.Unknown);
+                        AssetLoader.instance.LoadImpl(data);
                         return true;
                     }
                 }

@@ -57,7 +57,7 @@ namespace LoadingScreenMod
 
                 if (activated)
                 {
-                    Util.DebugPrint("Options:", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
+                    Util.DebugPrint("Options: 1125", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
                         Settings.settings.shareMaterials, Settings.settings.shareMeshes, Settings.settings.reportAssets);
 
                     LoadingManager.instance.SetSceneProgress(0f);
@@ -501,13 +501,13 @@ namespace LoadingScreenMod
         /// <summary>
         /// Checks if buildings, props, trees, and vehicles have been deserialized from the savegame.
         /// </summary>
-        public static bool IsSaveDeserialized() => GetSimProgress() > 54;
+        static bool IsSaveDeserialized() => GetSimProgress() > 54;
 
         /// <summary>
         /// Returns the progress of simulation deserialization.
         /// Note: two threads at play here, old values of m_size might be cached for quite some time.
         /// </summary>
-        public static int GetSimProgress()
+        static int GetSimProgress()
         {
             try
             {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using ColossalFramework.Packaging;
 
 namespace LoadingScreenMod
 {
@@ -30,10 +31,11 @@ namespace LoadingScreenMod
         void LookupUsed()
         {
             LookupSimulationBuildings(allPackages, buildingAssets);
+            LookupSimulationNets(allPackages, netAssets);
+            LookupSimulationAssets<CitizenInfo>(allPackages, citizenAssets);
             LookupSimulationAssets<PropInfo>(allPackages, propAssets);
             LookupSimulationAssets<TreeInfo>(allPackages, treeAssets);
             LookupSimulationAssets<VehicleInfo>(allPackages, vehicleAssets);
-            LookupSimulationAssets<CitizenInfo>(allPackages, citizenAssets);
         }
 
         internal void Dispose()
@@ -53,15 +55,19 @@ namespace LoadingScreenMod
         /// <summary>
         /// Is the asset used in the city?
         /// </summary>
-        internal bool IsUsed(CustomAssetMetaData meta) => allAssets[(int) meta.type].Contains(meta.assetRef.fullName);
+        internal bool IsUsed(CustomAssetMetaData meta)
+        {
+            Package.Asset assetRef = meta.assetRef;
+            return assetRef != null ? allAssets[(int) meta.type].Contains(assetRef.fullName) : false;
+        }
 
         /// <summary>
         /// Dynamic check to find out if at least one asset in the current load chain is used in the city. At this time, only buildings are considered containers.
         /// </summary>
         internal bool GotAnyContainer()
         {
-            foreach (string fullName in AssetLoader.instance.stack)
-                if (buildingAssets.Contains(fullName))
+            foreach (Package.Asset assetRef in AssetLoader.instance.stack)
+                if (buildingAssets.Contains(assetRef.fullName))
                     return true;
 
             return false;
@@ -74,15 +80,16 @@ namespace LoadingScreenMod
             ReportMissingAssets<TreeInfo>(treeAssets);
             ReportMissingAssets<VehicleInfo>(vehicleAssets);
             ReportMissingAssets<CitizenInfo>(citizenAssets);
+            ReportMissingAssets<NetInfo>(netAssets);
         }
 
         static void ReportMissingAssets<P>(HashSet<string> customAssets) where P : PrefabInfo
         {
             try
             {
-                foreach (string name in customAssets)
-                    if (CustomDeserializer.FindLoaded<P>(name) == null)
-                        AssetLoader.instance.NotFound(name);
+                foreach (string fullName in customAssets)
+                    if (CustomDeserializer.FindLoaded<P>(fullName) == null)
+                        AssetLoader.instance.NotFound(fullName);
             }
             catch (Exception e)
             {
@@ -94,7 +101,8 @@ namespace LoadingScreenMod
         {
             return (!Settings.settings.loadUsed || AllAvailable<BuildingInfo>(buildingAssets, ignore) &&
                     AllAvailable<PropInfo>(propAssets, ignore) && AllAvailable<TreeInfo>(treeAssets, ignore) &&
-                    AllAvailable<VehicleInfo>(vehicleAssets, ignore) && AllAvailable<CitizenInfo>(citizenAssets, ignore));
+                    AllAvailable<VehicleInfo>(vehicleAssets, ignore) && AllAvailable<CitizenInfo>(citizenAssets, ignore) &&
+                    AllAvailable<NetInfo>(netAssets, ignore));
         }
 
         static bool AllAvailable<P>(HashSet<string> fullNames, HashSet<string> ignore) where P : PrefabInfo
@@ -140,6 +148,39 @@ namespace LoadingScreenMod
                 for (int i = 1; i < n; i++)
                     if (buffer[i].m_flags != Building.Flags.None)
                         Add(PrefabCollection<BuildingInfo>.PrefabName(buffer[i].m_infoIndex), packages, assets);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
+        }
+
+        /// <summary>
+        /// NetInfos require more effort because the NotUsedGuide/UnlockMilestone stuff gets into way.
+        /// </summary>
+        void LookupSimulationNets(HashSet<string> packages, HashSet<string> assets)
+        {
+            try
+            {
+                NetNode[] buffer1 = NetManager.instance.m_nodes.m_buffer;
+                int n = buffer1.Length;
+
+                for (int i = 1; i < n; i++)
+                    if (buffer1[i].m_flags != NetNode.Flags.None)
+                    {
+                        string fullName = PrefabCollection<NetInfo>.PrefabName(buffer1[i].m_infoIndex);
+                        Add(fullName, packages, assets);
+                    }
+
+                NetSegment[] buffer2 = NetManager.instance.m_segments.m_buffer;
+                n = buffer2.Length;
+
+                for (int i = 1; i < n; i++)
+                    if (buffer2[i].m_flags != NetSegment.Flags.None)
+                    {
+                        string fullName = PrefabCollection<NetInfo>.PrefabName(buffer2[i].m_infoIndex);
+                        Add(fullName, packages, assets);
+                    }
             }
             catch (Exception e)
             {

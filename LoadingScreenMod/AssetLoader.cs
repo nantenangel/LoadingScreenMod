@@ -17,10 +17,13 @@ namespace LoadingScreenMod
     {
         HashSet<string> failedAssets = new HashSet<string>(), loadedProps = new HashSet<string>(), loadedTrees = new HashSet<string>(),
             loadedBuildings = new HashSet<string>(), loadedVehicles = new HashSet<string>(), loadedCitizens = new HashSet<string>(),
-            loadedIntersections = new HashSet<string>(), dontSpawnNormally = new HashSet<string>();
+            loadedNets = new HashSet<string>(), loadedIntersections = new HashSet<string>(), dontSpawnNormally = new HashSet<string>();
+        HashSet<string>[] allLoads;
+        int[] loadQueueIndex;
+        Dictionary<string, CustomAssetMetaData.Type> metaTypes = new Dictionary<string, CustomAssetMetaData.Type>(64);
         Dictionary<string, CustomAssetMetaData> citizenMetaDatas = new Dictionary<string, CustomAssetMetaData>();
-        internal Stack<string> stack = new Stack<string>(4); // the asset loading stack
-        int propCount, treeCount, buildingCount, vehicleCount, netCount, beginMillis, lastMillis, assetCount;
+        internal Stack<Package.Asset> stack = new Stack<Package.Asset>(4); // the asset loading stack
+        int propCount, treeCount, buildingCount, vehicleCount, beginMillis, lastMillis, assetCount;
         readonly bool reportAssets = Settings.settings.reportAssets;
         public bool hasStarted, hasFinished, isWin = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
 
@@ -31,11 +34,18 @@ namespace LoadingScreenMod
         internal HashSet<string> Buildings => loadedBuildings;
         internal HashSet<string> Vehicles => loadedVehicles;
         internal HashSet<string> Citizens => loadedCitizens;
+        internal HashSet<string> Nets => loadedNets;
         internal bool IsIntersection(string fullName) => loadedIntersections.Contains(fullName);
         internal bool HasFailed(string fullName) => failedAssets.Contains(fullName);
-        internal string Current => stack.Count > 0 ? stack.Peek() : string.Empty;
+        internal Package.Asset Current => stack.Count > 0 ? stack.Peek() : null;
 
-        private AssetLoader() { }
+        private AssetLoader()
+        {
+            allLoads = new HashSet<string>[] { loadedBuildings, loadedProps, loadedTrees, loadedVehicles, loadedVehicles, loadedBuildings, loadedBuildings,
+                loadedProps, loadedCitizens, loadedNets, loadedNets, loadedBuildings };
+
+            loadQueueIndex = new int[] { 5, 1, 1, 7, 7, 5, 5, 1, 0, 3, 3, 3 };
+        }
 
         public void Setup()
         {
@@ -51,10 +61,10 @@ namespace LoadingScreenMod
             Sharing.instance?.Dispose();
             LevelLoader.instance.AddFailedAssets(failedAssets);
             failedAssets.Clear(); loadedProps.Clear(); loadedTrees.Clear(); loadedBuildings.Clear(); loadedVehicles.Clear(); loadedCitizens.Clear();
-            loadedIntersections.Clear(); dontSpawnNormally.Clear(); citizenMetaDatas.Clear();
+            loadedNets.Clear(); loadedIntersections.Clear(); dontSpawnNormally.Clear(); metaTypes.Clear(); citizenMetaDatas.Clear();
             failedAssets = null; loadedProps = null; loadedTrees = null; loadedBuildings = null; loadedVehicles = null; loadedCitizens = null;
-            loadedIntersections = null; dontSpawnNormally = null; citizenMetaDatas = null;
-            instance = null;
+            loadedNets = null;  loadedIntersections = null; dontSpawnNormally = null; metaTypes = null; citizenMetaDatas = null;
+            allLoads = null; loadQueueIndex = null; instance = null;
         }
 
         void Report()
@@ -145,7 +155,7 @@ namespace LoadingScreenMod
             lastMillis = Profiling.Millis;
             LoadingScreen.instance.DualSource.Add("Custom Assets");
             LoadingManager.instance.m_loadingProfilerCustomContent.BeginLoading("Calculating asset load order");
-            LoadEntry[] queue = GetLoadQueue(styleBuildings);
+            Package.Asset[] queue = GetLoadQueue(styleBuildings);
             Util.DebugPrint("LoadQueue", queue.Length, Profiling.Millis);
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
 
@@ -155,7 +165,7 @@ namespace LoadingScreenMod
 
             for (i = 0; i < queue.Length; i++)
             {
-                LoadEntry entry = queue[i];
+                Package.Asset assetRef = queue[i];
 
                 if ((i & 63) == 0)
                     PrintMem(i);
@@ -165,11 +175,11 @@ namespace LoadingScreenMod
                 try
                 {
                     stack.Clear();
-                    LoadImpl(entry.assetRef, entry.type);
+                    LoadImpl(assetRef);
                 }
                 catch (Exception e)
                 {
-                    AssetFailed(entry.assetRef.fullName, e);
+                    AssetFailed(assetRef.fullName, e);
                 }
 
                 Sharing.instance.ManageLoadQueue(i);
@@ -269,25 +279,17 @@ namespace LoadingScreenMod
             Console.WriteLine(s);
         }
 
-        internal void LoadImpl(Package.Asset assetRef, CustomAssetMetaData.Type type)
+        internal void LoadImpl(Package.Asset assetRef)
         {
             try
             {
-                string fullName = assetRef.fullName;
-                stack.Push(fullName);
+                stack.Push(assetRef);
                 LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(assetRef.name));
-                GameObject go;
-
-                if (type < CustomAssetMetaData.Type.Road)
-                    go = AssetDeserializer.Instantiate(assetRef) as GameObject;
-                else
-                    go = assetRef.Instantiate<GameObject>();
-
-                if (type < CustomAssetMetaData.Type.RoadElevation)
-                    go.name = fullName;
-                else
-                    go.name = assetRef.package.packageName + "." + PackageHelper.StripName(go.name);
-
+                GameObject go = AssetDeserializer.Instantiate(assetRef) as GameObject;
+                CustomAssetMetaData.Type type = GetMetaType(assetRef);
+                string packageName = assetRef.package.packageName;
+                string fullName = type < CustomAssetMetaData.Type.RoadElevation ? packageName + "." + go.name : PillarOrElevationName(packageName, go.name);
+                go.name = fullName;
                 go.SetActive(false);
                 PrefabInfo info = go.GetComponent<PrefabInfo>();
                 info.m_isCustomContent = true;
@@ -351,23 +353,23 @@ namespace LoadingScreenMod
                     if (ci.m_lodObject != null)
                         ci.m_lodObject.SetActive(false);
 
-                    if (ci.InitializeCustomPrefab(citizenMetaDatas[fullName]))
+                    if (ci.InitializeCustomPrefab(citizenMetaDatas[assetRef.fullName]))
                     {
-                        citizenMetaDatas.Remove(fullName);
-                        ci.gameObject.SetActive(true); // bug?
+                        citizenMetaDatas.Remove(assetRef.fullName);
+                        ci.gameObject.SetActive(true);
                         Initialize(ci);
                         loadedCitizens.Add(fullName);
                     }
                     else
-                        CODebugBase<LogChannel>.Warn(LogChannel.Modding, "Custom citizen [" + fullName + "] template not available in selected theme. Asset not added in game.");
+                        CODebugBase<LogChannel>.Warn(LogChannel.Modding, "Custom citizen [" + assetRef.fullName + "] template not available in selected theme. Asset not added in game.");
                 }
 
                 NetInfo ni = go.GetComponent<NetInfo>();
 
                 if (ni != null)
                 {
+                    loadedNets.Add(fullName);
                     Initialize(ni);
-                    netCount++;
                 }
             }
             finally
@@ -389,7 +391,7 @@ namespace LoadingScreenMod
                 throw new Exception(string.Concat(typeof(T).Name, " ", fullName, " failed"));
         }
 
-        LoadEntry[] GetLoadQueue(HashSet<string> styleBuildings)
+        Package.Asset[] GetLoadQueue(HashSet<string> styleBuildings)
         {
             Package[] packages = PackageManager.allPackages.ToArray();
             Array.Sort(packages, (a, b) => string.Compare(a.packageName, b.packageName));
@@ -400,8 +402,8 @@ namespace LoadingScreenMod
             // in Sharing. We also get faster disk reads.
             // [0] propvar and prop, citizen  [1] prop, tree  [2] pillar and elevation and road  [3] road
             // [4] sub-building and building  [5] building    [6] trailer and vehicle            [7] vehicle
-            List<LoadEntry>[] queues = { new List<LoadEntry>(4), new List<LoadEntry>(64), new List<LoadEntry>(4),  new List<LoadEntry>(4),
-                                         new List<LoadEntry>(4), new List<LoadEntry>(64), new List<LoadEntry>(32), new List<LoadEntry>(32) };
+            List<Package.Asset>[] queues = { new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(4),  new List<Package.Asset>(4),
+                                             new List<Package.Asset>(4), new List<Package.Asset>(64), new List<Package.Asset>(32), new List<Package.Asset>(32) };
 
             SteamHelper.DLC_BitMask notMask = ~SteamHelper.GetOwnedDLCMask();
             bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, report = loadUsed && Settings.settings.reportAssets;
@@ -422,67 +424,62 @@ namespace LoadingScreenMod
                     if (report)
                         AssetReport.instance.AddPackage(p);
 
-                    bool want = loadEnabled && IsEnabled(p), inStyle = false;
+                    bool enabled = loadEnabled && IsEnabled(p);
 
                     if (assets.Count == 1) // the common case
                     {
+                        bool want = enabled || styleBuildings.Contains(assets[0].fullName);
+
                         // Fast exit.
-                        if (!want && !(inStyle = styleBuildings.Contains(assets[0].fullName)) && !(loadUsed && UsedAssets.instance.GotPackage(p.packageName)))
+                        if (!want && !(loadUsed && UsedAssets.instance.GotPackage(p.packageName)))
                             continue;
 
                         meta = AssetDeserializer.Instantiate(assets[0]) as CustomAssetMetaData;
-                        want = want || loadUsed && UsedAssets.instance.IsUsed(meta);
+                        bool used = loadUsed && UsedAssets.instance.IsUsed(meta);
 
-                        if ((want || inStyle) && (AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0)
+                        if (used || want && (AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0)
                         {
                             CustomAssetMetaData.Type type = meta.type;
                             int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding ||
                                 type == CustomAssetMetaData.Type.PropVariation || type >= CustomAssetMetaData.Type.RoadElevation ? -1 : 0;
-                            string fullName = AddToQueue(queues, meta, offset);
-
-                            if (!want && fullName != null)
-                                dontSpawnNormally.Add(fullName);
+                            AddToQueue(queues, meta, offset, !(enabled | used));
                         }
                     }
                     else
                     {
+                        bool want = enabled;
+
                         // Fast exit.
                         if (!want)
                         {
                             for (int i = 0; i < assets.Count; i++)
-                                inStyle = inStyle || styleBuildings.Contains(assets[i].fullName);
+                                want = want || styleBuildings.Contains(assets[i].fullName);
 
-                            if (!inStyle && !(loadUsed && UsedAssets.instance.GotPackage(p.packageName)))
+                            if (!want && !(loadUsed && UsedAssets.instance.GotPackage(p.packageName)))
                                 continue;
                         }
 
                         metas.Clear();
+                        bool used = false;
 
                         for (int i = 0; i < assets.Count; i++)
                         {
                             meta = AssetDeserializer.Instantiate(assets[i]) as CustomAssetMetaData;
-
-                            if ((AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0)
-                            {
-                                want = want || loadUsed && UsedAssets.instance.IsUsed(meta);
-                                metas.Add(meta);
-                            }
+                            metas.Add(meta);
+                            want = want && (AssetImporterAssetTemplate.GetAssetDLCMask(meta) & notMask) == 0;
+                            used = used || loadUsed && UsedAssets.instance.IsUsed(meta);
                         }
 
-                        if ((want || inStyle) && metas.Count > 0)
+                        if (want | used)
                         {
                             metas.Sort((a, b) => b.type - a.type); // prop variation, sub-building, trailer, elevation, pillar before main asset
                             CustomAssetMetaData.Type type = metas[0].type;
                             int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding ||
                                 type == CustomAssetMetaData.Type.PropVariation || type >= CustomAssetMetaData.Type.RoadElevation ? -1 : 0;
+                            bool dontSpawn = !(enabled | used);
 
                             for (int i = 0; i < metas.Count; i++)
-                            {
-                                string fullName = AddToQueue(queues, metas[i], offset);
-
-                                if (!want && fullName != null)
-                                    dontSpawnNormally.Add(fullName);
-                            }
+                                AddToQueue(queues, metas[i], offset, dontSpawn);
                         }
                     }
                 }
@@ -492,7 +489,7 @@ namespace LoadingScreenMod
                 }
             }
 
-            LoadEntry[] queue = new LoadEntry[queues.Select(lst => lst.Count).Sum()];
+            Package.Asset[] queue = new Package.Asset[queues.Select(lst => lst.Count).Sum()];
 
             for (int i = 0, k = 0; i < queues.Length; k += queues[i].Count, i++)
                 queues[i].CopyTo(queue, k);
@@ -500,65 +497,31 @@ namespace LoadingScreenMod
             return queue;
         }
 
-        string AddToQueue(List<LoadEntry>[] queues, CustomAssetMetaData meta, int offset)
+        void AddToQueue(List<Package.Asset>[] queues, CustomAssetMetaData meta, int offset, bool dontSpawn)
         {
             Package.Asset assetRef = meta.assetRef;
 
             if (assetRef == null)
             {
                 Util.DebugPrint(meta.name, " Warning : NULL asset");
-                return null;
+                return;
             }
 
-            Package package = assetRef.package;
-            string fullName = assetRef.fullName;
             CustomAssetMetaData.Type type = meta.type;
+            Package package = assetRef.package;
+            string fullName = type < CustomAssetMetaData.Type.RoadElevation ? assetRef.fullName : PillarOrElevationName(package.packageName, assetRef.name);
 
-            // [0] propvar and prop, citizen  [1] prop, tree  [2] pillar and elevation and road  [3] road
-            // [4] sub-building and building  [5] building    [6] trailer and vehicle            [7] vehicle
-
-            switch (type)
+            if (!IsDuplicate(fullName, allLoads[(int) type], package))
             {
-                case CustomAssetMetaData.Type.Building:
-                case CustomAssetMetaData.Type.SubBuilding:
-                    if (!IsDuplicate(fullName, loadedBuildings, package))
-                        queues[5 + offset].Add(new LoadEntry(assetRef, type));
-                    break;
+                queues[loadQueueIndex[(int) type] + offset].Add(assetRef);
+                metaTypes[assetRef.fullName] = type;
 
-                case CustomAssetMetaData.Type.Prop:
-                case CustomAssetMetaData.Type.PropVariation:
-                    if (!IsDuplicate(fullName, loadedProps, package))
-                        queues[1 + offset].Add(new LoadEntry(assetRef, type));
-                    break;
+                if (dontSpawn)
+                    dontSpawnNormally.Add(fullName);
 
-                case CustomAssetMetaData.Type.Tree:
-                    if (!IsDuplicate(fullName, loadedTrees, package))
-                        queues[1].Add(new LoadEntry(assetRef, type));
-                    break;
-
-                case CustomAssetMetaData.Type.Vehicle:
-                case CustomAssetMetaData.Type.Trailer:
-                    if (!IsDuplicate(fullName, loadedVehicles, package))
-                        queues[7 + offset].Add(new LoadEntry(assetRef, type));
-                    break;
-
-                case CustomAssetMetaData.Type.Citizen:
-                    if (!IsDuplicate(fullName, loadedCitizens, package))
-                    {
-                        queues[0].Add(new LoadEntry(assetRef, type));
-                        citizenMetaDatas[fullName] = meta;
-                    }
-                    break;
-
-                //case CustomAssetMetaData.Type.RoadElevation:
-                //case CustomAssetMetaData.Type.Pillar:
-                //case CustomAssetMetaData.Type.Road:
-                default:
-                    queues[3 + offset].Add(new LoadEntry(assetRef, type));
-                    break;
+                if (type == CustomAssetMetaData.Type.Citizen)
+                    citizenMetaDatas[fullName] = meta;
             }
-
-            return fullName;
         }
 
         static bool IsEnabled(Package package)
@@ -567,6 +530,31 @@ namespace LoadingScreenMod
             return mainAsset?.isEnabled ?? true;
         }
 
+        internal CustomAssetMetaData.Type GetMetaType(Package.Asset assetRef)
+        {
+            if (metaTypes.TryGetValue(assetRef.fullName, out CustomAssetMetaData.Type type))
+                return type;
+
+            try
+            {
+                foreach (Package.Asset asset in assetRef.package.FilterAssets(UserAssetType.CustomAssetMetaData))
+                {
+                    CustomAssetMetaData meta = AssetDeserializer.Instantiate(asset) as CustomAssetMetaData;
+
+                    if (meta?.assetRef != null)
+                        metaTypes[meta.assetRef.fullName] = meta.type;
+                }
+
+                if (metaTypes.TryGetValue(assetRef.fullName, out type))
+                    return type;
+            }
+            catch (Exception) { }
+
+            Util.DebugPrint("Cannot resolve metatype:", assetRef.fullName);
+            return CustomAssetMetaData.Type.Unknown;
+        }
+
+        internal static string PillarOrElevationName(string packageName, string fullName) => packageName + "." + PackageHelper.StripName(fullName);
         internal static string AssetName(string name_Data) => name_Data.Length > 5 && name_Data.EndsWith("_Data") ? name_Data.Substring(0, name_Data.Length - 5) : name_Data;
 
         static string ShorterAssetName(string fullName_Data)
@@ -613,8 +601,10 @@ namespace LoadingScreenMod
             {
                 if (reportAssets)
                 {
-                    if (!string.IsNullOrEmpty(Current))
-                        AssetReport.instance.NotFound(fullName, Current);
+                    Package.Asset refBy = Current;
+
+                    if (refBy != null)
+                        AssetReport.instance.NotFound(fullName, refBy.fullName);
                     else
                         AssetReport.instance.NotFound(fullName);
                 }
@@ -646,21 +636,9 @@ namespace LoadingScreenMod
         //        Trace.Pr(p.packageName, "\t\t", p.packagePath, "   ", p.version);
 
         //        foreach (Package.Asset a in p)
-        //            Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(96), a.checksum, a.type.ToString().PadRight(19),
+        //            Trace.Pr(a.isMainAsset ? " *" : "  ", a.fullName.PadRight(116), a.checksum, a.type.ToString().PadRight(19),
         //                a.offset.ToString().PadLeft(8), a.size.ToString().PadLeft(8));
         //    }
         //}
-    }
-
-    internal struct LoadEntry
-    {
-        internal Package.Asset assetRef;
-        internal CustomAssetMetaData.Type type;
-
-        internal LoadEntry(Package.Asset a, CustomAssetMetaData.Type t)
-        {
-            this.assetRef = a;
-            this.type = t;
-        }
     }
 }

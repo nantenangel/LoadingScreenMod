@@ -308,6 +308,7 @@ namespace LoadingScreenMod
             if (bytes != null)
                 return new MemStream(bytes, 0);
 
+            //Util.DebugPrint("        GetStream miss:", asset.fullName, asset.package.packagePath, checksum);
             return asset.GetStream();
         }
 
@@ -383,7 +384,7 @@ namespace LoadingScreenMod
                     texhit++;
                     return texture2D;
                 }
-                else if (!isMain && texturesLod.TryGetValue(checksum, out texture2D))
+                else if (!isMain && (texturesLod.TryGetValue(checksum, out texture2D) || texturesMain.TryGetValue(checksum, out texture2D)))
                 {
                     texpre++;
                     return UnityEngine.Object.Instantiate(texture2D);
@@ -444,11 +445,10 @@ namespace LoadingScreenMod
                     texhit += mat.textureCount;
                     return mat.material;
                 }
-                else if (!isMain && materialsLod.TryGetValue(checksum, out mat))
+                else if (!isMain && (materialsLod.TryGetValue(checksum, out mat) || materialsMain.TryGetValue(checksum, out mat)))
                 {
                     matpre++;
                     return new Material(mat.material);
-                    // return mat.material; TODO test
                 }
 
                 data.TryGetValue(checksum, out kvp);
@@ -518,13 +518,9 @@ namespace LoadingScreenMod
             }
         }
 
-        internal void Start(LoadEntry[] queue)
+        internal void Start(Package.Asset[] queue)
         {
-            assetsQueue = new Package.Asset[queue.Length];
-
-            for (int i = 0; i < queue.Length; i++)
-                assetsQueue[i] = queue[i].assetRef;
-
+            assetsQueue = queue;
             shareTextures = Settings.settings.shareTextures;
             shareMaterials = Settings.settings.shareMaterials;
             shareMeshes = Settings.settings.shareMeshes;

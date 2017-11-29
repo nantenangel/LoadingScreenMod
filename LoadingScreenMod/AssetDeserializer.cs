@@ -71,10 +71,18 @@ namespace LoadingScreenMod
             if (typeof(GameObject).IsAssignableFrom(type))
                 return Instantiate(FindAsset(reader.ReadString()), isMain);
 
-            if (package.version < 3 && expectedType != null && expectedType == typeof(Package.Asset))
-                return reader.ReadUnityType(expectedType);
+            try
+            {
+                if (package.version < 3 && expectedType != null && expectedType == typeof(Package.Asset))
+                    return reader.ReadUnityType(expectedType);
 
-            return reader.ReadUnityType(type);
+                return reader.ReadUnityType(type, package);
+            }
+            catch (MissingMethodException)
+            {
+                Util.DebugPrint("Unsupported type for deserialization:", type.Name);
+                return null;
+            }
         }
 
         UnityEngine.Object DeserializeScriptableObject(Type type)
@@ -96,17 +104,13 @@ namespace LoadingScreenMod
 
             for (int i = 0; i < count; i++)
             {
-                Type t;
-                string name;
-
-                if (DeserializeHeader(out t, out name))
+                if (DeserializeHeader(out Type t, out string name))
                 {
                     FieldInfo field = type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
                     if (field == null && resolveMember)
                         field = type.GetField(ResolveLegacyMember(t, type, name), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-                    Type expectedType = field?.FieldType;
                     object value;
 
                     if (t.IsArray)
@@ -132,9 +136,10 @@ namespace LoadingScreenMod
                         else
                         {
                             Array array = Array.CreateInstance(elementType, n); value = array;
+                            Type fieldType = field?.FieldType;
 
                             for (int j = 0; j < n; j++)
-                                array.SetValue(DeserializeSingleObject(elementType, expectedType), j);
+                                array.SetValue(DeserializeSingleObject(elementType, fieldType), j);
                         }
                     }
                     else
@@ -149,7 +154,7 @@ namespace LoadingScreenMod
                         else if (t == typeof(float))
                             value = reader.ReadSingle();
                         else
-                            value = DeserializeSingleObject(t, expectedType);
+                            value = DeserializeSingleObject(t, field?.FieldType);
                     }
 
                     field?.SetValue(obj, value);

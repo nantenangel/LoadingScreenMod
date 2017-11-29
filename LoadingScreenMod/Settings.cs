@@ -147,8 +147,11 @@ namespace LoadingScreenMod
 
         void OnReportDirChanged(string text)
         {
-            reportDir = text;
-            Save();
+            if (text != reportDir)
+            {
+                reportDir = text;
+                Save();
+            }
         }
     }
 }

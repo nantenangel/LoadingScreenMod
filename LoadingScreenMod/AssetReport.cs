@@ -70,7 +70,7 @@ namespace LoadingScreenMod
                 H1(AssetLoader.AssetName(LevelLoader.instance.cityName));
                 int seconds = Profiling.Millis / 1000 + 4;
                 string loadingTime = string.Concat((seconds / 60).ToString(), ":", (seconds % 60).ToString("00"));
-                Italics(string.Concat("Report created at time ", loadingTime, "."));
+                Italics(string.Concat("Report created at loading time ", loadingTime, "."));
 
                 Italics("To stop saving these files, disable the option \"Save assets report\" in Loading Screen Mod.");
                 Italics("You can safely delete this file. No-one reads it except you.");
@@ -87,6 +87,7 @@ namespace LoadingScreenMod
                 if (Settings.settings.loadUsed)
                 {
                     H1("The following custom assets are used in this city");
+                    Italics("Notice that network assets are not yet supported in this section.");
                     List<string> buildings = new List<string>(UsedAssets.instance.Buildings), props = new List<string>(UsedAssets.instance.Props),
                         trees = new List<string>(UsedAssets.instance.Trees), vehicles = new List<string>(UsedAssets.instance.Vehicles),
                         indirectProps = new List<string>(UsedAssets.instance.IndirectProps), indirectTrees = new List<string>(UsedAssets.instance.IndirectTrees);
@@ -96,6 +97,7 @@ namespace LoadingScreenMod
 
                     H1("The following loaded assets are currently unnecessary (not used in this city)");
                     Italics("There are three reasons why an asset may appear in this section: (a) The asset is enabled but unused (b) The asset is a prop or tree in an enabled but unused building or park (c) The asset is included in an enabled district style and unused.");
+                    Italics("Notice that network assets are not yet supported in this section.");
                     Save(AssetLoader.instance.Buildings.Where(s => !AssetLoader.instance.IsIntersection(s) && !Used(s, paths)).ToList(), "Buildings and parks");
                     Save(AssetLoader.instance.Props.Where(s => !Used(s, paths)).ToList(), "Props");
                     Save(AssetLoader.instance.Trees.Where(s => !Used(s, paths)).ToList(), "Trees");
@@ -223,7 +225,7 @@ namespace LoadingScreenMod
                             else if (key.EndsWith("_Data"))
                                 s = string.Concat(s, "<br><b>Probably a Workshop prop or tree but no link is available</b>");
                             else
-                                s = string.Concat(s, "<br><b>Workshop asset requires DLC or Deluxe content?</b>");
+                                s = string.Concat(s, "<br><b>Workshop asset requires DLC or mod content?</b>");
                         }
 
                         Para(s);
@@ -318,8 +320,8 @@ namespace LoadingScreenMod
             // My rationale is the following:
             // 43453453.Name -> Workshop
             // Name.Name     -> Private
-            // Name          -> Either an old-format (early 2015) reference, or something from DLC/Deluxe packs.
-            //                  If loading is not successful then cannot tell for sure, assumed DLC/Deluxe when reported as not found.
+            // Name          -> Either an old-format (early 2015) reference, or something from a DLC or mod.
+            //                  If loading is not successful then cannot tell for sure, assumed DLC/mod when reported as not found.
 
             if (IsWorkshopPackage(fullName, out pn))
                 return false;
