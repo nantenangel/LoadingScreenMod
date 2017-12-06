@@ -422,8 +422,14 @@ namespace LoadingScreenMod
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 614582u }))
                 levels.Add(new KeyValuePair<string, float>("Station2Prefabs", 0.140f));
 
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 715193u }))
+                levels.Add(new KeyValuePair<string, float>("Station3Prefabs", 0.1405f));
+
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 614581u }))
                 levels.Add(new KeyValuePair<string, float>("FestivalPrefabs", 0.141f));
+
+            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 715192u }))
+                levels.Add(new KeyValuePair<string, float>("ChristmasPrefabs", 0.1415f));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 515190u }))
                 levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.142f));
