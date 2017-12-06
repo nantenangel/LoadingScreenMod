@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
-using ColossalFramework.PlatformServices;
 using ColossalFramework.IO;
 using ColossalFramework.UI;
 using ICities;
-using UnityEngine;
 
 namespace LoadingScreenModTest
 {
