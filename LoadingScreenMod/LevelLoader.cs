@@ -401,41 +401,9 @@ namespace LoadingScreenMod
             if (LoadingManager.instance.m_supportsExpansion[4])
                 levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterExpansion5Prefabs" : "Expansion5Prefabs", 0.133f));
 
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 456200u }))
-                levels.Add(new KeyValuePair<string, float>("FootballPrefabs", 0.134f));
-
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 525940u }))
-                levels.Add(new KeyValuePair<string, float>("Football2Prefabs", 0.135f));
-
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526610u }))
-                levels.Add(new KeyValuePair<string, float>("Football3Prefabs", 0.136f));
-
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526611u }))
-                levels.Add(new KeyValuePair<string, float>("Football4Prefabs", 0.137f));
-
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 526612u }))
-                levels.Add(new KeyValuePair<string, float>("Football5Prefabs", 0.138f));
-
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 547501u }))
-                levels.Add(new KeyValuePair<string, float>("Station1Prefabs", 0.139f));
-
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 614582u }))
-                levels.Add(new KeyValuePair<string, float>("Station2Prefabs", 0.140f));
-
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 715193u }))
-                levels.Add(new KeyValuePair<string, float>("Station3Prefabs", 0.1405f));
-
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 614581u }))
-                levels.Add(new KeyValuePair<string, float>("FestivalPrefabs", 0.141f));
-
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 715192u }))
-                levels.Add(new KeyValuePair<string, float>("ChristmasPrefabs", 0.1415f));
-
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 515190u }))
-                levels.Add(new KeyValuePair<string, float>("ModderPack1Prefabs", 0.142f));
-
-            if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 547500u }))
-                levels.Add(new KeyValuePair<string, float>("ModderPack2Prefabs", 0.143f));
+            for (int i = 0; i < levelStrings.Length; i++)
+                if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { levelStrings[i].Value }))
+                    levels.Add(new KeyValuePair<string, float>(levelStrings[i].Key, 0.134f + i * 0.01f / levelStrings.Length));
 
             if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 715190u }))
             {
@@ -455,6 +423,20 @@ namespace LoadingScreenMod
 
             return levels.ToArray();
         }
+
+        KeyValuePair<string, uint>[] levelStrings =
+            { new KeyValuePair<string, uint>("FootballPrefabs",     456200u),
+              new KeyValuePair<string, uint>("Football2Prefabs",    525940u),
+              new KeyValuePair<string, uint>("Football3Prefabs",    526610u),
+              new KeyValuePair<string, uint>("Football4Prefabs",    526611u),
+              new KeyValuePair<string, uint>("Football5Prefabs",    526612u),
+              new KeyValuePair<string, uint>("Station1Prefabs",     547501u),
+              new KeyValuePair<string, uint>("Station2Prefabs",     614582u),
+              new KeyValuePair<string, uint>("Station3Prefabs",     715193u),
+              new KeyValuePair<string, uint>("FestivalPrefabs",     614581u),
+              new KeyValuePair<string, uint>("ChristmasPrefabs",    715192u),
+              new KeyValuePair<string, uint>("ModderPack1Prefabs",  515190u),
+              new KeyValuePair<string, uint>("ModderPack2Prefabs",  547500u) };
 
         /// <summary>
         /// The savegame is a fast load if it is pre-known or its time stamp is newer than the full load time stamp.
