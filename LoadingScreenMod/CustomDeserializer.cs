@@ -176,9 +176,9 @@ namespace LoadingScreenModTest
                 CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(AssetLoader.instance.Current);
 
                 if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
-                    return Get<NetInfo>(p, name);
+                    return Get<NetInfo>(p, name); // elevations, bridges, slopes, tunnels in nets
                 else
-                    return Get<NetInfo>(name);
+                    return Get<NetInfo>(name); // train lines, metro lines in buildings (stations)
             }
 
             if (t == typeof(BuildingInfo))
@@ -187,9 +187,9 @@ namespace LoadingScreenModTest
                 CustomAssetMetaData.Type type = AssetLoader.instance.GetMetaType(AssetLoader.instance.Current);
 
                 if (type == CustomAssetMetaData.Type.Road || type == CustomAssetMetaData.Type.RoadElevation)
-                    return Get<BuildingInfo>(p, name);
+                    return Get<BuildingInfo>(p, name); // pillars in nets
                 else
-                    return Get<BuildingInfo>(name);
+                    return Get<BuildingInfo>(name); // do these exist?
             }
 
             // Sub-buildings in buildings.

@@ -57,7 +57,7 @@ namespace LoadingScreenModTest
 
                 if (activated)
                 {
-                    Util.DebugPrint("Options: 1125", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
+                    Util.DebugPrint("Options: 128", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
                         Settings.settings.shareMaterials, Settings.settings.shareMeshes, Settings.settings.reportAssets);
 
                     LoadingManager.instance.SetSceneProgress(0f);
@@ -102,7 +102,15 @@ namespace LoadingScreenModTest
             int i;
             yield return null;
 
-            Util.InvokeVoid(LoadingManager.instance, "PreLoadLevel");
+            try
+            {
+                Util.InvokeVoid(LoadingManager.instance, "PreLoadLevel");
+            }
+            catch (Exception e)
+            {
+                Util.DebugPrint("PreLoadLevel: exception from some mod.");
+                UnityEngine.Debug.LogException(e);
+            }
 
             if (!LoadingManager.instance.LoadingAnimationComponent.AnimationLoaded)
             {
@@ -209,7 +217,16 @@ namespace LoadingScreenModTest
                     SimulationManager.instance.m_metaData.Merge(ngs);
                 }
 
-                Util.InvokeVoid(LoadingManager.instance, "MetaDataLoaded"); // OnCreated if loading from the main manu
+                try
+                {
+                    Util.InvokeVoid(LoadingManager.instance, "MetaDataLoaded"); // OnCreated if loading from the main manu
+                }
+                catch (Exception e)
+                {
+                    Util.DebugPrint("MetaDataLoaded: exception from some mod.");
+                    UnityEngine.Debug.LogException(e);
+                }
+
                 KeyValuePair<string, float>[] levels = SetLevels();
                 float currentProgress = 0.10f;
 
