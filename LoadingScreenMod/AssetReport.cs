@@ -13,6 +13,7 @@ namespace LoadingScreenModTest
         Dictionary<string, List<string>> duplicate = new Dictionary<string, List<string>>();
         List<string> notFound = new List<string>();
         Dictionary<string, HashSet<string>> notFoundIndirect = new Dictionary<string, HashSet<string>>();
+        Dictionary<Package, PackageData> tracking = new Dictionary<Package, PackageData>(64);
         HashSet<string> packageNames = new HashSet<string>();
         StreamWriter w;
         static char[] forbidden = { ':', '*', '?', '<', '>', '|', '#', '%', '&', '{', '}', '$', '!', '@', '+', '`', '=', '\\', '/', '"', '\'' };
@@ -49,6 +50,17 @@ namespace LoadingScreenModTest
         }
 
         internal void AddPackage(Package p) => packageNames.Add(p.packageName);
+
+        internal void AddPackage(Package p, CustomAssetMetaData lastmeta, bool used)
+        {
+            if (tracking.ContainsKey(p))
+                Util.DebugPrint("!Tracking contains", p.packageName);
+
+            Package.Asset assetRef = lastmeta.assetRef;
+
+            if (assetRef != null)
+                tracking[p] = new PackageData(assetRef.fullName, lastmeta.type, used);
+        }
 
         internal void Save()
         {
@@ -386,6 +398,22 @@ namespace LoadingScreenModTest
             }
 
             return output.ToString();
+        }
+    }
+
+    internal sealed class PackageData
+    {
+        internal HashSet<Package> refs;
+        internal HashSet<string> missing;
+        internal string name;
+        internal CustomAssetMetaData.Type type;
+        internal bool used;
+
+        internal PackageData(string n, CustomAssetMetaData.Type t, bool u)
+        {
+            this.name = n;
+            this.type = t;
+            this.used = u;
         }
     }
 }

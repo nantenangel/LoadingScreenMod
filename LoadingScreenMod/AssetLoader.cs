@@ -412,7 +412,7 @@ namespace LoadingScreenModTest
 
             Util.DebugPrint("Sorted at", Profiling.Millis);
             SteamHelper.DLC_BitMask notMask = ~SteamHelper.GetOwnedDLCMask();
-            bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed, report = loadUsed && Settings.settings.reportAssets;
+            bool loadEnabled = Settings.settings.loadEnabled, loadUsed = Settings.settings.loadUsed;
             //PrintPackages(packages);
 
             foreach (Package p in packages)
@@ -423,16 +423,14 @@ namespace LoadingScreenModTest
                 {
                     assets.Clear();
                     assets.AddRange(p.FilterAssets(UserAssetType.CustomAssetMetaData));
+                    int count = assets.Count;
 
-                    if (assets.Count == 0)
+                    if (count == 0)
                         continue;
-
-                    if (report)
-                        AssetReport.instance.AddPackage(p);
 
                     bool enabled = loadEnabled && IsEnabled(p);
 
-                    if (assets.Count == 1) // the common case
+                    if (count == 1) // the common case
                     {
                         bool want = enabled || styleBuildings.Contains(assets[0].fullName);
 
@@ -449,6 +447,9 @@ namespace LoadingScreenModTest
                             int offset = type == CustomAssetMetaData.Type.Trailer || type == CustomAssetMetaData.Type.SubBuilding ||
                                 type == CustomAssetMetaData.Type.PropVariation || type >= CustomAssetMetaData.Type.RoadElevation ? -1 : 0;
                             AddToQueue(queues, meta, offset, !(enabled | used));
+
+                            if (reportAssets)
+                                AssetReport.instance.AddPackage(p, meta, used);
                         }
                     }
                     else
@@ -458,7 +459,7 @@ namespace LoadingScreenModTest
                         // Fast exit.
                         if (!want)
                         {
-                            for (int i = 0; i < assets.Count; i++)
+                            for (int i = 0; i < count; i++)
                                 want = want || styleBuildings.Contains(assets[i].fullName);
 
                             if (!want && !(loadUsed && UsedAssets.instance.GotPackage(p.packageName)))
@@ -468,7 +469,7 @@ namespace LoadingScreenModTest
                         metas.Clear();
                         bool used = false;
 
-                        for (int i = 0; i < assets.Count; i++)
+                        for (int i = 0; i < count; i++)
                         {
                             meta = AssetDeserializer.Instantiate(assets[i]) as CustomAssetMetaData;
                             metas.Add(meta);
@@ -484,8 +485,11 @@ namespace LoadingScreenModTest
                                 type == CustomAssetMetaData.Type.PropVariation || type >= CustomAssetMetaData.Type.RoadElevation ? -1 : 0;
                             bool dontSpawn = !(enabled | used);
 
-                            for (int i = 0; i < metas.Count; i++)
+                            for (int i = 0; i < count; i++)
                                 AddToQueue(queues, metas[i], offset, dontSpawn);
+
+                            if (reportAssets)
+                                AssetReport.instance.AddPackage(p, metas[count - 1], used);
                         }
                     }
                 }
