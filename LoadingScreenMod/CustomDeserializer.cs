@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using ColossalFramework.Packaging;
 using ColossalFramework.PlatformServices;
@@ -10,6 +11,7 @@ namespace LoadingScreenModTest
     {
         Package.Asset[] assets;
         Dictionary<PublishedFileId, HashSet<string>> packagesToPaths;
+        readonly bool reportAssets = Settings.settings.reportAssets;
         readonly bool report = Settings.settings.reportAssets && Settings.settings.loadUsed;
 
         static Package.Asset[] Assets
@@ -39,6 +41,30 @@ namespace LoadingScreenModTest
             {
                 PropInfo pi = Get<PropInfo>(r.ReadString()); // old name format (without package name) is possible
                 TreeInfo ti = Get<TreeInfo>(r.ReadString()); // old name format (without package name) is possible
+
+                if (instance.reportAssets)
+                {
+                    if (pi != null)
+                    {
+                        string n = pi.gameObject.name;
+
+                        if (!string.IsNullOrEmpty(n) && n.IndexOf('.') >= 0)
+                        {
+                            string container = FindContainer();
+
+                            if (!string.IsNullOrEmpty(container))
+                                ; // AssetReport.instance.AddReference(container, n, CustomAssetMetaData.Type.Prop);
+                        }
+                    }
+
+                    if (ti != null)
+                    {
+                        string n = ti.gameObject.name;
+
+                        if (!string.IsNullOrEmpty(n) && n.IndexOf('.') >= 0)
+                            UsedAssets.instance.IndirectTrees.Add(n);
+                    }
+                }
 
                 if (instance.report && UsedAssets.instance.GotAnyContainer())
                 {
@@ -472,6 +498,15 @@ namespace LoadingScreenModTest
                     if (fullName != AssetLoader.instance.Current.fullName && !AssetLoader.instance.HasFailed(fullName))
                     {
                         AssetLoader.instance.LoadImpl(data);
+
+                        if (instance.reportAssets)
+                        {
+                            Package.Asset mainAssetRef = AssetReport.instance.FindMainAssetRef(data.package);
+
+                            if (mainAssetRef != null)
+                                AssetReport.instance.AddPackage(mainAssetRef, CustomAssetMetaData.Type.Unknown, false);
+                        }
+
                         return true;
                     }
                 }
@@ -483,6 +518,18 @@ namespace LoadingScreenModTest
                 AssetLoader.instance.NotFound(fullName);
 
             return false;
+        }
+
+        static string FindContainer()
+        {
+            Package.Asset container = AssetLoader.instance.Current;
+            string fullName = container.fullName;
+
+            if (AssetReport.instance.IsMainAssetRef(fullName))
+                return fullName;
+
+            container = AssetReport.instance.FindMainAssetRef(container.package);
+            return container?.fullName;
         }
 
         // Optimized version for other mods.

@@ -13,8 +13,8 @@ namespace LoadingScreenModTest
         Dictionary<string, List<string>> duplicate = new Dictionary<string, List<string>>();
         List<string> notFound = new List<string>();
         Dictionary<string, HashSet<string>> notFoundIndirect = new Dictionary<string, HashSet<string>>();
-        Dictionary<Package, PackageData> tracking = new Dictionary<Package, PackageData>(64);
         HashSet<string> packageNames = new HashSet<string>();
+        Dictionary<string, PackageData> tracking = new Dictionary<string, PackageData>(128);
         StreamWriter w;
         static char[] forbidden = { ':', '*', '?', '<', '>', '|', '#', '%', '&', '{', '}', '$', '!', '@', '+', '`', '=', '\\', '/', '"', '\'' };
         const string steamid = @"<a target=""_blank"" href=""https://steamcommunity.com/sharedfiles/filedetails/?id=";
@@ -53,14 +53,22 @@ namespace LoadingScreenModTest
 
         internal void AddPackage(Package p, CustomAssetMetaData lastmeta, bool used)
         {
-            if (tracking.ContainsKey(p))
-                Util.DebugPrint("!Tracking contains", p.packageName);
+            Package.Asset mainAssetRef = lastmeta.assetRef;
 
-            Package.Asset assetRef = lastmeta.assetRef;
-
-            if (assetRef != null)
-                tracking[p] = new PackageData(assetRef.fullName, lastmeta.type, used);
+            if (mainAssetRef != null)
+                AddPackage(mainAssetRef, lastmeta.type, used);
         }
+
+        internal void AddPackage(Package.Asset mainAssetRef, CustomAssetMetaData.Type type, bool used)
+        {
+            if (tracking.ContainsKey(mainAssetRef.fullName))
+                Util.DebugPrint("!Tracking contains", mainAssetRef.fullName);
+
+            tracking[mainAssetRef.fullName] = new PackageData(mainAssetRef, type, used);
+        }
+
+        internal bool IsMainAssetRef(string fullName) => tracking.ContainsKey(fullName);
+        internal Package.Asset FindMainAssetRef(Package p) => p.FilterAssets(Package.AssetType.Object).LastOrDefault(a => a.name.EndsWith("_Data"));
 
         internal void Save()
         {
@@ -403,15 +411,15 @@ namespace LoadingScreenModTest
 
     internal sealed class PackageData
     {
-        internal HashSet<Package> refs;
+        internal HashSet<string> refs;
         internal HashSet<string> missing;
-        internal string name;
+        internal Package.Asset mainAssetRef;
         internal CustomAssetMetaData.Type type;
         internal bool used;
 
-        internal PackageData(string n, CustomAssetMetaData.Type t, bool u)
+        internal PackageData(Package.Asset a, CustomAssetMetaData.Type t, bool u)
         {
-            this.name = n;
+            this.mainAssetRef = a;
             this.type = t;
             this.used = u;
         }
