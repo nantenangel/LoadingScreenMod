@@ -41,7 +41,7 @@ namespace LoadingScreenModTest
             {
                 PropInfo pi = Get<PropInfo>(r.ReadString()); // old name format (without package name) is possible
                 TreeInfo ti = Get<TreeInfo>(r.ReadString()); // old name format (without package name) is possible
-
+/*
                 if (instance.reportAssets)
                 {
                     if (pi != null)
@@ -65,7 +65,7 @@ namespace LoadingScreenModTest
                             UsedAssets.instance.IndirectTrees.Add(n);
                     }
                 }
-
+*/
                 if (instance.report && UsedAssets.instance.GotAnyContainer())
                 {
                     if (pi != null)
@@ -345,6 +345,8 @@ namespace LoadingScreenModTest
             if (string.IsNullOrEmpty(fullName))
                 return null;
 
+            Trace.Pr(AssetLoader.instance.Current.fullName, " gets ", fullName);
+
             T info = FindLoaded<T>(fullName);
 
             if (info == null && Load(ref fullName, FindAsset(fullName)))
@@ -358,6 +360,8 @@ namespace LoadingScreenModTest
         {
             if (string.IsNullOrEmpty(name))
                 return null;
+
+            Trace.Pr(AssetLoader.instance.Current.fullName, " gets ", name);
 
             string stripName = PackageHelper.StripName(name);
             T info = FindLoaded<T>(package.packageName + "." + stripName);
@@ -383,6 +387,8 @@ namespace LoadingScreenModTest
         // For sub-buildings, name may be package.assetname.
         static T Get<T>(Package package, string fullName, string name, bool tryName) where T : PrefabInfo
         {
+            Trace.Pr(AssetLoader.instance.Current.fullName, " gets ", fullName);
+
             T info = FindLoaded<T>(fullName);
 
             if (tryName && info == null)
@@ -503,7 +509,7 @@ namespace LoadingScreenModTest
                         {
                             Package.Asset mainAssetRef = AssetReport.instance.FindMainAssetRef(data.package);
 
-                            if (mainAssetRef != null)
+                            if (mainAssetRef != null && !AssetReport.instance.IsMainAssetRef(mainAssetRef))
                                 AssetReport.instance.AddPackage(mainAssetRef, CustomAssetMetaData.Type.Unknown, false);
                         }
 
@@ -520,16 +526,57 @@ namespace LoadingScreenModTest
             return false;
         }
 
-        static string FindContainer()
+        static void AddRef(PrefabInfo info, string fullName, CustomAssetMetaData.Type type)
+        {
+            if (info != null)
+            {
+                if (info.m_isCustomContent)
+                {
+                    string r = info.gameObject.name;
+                    Package.Asset container = FindContainer();
+
+                    if (!string.IsNullOrEmpty(r) && container != null)
+                    {
+                        string packageName = container.package.packageName;
+                        int i = r.IndexOf('.');
+
+                        if (i >= 0 && (i != packageName.Length || !r.StartsWith(packageName)))
+                            AssetReport.instance.AddReference(container, FindMain(r), type);
+                    }
+                }
+            }
+            else
+            {
+                // missing
+            }
+        }
+
+        static Package.Asset FindContainer()
         {
             Package.Asset container = AssetLoader.instance.Current;
-            string fullName = container.fullName;
 
-            if (AssetReport.instance.IsMainAssetRef(fullName))
+            if (AssetReport.instance.IsMainAssetRef(container))
+                return container;
+
+            return AssetReport.instance.FindMainAssetRef(container.package);
+        }
+
+        static string FindMain(string fullName)
+        {
+            if (AssetReport.instance.IsMainAssetRefFullName(fullName))
                 return fullName;
 
-            container = AssetReport.instance.FindMainAssetRef(container.package);
-            return container?.fullName;
+            Package.Asset asset = FindAsset(fullName);
+
+            if (asset != null)
+            {
+                Package.Asset mainAssetRef = AssetReport.instance.FindMainAssetRef(asset.package);
+
+                if (mainAssetRef != null)
+                    return mainAssetRef.fullName;
+            }
+
+            return fullName;
         }
 
         // Optimized version for other mods.

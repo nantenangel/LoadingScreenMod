@@ -67,8 +67,14 @@ namespace LoadingScreenModTest
             tracking[mainAssetRef.fullName] = new PackageData(mainAssetRef, type, used);
         }
 
-        internal bool IsMainAssetRef(string fullName) => tracking.ContainsKey(fullName);
+        internal bool IsMainAssetRef(Package.Asset assetRef) => tracking.ContainsKey(assetRef.fullName);
+        internal bool IsMainAssetRefFullName(string fullName) => tracking.ContainsKey(fullName);
         internal Package.Asset FindMainAssetRef(Package p) => p.FilterAssets(Package.AssetType.Object).LastOrDefault(a => a.name.EndsWith("_Data"));
+
+        internal void AddReference(Package.Asset container, string r, CustomAssetMetaData.Type type)
+        {
+
+        }
 
         internal void Save()
         {
