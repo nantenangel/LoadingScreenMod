@@ -509,7 +509,7 @@ namespace LoadingScreenModTest
                         {
                             Package.Asset mainAssetRef = AssetReport.instance.FindMainAssetRef(data.package);
 
-                            if (mainAssetRef != null && !AssetReport.instance.IsMainAssetRef(mainAssetRef))
+                            if (mainAssetRef != null && !AssetReport.instance.IsTracked(mainAssetRef))
                                 AssetReport.instance.AddPackage(mainAssetRef, CustomAssetMetaData.Type.Unknown, false);
                         }
 
@@ -539,15 +539,20 @@ namespace LoadingScreenModTest
                     {
                         string packageName = container.package.packageName;
                         int i = r.IndexOf('.');
+                        string r2;
 
-                        if (i >= 0 && (i != packageName.Length || !r.StartsWith(packageName)))
-                            AssetReport.instance.AddReference(container, FindMain(r), type);
+                        if (i >= 0 && (i != packageName.Length || !r.StartsWith(packageName)) && (r2 = FindMain(r)) != null)
+                            AssetReport.instance.AddReference(container, r2, type);
                     }
                 }
             }
             else
             {
-                // missing
+                // The referenced asset is missing.
+                Package.Asset container = FindContainer();
+
+                if (container != null)
+                    AssetReport.instance.AddMissing(container, fullName, type);
             }
         }
 
@@ -555,15 +560,20 @@ namespace LoadingScreenModTest
         {
             Package.Asset container = AssetLoader.instance.Current;
 
-            if (AssetReport.instance.IsMainAssetRef(container))
+            if (AssetReport.instance.IsTracked(container))
                 return container;
 
-            return AssetReport.instance.FindMainAssetRef(container.package);
+            Package.Asset mainAssetRef = AssetReport.instance.FindMainAssetRef(container.package);
+
+            if (mainAssetRef != null && AssetReport.instance.IsTracked(mainAssetRef))
+                return mainAssetRef;
+
+            return null;
         }
 
         static string FindMain(string fullName)
         {
-            if (AssetReport.instance.IsMainAssetRefFullName(fullName))
+            if (AssetReport.instance.IsTracked(fullName))
                 return fullName;
 
             Package.Asset asset = FindAsset(fullName);
@@ -572,11 +582,11 @@ namespace LoadingScreenModTest
             {
                 Package.Asset mainAssetRef = AssetReport.instance.FindMainAssetRef(asset.package);
 
-                if (mainAssetRef != null)
+                if (mainAssetRef != null && AssetReport.instance.IsTracked(mainAssetRef))
                     return mainAssetRef.fullName;
             }
 
-            return fullName;
+            return null;
         }
 
         // Optimized version for other mods.

@@ -15,6 +15,7 @@ namespace LoadingScreenModTest
         Dictionary<string, HashSet<string>> notFoundIndirect = new Dictionary<string, HashSet<string>>();
         HashSet<string> packageNames = new HashSet<string>();
         Dictionary<string, PackageData> tracking = new Dictionary<string, PackageData>(128);
+        Dictionary<string, MissingData> missing = new Dictionary<string, MissingData>(128);
         StreamWriter w;
         static char[] forbidden = { ':', '*', '?', '<', '>', '|', '#', '%', '&', '{', '}', '$', '!', '@', '+', '`', '=', '\\', '/', '"', '\'' };
         const string steamid = @"<a target=""_blank"" href=""https://steamcommunity.com/sharedfiles/filedetails/?id=";
@@ -67,13 +68,41 @@ namespace LoadingScreenModTest
             tracking[mainAssetRef.fullName] = new PackageData(mainAssetRef, type, used);
         }
 
-        internal bool IsMainAssetRef(Package.Asset assetRef) => tracking.ContainsKey(assetRef.fullName);
-        internal bool IsMainAssetRefFullName(string fullName) => tracking.ContainsKey(fullName);
+        internal bool IsTracked(Package.Asset assetRef) => tracking.ContainsKey(assetRef.fullName);
+        internal bool IsTracked(string fullName) => tracking.ContainsKey(fullName);
         internal Package.Asset FindMainAssetRef(Package p) => p.FilterAssets(Package.AssetType.Object).LastOrDefault(a => a.name.EndsWith("_Data"));
 
-        internal void AddReference(Package.Asset container, string r, CustomAssetMetaData.Type type)
+        internal void AddReference(Package.Asset assetRef, string fullName, CustomAssetMetaData.Type type)
         {
+            PackageData parent = tracking[assetRef.fullName];
 
+            if (parent.refs != null)
+                parent.refs.Add(fullName);
+            else
+                parent.refs = new HashSet<string> { fullName };
+
+            PackageData child = tracking[fullName];
+            child.type = type;
+
+            if (parent.used)
+                child.used = true;
+        }
+
+        internal void AddMissing(Package.Asset assetRef, string fullName, CustomAssetMetaData.Type type)
+        {
+            PackageData parent = tracking[assetRef.fullName];
+
+            if (parent.missing != null)
+                parent.missing.Add(fullName);
+            else
+                parent.missing = new HashSet<string> { fullName };
+
+            MissingData miss = missing[fullName];
+
+            if (miss == null)
+                missing[fullName] = new MissingData(fullName, type, parent.used);
+            else if (parent.used)
+                miss.used = true;
         }
 
         internal void Save()
@@ -419,13 +448,27 @@ namespace LoadingScreenModTest
     {
         internal HashSet<string> refs;
         internal HashSet<string> missing;
-        internal Package.Asset mainAssetRef;
+        internal readonly Package.Asset mainAssetRef;
         internal CustomAssetMetaData.Type type;
         internal bool used;
 
         internal PackageData(Package.Asset a, CustomAssetMetaData.Type t, bool u)
         {
             this.mainAssetRef = a;
+            this.type = t;
+            this.used = u;
+        }
+    }
+
+    internal sealed class MissingData
+    {
+        internal readonly string fullName;
+        internal readonly CustomAssetMetaData.Type type;
+        internal bool used;
+
+        internal MissingData(string n, CustomAssetMetaData.Type t, bool u)
+        {
+            this.fullName = n;
             this.type = t;
             this.used = u;
         }
