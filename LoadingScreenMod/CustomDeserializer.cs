@@ -39,33 +39,20 @@ namespace LoadingScreenModTest
             // Props and trees in buildings and parks.
             if (t == typeof(BuildingInfo.Prop))
             {
-                PropInfo pi = Get<PropInfo>(r.ReadString()); // old name format (without package name) is possible
-                TreeInfo ti = Get<TreeInfo>(r.ReadString()); // old name format (without package name) is possible
-/*
+                string propName = r.ReadString();
+                string treeName = r.ReadString();
+                PropInfo pi = Get<PropInfo>(propName); // old name format (without package name) is possible
+                TreeInfo ti = Get<TreeInfo>(treeName); // old name format (without package name) is possible
+
                 if (instance.reportAssets)
                 {
-                    if (pi != null)
-                    {
-                        string n = pi.gameObject.name;
+                    if (!string.IsNullOrEmpty(propName))
+                        AddRef(pi, propName, CustomAssetMetaData.Type.Prop);
 
-                        if (!string.IsNullOrEmpty(n) && n.IndexOf('.') >= 0)
-                        {
-                            string container = FindContainer();
-
-                            if (!string.IsNullOrEmpty(container))
-                                ; // AssetReport.instance.AddReference(container, n, CustomAssetMetaData.Type.Prop);
-                        }
-                    }
-
-                    if (ti != null)
-                    {
-                        string n = ti.gameObject.name;
-
-                        if (!string.IsNullOrEmpty(n) && n.IndexOf('.') >= 0)
-                            UsedAssets.instance.IndirectTrees.Add(n);
-                    }
+                    if (!string.IsNullOrEmpty(treeName))
+                        AddRef(ti, treeName, CustomAssetMetaData.Type.Tree);
                 }
-*/
+
                 if (instance.report && UsedAssets.instance.GotAnyContainer())
                 {
                     if (pi != null)
@@ -101,6 +88,10 @@ namespace LoadingScreenModTest
             {
                 string fullName = r.ReadString();
                 NetInfo ni = Get<NetInfo>(fullName);
+
+                if (instance.reportAssets && !string.IsNullOrEmpty(fullName))
+                    AddRef(ni, fullName, CustomAssetMetaData.Type.Road);
+
                 BuildingInfo.PathInfo path = new BuildingInfo.PathInfo();
                 path.m_netInfo = ni;
                 path.m_nodes = r.ReadVector3Array();
@@ -318,7 +309,9 @@ namespace LoadingScreenModTest
 
         static NetLaneProps.Prop GetNetLaneProp(Package p, PackageReader r)
         {
-            return new NetLaneProps.Prop
+            string propName, treeName;
+
+            NetLaneProps.Prop o = new NetLaneProps.Prop
             {
                 m_flagsRequired = (NetLane.Flags) r.ReadInt32(),
                 m_flagsForbidden = (NetLane.Flags) r.ReadInt32(),
@@ -327,8 +320,8 @@ namespace LoadingScreenModTest
                 m_endFlagsRequired = (NetNode.Flags) r.ReadInt32(),
                 m_endFlagsForbidden = (NetNode.Flags) r.ReadInt32(),
                 m_colorMode = (NetLaneProps.ColorMode) r.ReadInt32(),
-                m_prop = Get<PropInfo>(r.ReadString()),
-                m_tree = Get<TreeInfo>(r.ReadString()),
+                m_prop = Get<PropInfo>(propName = r.ReadString()),
+                m_tree = Get<TreeInfo>(treeName = r.ReadString()),
                 m_position = r.ReadVector3(),
                 m_angle = r.ReadSingle(),
                 m_segmentOffset = r.ReadSingle(),
@@ -337,6 +330,17 @@ namespace LoadingScreenModTest
                 m_cornerAngle = r.ReadSingle(),
                 m_probability = r.ReadInt32()
             };
+
+            if (instance.reportAssets)
+            {
+                if (!string.IsNullOrEmpty(propName))
+                    AddRef(o.m_prop, propName, CustomAssetMetaData.Type.Prop);
+
+                if (!string.IsNullOrEmpty(treeName))
+                    AddRef(o.m_tree, treeName, CustomAssetMetaData.Type.Tree);
+            }
+
+            return o;
         }
 
         // Works with (fullName = asset name), too.
