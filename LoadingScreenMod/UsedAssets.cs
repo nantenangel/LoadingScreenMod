@@ -61,6 +61,8 @@ namespace LoadingScreenModTest
             return assetRef != null ? allAssets[(int) meta.type].Contains(assetRef.fullName) : false;
         }
 
+        internal void RemoveUsed(string fullName, CustomAssetMetaData.Type type) => allAssets[(int) type].Remove(fullName);
+
         /// <summary>
         /// Dynamic check to find out if at least one asset in the current load chain is used in the city. At this time, only buildings are considered containers.
         /// </summary>

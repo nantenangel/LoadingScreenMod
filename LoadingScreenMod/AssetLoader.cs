@@ -25,6 +25,7 @@ namespace LoadingScreenModTest
         internal Stack<Package.Asset> stack = new Stack<Package.Asset>(4); // the asset loading stack
         int propCount, treeCount, buildingCount, vehicleCount, beginMillis, lastMillis, assetCount;
         readonly bool reportAssets = Settings.settings.reportAssets;
+        readonly bool reportUsed = Settings.settings.reportAssets & Settings.settings.loadUsed;
         public bool hasStarted, hasFinished, isWin = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
 
         internal const int yieldInterval = 350;
@@ -290,8 +291,12 @@ namespace LoadingScreenModTest
             {
                 stack.Push(assetRef);
                 LoadingManager.instance.m_loadingProfilerCustomAsset.BeginLoading(AssetName(assetRef.name));
-                GameObject go = AssetDeserializer.Instantiate(assetRef) as GameObject;
                 CustomAssetMetaData.Type type = GetMetaType(assetRef);
+
+                if (reportUsed)
+                    UsedAssets.instance.RemoveUsed(assetRef.fullName, type);
+
+                GameObject go = AssetDeserializer.Instantiate(assetRef) as GameObject;
                 string packageName = assetRef.package.packageName;
                 string fullName = type < CustomAssetMetaData.Type.RoadElevation ? packageName + "." + go.name : PillarOrElevationName(packageName, go.name);
                 go.name = fullName;
@@ -560,7 +565,7 @@ namespace LoadingScreenModTest
             }
             catch (Exception) { }
 
-            Util.DebugPrint("Cannot resolve metatype:", assetRef.fullName);
+            Util.DebugPrint("!GetMetaType:", assetRef.fullName);
             return CustomAssetMetaData.Type.Unknown;
         }
 
