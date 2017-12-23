@@ -15,7 +15,7 @@ namespace LoadingScreenModTest
         Dictionary<string, HashSet<string>> notFoundIndirect = new Dictionary<string, HashSet<string>>();
         HashSet<string> packageNames = new HashSet<string>();
         Dictionary<string, PackageData> tracking = new Dictionary<string, PackageData>(128);
-        Dictionary<string, MissingData> missing = new Dictionary<string, MissingData>(128);
+        Dictionary<string, MissingData> missingInd = new Dictionary<string, MissingData>(64);
         StreamWriter w;
         static char[] forbidden = { ':', '*', '?', '<', '>', '|', '#', '%', '&', '{', '}', '$', '!', '@', '+', '`', '=', '\\', '/', '"', '\'' };
         const string steamid = @"<a target=""_blank"" href=""https://steamcommunity.com/sharedfiles/filedetails/?id=";
@@ -76,10 +76,10 @@ namespace LoadingScreenModTest
         {
             PackageData parent = tracking[assetRef.fullName];
 
-            if (parent.refs != null)
-                parent.refs.Add(fullName);
+            if (parent.found != null)
+                parent.found.Add(fullName);
             else
-                parent.refs = new HashSet<string> { fullName };
+                parent.found = new HashSet<string> { fullName };
 
             PackageData child = tracking[fullName];
             child.type = type;
@@ -97,13 +97,41 @@ namespace LoadingScreenModTest
             else
                 parent.missing = new HashSet<string> { fullName };
 
-            MissingData miss = missing[fullName];
-
-            if (miss == null)
-                missing[fullName] = new MissingData(fullName, type, parent.used);
-            else if (parent.used)
-                miss.used = true;
+            if (!missingInd.ContainsKey(fullName))
+                missingInd[fullName] = new MissingData(fullName, type);
         }
+
+        /*
+            missingDir dict: fullName -> MissingData
+            missingPkg dict: packageName -> set of fullName
+                Ensin remaining UsedAssets, vain _Data
+                Sitten toisen kerran UsedAssets, vain ei _Data
+                    lisää vain jos ei yhtään _Data
+                Ristiintarkistus missingInd joka kohdassa
+
+            missingPkg dict täydentyy
+                Ensin missingInd, vain _Data
+                Sitten toisen kerran missingInd, vain ei _Data
+                    jos tasan yksi _Data, korvaa sillä
+                    muutoin lisää
+
+            PackageData.missing voi tämän jälkeen sisältää muutaman hudin, helppo selvittää (aina yksi _Data)
+
+            Transitive used *vasta* tähän väliin: Vehicles - Props in buildings and parks
+
+            Unknown = 5
+            PropVariation = 7
+            Prop = 1
+            Tree = 2
+            Citizen = 8
+            Trailer = 4
+            Vehicle = 3
+            SubBuilding = 6
+            Pillar = 11
+            Building = 0
+            RoadElevation = 10
+            Road = 9
+         */
 
         internal void Save()
         {
@@ -446,7 +474,7 @@ namespace LoadingScreenModTest
 
     internal sealed class PackageData
     {
-        internal HashSet<string> refs;
+        internal HashSet<string> found;
         internal HashSet<string> missing;
         internal readonly Package.Asset mainAssetRef;
         internal CustomAssetMetaData.Type type;
@@ -464,13 +492,11 @@ namespace LoadingScreenModTest
     {
         internal readonly string fullName;
         internal readonly CustomAssetMetaData.Type type;
-        internal bool used;
 
-        internal MissingData(string n, CustomAssetMetaData.Type t, bool u)
+        internal MissingData(string n, CustomAssetMetaData.Type t)
         {
             this.fullName = n;
             this.type = t;
-            this.used = u;
         }
     }
 }
