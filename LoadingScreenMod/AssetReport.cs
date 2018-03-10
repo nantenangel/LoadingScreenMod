@@ -14,8 +14,12 @@ namespace LoadingScreenModTest
         List<string> notFound = new List<string>();
         Dictionary<string, HashSet<string>> notFoundIndirect = new Dictionary<string, HashSet<string>>();
         HashSet<string> packageNames = new HashSet<string>();
+
         Dictionary<string, PackageData> tracking = new Dictionary<string, PackageData>(128);
+        Dictionary<string, MissingData> missingDir = new Dictionary<string, MissingData>(8);
         Dictionary<string, MissingData> missingInd = new Dictionary<string, MissingData>(64);
+        Dictionary<string, HashSet<string>> missingPkg = new Dictionary<string, HashSet<string>>(64);
+
         StreamWriter w;
         static char[] forbidden = { ':', '*', '?', '<', '>', '|', '#', '%', '&', '{', '}', '$', '!', '@', '+', '`', '=', '\\', '/', '"', '\'' };
         const string steamid = @"<a target=""_blank"" href=""https://steamcommunity.com/sharedfiles/filedetails/?id=";
@@ -70,7 +74,7 @@ namespace LoadingScreenModTest
 
         internal bool IsTracked(Package.Asset assetRef) => tracking.ContainsKey(assetRef.fullName);
         internal bool IsTracked(string fullName) => tracking.ContainsKey(fullName);
-        internal Package.Asset FindMainAssetRef(Package p) => p.FilterAssets(Package.AssetType.Object).LastOrDefault(a => a.name.EndsWith("_Data"));
+        internal static Package.Asset FindMainAssetRef(Package p) => p.FilterAssets(Package.AssetType.Object).LastOrDefault(a => a.name.EndsWith("_Data"));
 
         internal void AddReference(Package.Asset assetRef, string fullName, CustomAssetMetaData.Type type)
         {
@@ -99,6 +103,30 @@ namespace LoadingScreenModTest
 
             if (!missingInd.ContainsKey(fullName))
                 missingInd[fullName] = new MissingData(fullName, type);
+        }
+
+        void AddUsedButMissingData(HashSet<string> used, CustomAssetMetaData.Type type)
+        {
+            var dir = missingDir;
+            var ind = missingInd;
+            var pkg = missingPkg;
+
+            foreach (string fullName in used)
+                if (fullName.EndsWith("_Data"))
+                {
+                    AddPackageName(fullName);
+                }
+        }
+
+        void AddPackageName(string fullName)
+        {
+            string packageName = GetPackageName(fullName);
+            var fullNames = missingPkg[packageName];
+
+            if (fullNames == null)
+                missingPkg[packageName] = new HashSet<string> { fullName };
+            else
+                fullNames.Add(fullName);
         }
 
         /*
@@ -368,6 +396,12 @@ namespace LoadingScreenModTest
                 return string.Concat(steamid, Enc(pn), "\">", Enc(name), "</a>");
             else
                 return Enc(name);
+        }
+
+        static string GetPackageName(string fullName)
+        {
+            int j = fullName.IndexOf('.');
+            return fullName.Substring(0, j);
         }
 
         static bool GetNames(string fullName, out string packageName, out string assetName)
