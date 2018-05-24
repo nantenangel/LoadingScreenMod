@@ -27,7 +27,7 @@ namespace LoadingScreenModTest
 
         private LevelLoader()
         {
-            init(typeof(LoadingManager), "LoadLevel", 4, 0, typeof(Package.Asset));
+            init(typeof(LoadingManager), "LoadLevel", 5, 0, typeof(Package.Asset));
         }
 
         internal void AddFailedAssets(HashSet<string> assets)
@@ -43,7 +43,7 @@ namespace LoadingScreenModTest
             knownFastLoads.Clear();
         }
 
-        public Coroutine LoadLevel(Package.Asset asset, string playerScene, string uiScene, SimulationMetaData ngs)
+        public Coroutine LoadLevel(Package.Asset asset, string playerScene, string uiScene, SimulationMetaData ngs, bool forceEnvironmentReload = false)
         {
             LoadingManager lm = Singleton<LoadingManager>.instance;
             bool activated = ngs.m_updateMode == SimulationManager.UpdateMode.LoadGame || ngs.m_updateMode == SimulationManager.UpdateMode.NewGameFromMap ||
@@ -57,7 +57,7 @@ namespace LoadingScreenModTest
 
                 if (activated)
                 {
-                    Util.DebugPrint("Options: 310", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
+                    Util.DebugPrint("Options: 524", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
                         Settings.settings.shareMaterials, Settings.settings.shareMeshes, Settings.settings.reportAssets);
 
                     LoadingManager.instance.SetSceneProgress(0f);
@@ -87,8 +87,8 @@ namespace LoadingScreenModTest
                 lm.m_loadingProfilerSimulation.Reset();
                 lm.m_loadingProfilerScenes.Reset();
 
-                IEnumerator iter = activated ? instance.LoadLevelCoroutine(asset, playerScene, uiScene, ngs) :
-                    (IEnumerator) Util.Invoke(lm, "LoadLevelCoroutine", asset, playerScene, uiScene, ngs);
+                IEnumerator iter = activated ? instance.LoadLevelCoroutine(asset, playerScene, uiScene, ngs, forceEnvironmentReload) :
+                    (IEnumerator) Util.Invoke(lm, "LoadLevelCoroutine", asset, playerScene, uiScene, ngs, forceEnvironmentReload);
 
                 return lm.StartCoroutine(iter);
             }
@@ -96,7 +96,7 @@ namespace LoadingScreenModTest
             return null;
         }
 
-        public IEnumerator LoadLevelCoroutine(Package.Asset asset, string playerScene, string uiScene, SimulationMetaData ngs)
+        public IEnumerator LoadLevelCoroutine(Package.Asset asset, string playerScene, string uiScene, SimulationMetaData ngs, bool forceEnvironmentReload)
         {
             string scene;
             int i;
@@ -141,11 +141,13 @@ namespace LoadingScreenModTest
 
                 Util.InvokeVoid(LoadingManager.instance, "MetaDataLoaded"); // No OnCreated
                 string mapThemeName = SimulationManager.instance.m_metaData.m_MapThemeMetaData?.name;
-                fastLoad = SimulationManager.instance.m_metaData.m_environment == LoadingManager.instance.m_loadedEnvironment && mapThemeName == LoadingManager.instance.m_loadedMapTheme;
+                fastLoad = SimulationManager.instance.m_metaData.m_environment == LoadingManager.instance.m_loadedEnvironment &&
+                    mapThemeName == LoadingManager.instance.m_loadedMapTheme && !forceEnvironmentReload;
 
                 // The game is nicely optimized when loading from the pause menu. We must specifically address the following situation:
                 // - environment (biome) stays the same
                 // - map theme stays the same
+                // - forceEnvironmentReload is false
                 // - 'load used assets' is enabled
                 // - not all assets used in the save being loaded are currently in memory.
 
@@ -346,9 +348,6 @@ namespace LoadingScreenModTest
 
             LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "LoadLevelComplete", mode)); // OnLevelLoaded
 
-            if (Singleton<TelemetryManager>.exists)
-                Singleton<TelemetryManager>.instance.StartSession(asset?.name, playerScene, mode, SimulationManager.instance.m_metaData);
-
             LoadingManager.instance.QueueLoadingAction(LoadingComplete());
             knownFastLoads.Add(asset.fullName);
             Util.DebugPrint("Waiting at", Profiling.Millis);
@@ -379,6 +378,7 @@ namespace LoadingScreenModTest
             LoadingManager.instance.m_supportsExpansion[2] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 515191u });
             LoadingManager.instance.m_supportsExpansion[3] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 547502u });
             LoadingManager.instance.m_supportsExpansion[4] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 614580u });
+            LoadingManager.instance.m_supportsExpansion[5] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 715191u });
             bool isWinter = SimulationManager.instance.m_metaData.m_environment == "Winter";
 
             if (isWinter && !LoadingManager.instance.m_supportsExpansion[1])
@@ -414,13 +414,16 @@ namespace LoadingScreenModTest
                 levels.Add(new KeyValuePair<string, float>("Expansion2Prefabs", 0.127f));
 
             if (LoadingManager.instance.m_supportsExpansion[2])
-                levels.Add(new KeyValuePair<string, float>("Expansion3Prefabs", 0.129f));
+                levels.Add(new KeyValuePair<string, float>("Expansion3Prefabs", 0.128f));
 
             if (LoadingManager.instance.m_supportsExpansion[3])
-                levels.Add(new KeyValuePair<string, float>("Expansion4Prefabs", 0.131f));
+                levels.Add(new KeyValuePair<string, float>("Expansion4Prefabs", 0.13f));
 
             if (LoadingManager.instance.m_supportsExpansion[4])
-                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterExpansion5Prefabs" : "Expansion5Prefabs", 0.133f));
+                levels.Add(new KeyValuePair<string, float>(isWinter ? "WinterExpansion5Prefabs" : "Expansion5Prefabs", 0.132f));
+
+            if (LoadingManager.instance.m_supportsExpansion[5])
+                levels.Add(new KeyValuePair<string, float>(SimulationManager.instance.m_metaData.m_environment + "Expansion6Prefabs", 0.133f));
 
             for (int i = 0; i < levelStrings.Length; i++)
                 if ((bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { levelStrings[i].Value }))
@@ -454,6 +457,7 @@ namespace LoadingScreenModTest
               new KeyValuePair<string, uint>("Station1Prefabs",     547501u),
               new KeyValuePair<string, uint>("Station2Prefabs",     614582u),
               new KeyValuePair<string, uint>("Station3Prefabs",     715193u),
+              new KeyValuePair<string, uint>("Station4Prefabs",     815380u),
               new KeyValuePair<string, uint>("FestivalPrefabs",     614581u),
               new KeyValuePair<string, uint>("ChristmasPrefabs",    715192u),
               new KeyValuePair<string, uint>("ModderPack1Prefabs",  515190u),

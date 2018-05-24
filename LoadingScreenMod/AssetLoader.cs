@@ -23,7 +23,7 @@ namespace LoadingScreenModTest
         Dictionary<string, CustomAssetMetaData.Type> metaTypes = new Dictionary<string, CustomAssetMetaData.Type>(64);
         Dictionary<string, CustomAssetMetaData> citizenMetaDatas = new Dictionary<string, CustomAssetMetaData>();
         internal Stack<Package.Asset> stack = new Stack<Package.Asset>(4); // the asset loading stack
-        int propCount, treeCount, buildingCount, vehicleCount, beginMillis, lastMillis, assetCount;
+        int beginMillis, lastMillis, assetCount;
         readonly bool reportAssets = Settings.settings.reportAssets;
         public bool hasStarted, hasFinished, isWin = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
 
@@ -251,10 +251,6 @@ namespace LoadingScreenModTest
 
             LoadingManager.instance.m_loadingProfilerCustomAsset.ContinueLoading();
             LoadingManager.instance.m_loadingProfilerCustomContent.EndLoading();
-
-            if (Singleton<TelemetryManager>.exists)
-                Singleton<TelemetryManager>.instance.CustomContentInfo(buildingCount, propCount, treeCount, vehicleCount);
-
             LoadingManager.instance.m_loadingProfilerMain.EndLoading();
             hasFinished = true;
         }
@@ -311,7 +307,6 @@ namespace LoadingScreenModTest
 
                     Initialize(pi);
                     loadedProps.Add(fullName);
-                    propCount++;
                 }
 
                 TreeInfo ti = go.GetComponent<TreeInfo>();
@@ -320,7 +315,6 @@ namespace LoadingScreenModTest
                 {
                     Initialize(ti);
                     loadedTrees.Add(fullName);
-                    treeCount++;
                 }
 
                 BuildingInfo bi = go.GetComponent<BuildingInfo>();
@@ -333,7 +327,6 @@ namespace LoadingScreenModTest
                     bi.m_dontSpawnNormally = dontSpawnNormally.Remove(fullName);
                     Initialize(bi);
                     loadedBuildings.Add(fullName);
-                    buildingCount++;
 
                     if (bi.GetAI() is IntersectionAI)
                         loadedIntersections.Add(fullName);
@@ -348,7 +341,6 @@ namespace LoadingScreenModTest
 
                     Initialize(vi);
                     loadedVehicles.Add(fullName);
-                    vehicleCount++;
                 }
 
                 CitizenInfo ci = go.GetComponent<CitizenInfo>();
@@ -366,7 +358,9 @@ namespace LoadingScreenModTest
                         loadedCitizens.Add(fullName);
                     }
                     else
+                    {
                         CODebugBase<LogChannel>.Warn(LogChannel.Modding, "Custom citizen [" + assetRef.fullName + "] template not available in selected theme. Asset not added in game.");
+                    }
                 }
 
                 NetInfo ni = go.GetComponent<NetInfo>();
