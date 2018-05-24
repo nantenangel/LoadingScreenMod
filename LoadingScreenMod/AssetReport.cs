@@ -96,7 +96,7 @@ namespace LoadingScreenMod
                     HashSet<string> paths = GetPackagePaths(buildings, props, trees, vehicles, indirectProps, indirectTrees);
 
                     H1("The following loaded assets are currently unnecessary (not used in this city)");
-                    Italics("There are three reasons why an asset may appear in this section: (a) The asset is enabled but unused (b) The asset is a prop or tree in an enabled but unused building or park (c) The asset is included in an enabled district style and unused.");
+                    Italics("There are three reasons why an asset may appear in this section: (a) The asset is enabled but unused (b) The asset is a prop or tree in an enabled but unused building or park (c) The asset is included in an enabled district style but unused.");
                     Italics("Notice that network assets are not yet supported in this section.");
                     Save(AssetLoader.instance.Buildings.Where(s => !AssetLoader.instance.IsIntersection(s) && !Used(s, paths)).ToList(), "Buildings and parks");
                     Save(AssetLoader.instance.Props.Where(s => !Used(s, paths)).ToList(), "Props");
