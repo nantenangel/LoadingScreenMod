@@ -57,7 +57,7 @@ namespace LoadingScreenMod
 
                 if (activated)
                 {
-                    Util.DebugPrint("Options: 524", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
+                    Util.DebugPrint("Options: 715", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
                         Settings.settings.shareMaterials, Settings.settings.shareMeshes, Settings.settings.reportAssets);
 
                     LoadingManager.instance.SetSceneProgress(0f);

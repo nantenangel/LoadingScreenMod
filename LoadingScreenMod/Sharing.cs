@@ -61,7 +61,7 @@ namespace LoadingScreenMod
                     string name = asset.name, checksum = asset.checksum;
                     Package.AssetType type = asset.type;
 
-                    if (!Supports(type) || name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot"))
+                    if (!Supports(type) || name.EndsWith("_SteamPreview") || name.EndsWith("_Snapshot") || name == "UserAssetData")
                         continue;
 
                     // Some workshop assets contain hundreds of materials. Probably by mistake.
