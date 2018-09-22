@@ -248,6 +248,8 @@ namespace LoadingScreenModTest
                     currentProgress = levels[i].Value;
                 }
 
+                Util.DebugPrint("Revert at", Profiling.Millis);
+                PrefabLoader.instance?.Revert();
                 Queue<IEnumerator> mainThreadQueue = (Queue<IEnumerator>) queueField.GetValue(LoadingManager.instance);
                 Util.DebugPrint("mainThreadQueue len", mainThreadQueue.Count, "at", Profiling.Millis);
 
@@ -348,6 +350,7 @@ namespace LoadingScreenModTest
 
             LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "LoadLevelComplete", mode)); // OnLevelLoaded
 
+            PrefabLoader.instance?.Dispose();
             LoadingManager.instance.QueueLoadingAction(LoadingComplete());
             knownFastLoads.Add(asset.fullName);
             Util.DebugPrint("Waiting at", Profiling.Millis);
@@ -372,6 +375,7 @@ namespace LoadingScreenModTest
         /// </summary>
         KeyValuePair<string, float>[] SetLevels()
         {
+            PrefabLoader.Create().Deploy();
             MethodInfo dlcMethod = typeof(LoadingManager).GetMethod("DLC", BindingFlags.Instance | BindingFlags.NonPublic);
             LoadingManager.instance.m_supportsExpansion[0] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 369150u });
             LoadingManager.instance.m_supportsExpansion[1] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 420610u });
@@ -514,7 +518,7 @@ namespace LoadingScreenModTest
         /// <summary>
         /// Checks if buildings, props, trees, and vehicles have been deserialized from the savegame.
         /// </summary>
-        static bool IsSaveDeserialized() => GetSimProgress() > 54;
+        internal static bool IsSaveDeserialized() => GetSimProgress() > 54;
 
         /// <summary>
         /// Returns the progress of simulation deserialization.

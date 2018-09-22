@@ -21,7 +21,7 @@ namespace LoadingScreenModTest
             if (!created)
             {
                 LevelLoader.Create().Deploy();
-                //new PackageManagerFix().Deploy();
+                PackageManagerFix.Create().Deploy();
                 created = true;
                 //Trace.Start();
             }
@@ -30,7 +30,7 @@ namespace LoadingScreenModTest
         void Stopping()
         {
             LevelLoader.instance?.Dispose();
-            //PackageManagerFix.instance?.Dispose();
+            PackageManagerFix.instance?.Dispose();
             created = false;
             //Trace.Flush();
             //Trace.Stop();

@@ -255,25 +255,18 @@ namespace LoadingScreenModTest
 
         public static T instance
         {
-            get
-            {
-                return Instance<T>.inst;
-            }
-
-            set
-            {
-                Instance<T>.inst = value;
-            }
+            get => inst;
+            set => inst = value;
         }
 
-        public static bool HasInstance => Instance<T>.inst != null;
+        public static bool HasInstance => inst != null;
 
         internal static T Create()
         {
-            if (Instance<T>.inst == null)
-                Instance<T>.inst = (T) Activator.CreateInstance(typeof(T), true);
+            if (inst == null)
+                inst = (T) Activator.CreateInstance(typeof(T), true);
 
-            return Instance<T>.inst;
+            return inst;
         }
     }
 }

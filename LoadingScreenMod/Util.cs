@@ -108,7 +108,7 @@ namespace LoadingScreenModTest
 
         public static List<T> ToList<T>(this T[] array, int count)
         {
-            List<T> ret = new List<T>(count + 5);
+            List<T> ret = new List<T>(count + 8);
 
             for (int i = 0; i < count; i++)
                 ret.Add(array[i]);

@@ -26,7 +26,8 @@
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>
+    </DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <UseVSHostingProcess>false</UseVSHostingProcess>
@@ -58,6 +59,7 @@
     <Compile Include="AssetLoader.cs" />
     <Compile Include="AssetReport.cs" />
     <Compile Include="CustomDeserializer.cs" />
+    <Compile Include="PrefabLoader.cs" />
     <Compile Include="Types.cs" />
     <Compile Include="DetourUtility.cs" />
     <Compile Include="LevelLoader.cs" />
