@@ -285,17 +285,5 @@ namespace LoadingScreenModTest
                         w.WriteLine(s);
                     }
         }
-
-        interface ISkip
-        {
-            bool Skip(string name);
-        }
-
-        class SkipName : ISkip
-        {
-            readonly string skippedName;
-            public SkipName(string s) => skippedName = s;
-            public bool Skip(string name) => name == skippedName;
-        }
     }
 }

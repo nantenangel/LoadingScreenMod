@@ -11,7 +11,7 @@ namespace LoadingScreenModTest
     {
         const string FILENAME = "LoadingScreenMod.xml";
 
-        public int version = 5;
+        public int version = 6;
         public bool loadEnabled = true;
         public bool loadUsed = true;
         public bool shareTextures = true;
@@ -22,6 +22,7 @@ namespace LoadingScreenModTest
 
         static Settings singleton;
         internal static string DefaultSavePath => Path.Combine(Path.Combine(DataLocation.localApplicationData, "Report"), "LoadingScreenMod");
+        internal static string DefaultSkipFile => Path.Combine(Path.Combine(DataLocation.localApplicationData, "SkippedPrefabs"), "skip.txt");
 
         public static Settings settings
         {

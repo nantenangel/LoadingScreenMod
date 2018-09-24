@@ -116,10 +116,20 @@ namespace LoadingScreenModTest
             return ret;
         }
 
+        public static Dictionary<string, int> GetEnumMap(Type enumType)
+        {
+            var enums = Enum.GetValues(enumType);
+            var map = new Dictionary<string, int>(enums.Length);
+
+            foreach (var e in enums)
+                map[e.ToString().ToUpperInvariant()] = (int) e;
+
+            return map;
+        }
+
         internal static PublishedFileId GetPackageId(string packageName)
         {
-            ulong id;
-            return ulong.TryParse(packageName, out id) ? new PublishedFileId(id) : PublishedFileId.invalid;
+            return ulong.TryParse(packageName, out ulong id) ? new PublishedFileId(id) : PublishedFileId.invalid;
         }
     }
 

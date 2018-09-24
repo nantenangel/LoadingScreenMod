@@ -60,6 +60,7 @@
     <Compile Include="AssetReport.cs" />
     <Compile Include="CustomDeserializer.cs" />
     <Compile Include="PrefabLoader.cs" />
+    <Compile Include="Skipping.cs" />
     <Compile Include="Types.cs" />
     <Compile Include="DetourUtility.cs" />
     <Compile Include="LevelLoader.cs" />
