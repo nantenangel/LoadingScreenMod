@@ -5,12 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace LoadingScreenModTest
 {
-    interface IMatcher
-    {
-        bool Matches(string name);
-    }
-
-    sealed class ByNames : IMatcher
+    sealed class ByNames
     {
         readonly HashSet<string> names = new HashSet<string>();
 
@@ -19,7 +14,7 @@ namespace LoadingScreenModTest
         public void AddName(string name) => names.Add(name);
     }
 
-    sealed class ByPatterns : IMatcher
+    sealed class ByPatterns
     {
         readonly List<Regex> patterns = new List<Regex>();
 
@@ -49,20 +44,21 @@ namespace LoadingScreenModTest
             this.subServices = new ByPatterns[subServiceCount];
         }
 
-        internal bool Matches(string name)
+        internal bool Matches(PrefabInfo prefab)
         {
             return false;
         }
 
-        internal static void Load(string filePath)
+        internal static Matcher[] Load(string filePath)
         {
+            Dictionary<string, int> servicePrefixes = Util.GetEnumMap(typeof(ItemClass.Service));
+            Dictionary<string, int> subServicePrefixes = Util.GetEnumMap(typeof(ItemClass.SubService));
+            Matcher skip = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
+            Matcher except = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
+
             try
             {
                 string[] lines = File.ReadAllLines(filePath);
-                Dictionary<string, int> servicePrefixes = Util.GetEnumMap(typeof(ItemClass.Service));
-                Dictionary<string, int> subServicePrefixes = Util.GetEnumMap(typeof(ItemClass.SubService));
-                Matcher skip = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
-                Matcher except = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
                 Regex syntax = new Regex(@"^(?:([Ee]xcept|[Ss]kip)\s*:)?(?:([a-zA-Z ]+):)?(.*)$");
 
                 foreach (string raw in lines)
@@ -72,7 +68,7 @@ namespace LoadingScreenModTest
                     if (string.IsNullOrEmpty(line) || line.StartsWith("#"))
                         continue;
 
-                    bool isSkip;
+                    Matcher matcher;
                     string prefix, patternOrName;
                     int i = line.IndexOf(':');
                     int j = line.IndexOf('@');
@@ -90,7 +86,7 @@ namespace LoadingScreenModTest
                         }
 
                         string s = groups[1].Value;
-                        isSkip = string.IsNullOrEmpty(s) || s.ToUpperInvariant() == "SKIP";
+                        matcher = string.IsNullOrEmpty(s) || s.ToUpperInvariant() == "SKIP" ? skip : except;
 
                         s = groups[2].Value;
                         prefix = string.IsNullOrEmpty(s) ? string.Empty : s.Replace(" ", string.Empty).ToUpperInvariant();
@@ -100,27 +96,62 @@ namespace LoadingScreenModTest
                     }
                     else
                     {
-                        isSkip = true;
+                        matcher = skip;
                         prefix = string.Empty;
                         patternOrName = line;
                     }
 
-                    Matcher matcher = isSkip ? skip : except;
-                    ByPatterns patterns;
+                    ByPatterns[] array;
+                    int index;
+                    string pattern;
 
                     if (prefix == string.Empty)
-                        patterns = matcher.byPatterns;
-                    else if (servicePrefixes.TryGetValue(prefix, out int index))
-                        patterns = matcher.services[index];
+                    {
+                        array = null;
+                        index = 0;
+                    }
+                    else if (servicePrefixes.TryGetValue(prefix, out index))
+                        array = matcher.services;
                     else if (subServicePrefixes.TryGetValue(prefix, out index))
-                        patterns = matcher.subServices[index];
+                        array = matcher.subServices;
                     else
                     {
                         Msg(line, "unknown prefix");
                         continue;
                     }
 
-                    // AsPatternOrName(patternOrName, out bool isPattern, out bool isError)
+                    if (patternOrName.StartsWith("@"))
+                        pattern = patternOrName.Substring(1);
+                    else if (patternOrName.IndexOf('*') >= 0 || patternOrName.IndexOf('?') >= 0)
+                    {
+                        if (patternOrName.IndexOf(':') >= 0)
+                        {
+                            Msg(line, "syntax error");
+                            continue;
+                        }
+
+                        pattern = "^" + patternOrName.ToUpperInvariant().Replace('?', '.').Replace("*", ".*") + "$";
+                    }
+                    else
+                        pattern = null;
+
+                    if (pattern != null)
+                        if (array == null)
+                            matcher.byPatterns.AddPattern(pattern);
+                        else
+                        {
+                            if (array[index] == null)
+                                array[index] = new ByPatterns();
+
+                            array[index].AddPattern(pattern);
+                        }
+                    else
+                    {
+                        if (array != null)
+                            Msg(line, "service prefix ignored because it is not needed");
+
+                        matcher.byNames.AddName(patternOrName.ToUpperInvariant());
+                    }
                 }
             }
             catch (Exception e)
@@ -128,16 +159,8 @@ namespace LoadingScreenModTest
                 Util.DebugPrint("Matcher.Load");
                 UnityEngine.Debug.LogException(e);
             }
-        }
 
-        static string AsPattern(string s)
-        {
-            if (s.StartsWith("@"))
-                return s.Substring(1);
-            else if (s.IndexOf('*') >= 0 || s.IndexOf('?') >= 0)
-                return "^" + s.Replace('?', '.').Replace("*", ".*") + "$";
-            else
-                return string.Empty;
+            return new Matcher[] { skip, except };
         }
 
         static void Msg(string line, string msg) => Util.DebugPrint(line + " : " + msg);
