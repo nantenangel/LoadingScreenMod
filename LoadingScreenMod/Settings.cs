@@ -18,7 +18,10 @@ namespace LoadingScreenModTest
         public bool shareMaterials = true;
         public bool shareMeshes = true;
         public bool reportAssets = false;
-        public string reportDir = "";
+        public string reportDir = string.Empty;
+        public bool skipPrefabs = false;
+        public string skipFile = string.Empty;
+        private DateTime skipFileTimestamp = DateTime.MinValue;
 
         static Settings singleton;
         internal static string DefaultSavePath => Path.Combine(Path.Combine(DataLocation.localApplicationData, "Report"), "LoadingScreenMod");
@@ -53,7 +56,10 @@ namespace LoadingScreenModTest
             if (string.IsNullOrEmpty(s.reportDir = s.reportDir?.Trim()))
                 s.reportDir = DefaultSavePath;
 
-            s.version = 5;
+            if (string.IsNullOrEmpty(s.skipFile = s.skipFile?.Trim()))
+                s.skipFile = DefaultSkipFile;
+
+            s.version = 6;
             return s;
         }
 
@@ -73,6 +79,23 @@ namespace LoadingScreenModTest
             }
         }
 
+        void LoadSkipFile()
+        {
+            try
+            {
+                if (skipPrefabs && File.Exists(skipFile) && skipFileTimestamp < File.GetLastWriteTimeUtc(skipFile))
+                {
+                    Matcher[] matchers = Matcher.Load(skipFile);
+                    skipFileTimestamp = File.GetLastWriteTimeUtc(skipFile);
+                }
+            }
+            catch (Exception e)
+            {
+                Util.DebugPrint("Settings.LoadSkipFile");
+                UnityEngine.Debug.LogException(e);
+            }
+        }
+
         internal void OnSettingsUI(UIHelperBase helper)
         {
             UIHelper group = CreateGroup(helper, "Loading options for custom assets", "Custom means workshop assets and assets created by yourself");
@@ -85,6 +108,10 @@ namespace LoadingScreenModTest
             group = CreateGroup(helper, "Reports");
             Check(group, "Save assets report in this directory:", "Save a report of missing, failed and used assets", reportAssets, b => { reportAssets = b; Save(); });
             TextField(group, reportDir, OnReportDirChanged);
+
+            group = CreateGroup(helper, "Prefab skipping");
+            Check(group, "Skip the prefab buildings named in this file:", "Prefab means the built-in assets in the game", skipPrefabs, b => { skipPrefabs = b; Save(); });
+            TextField(group, skipFile, OnSkipFileChanged);
         }
 
         UIHelper CreateGroup(UIHelperBase parent, string name, string tooltip = null)
@@ -124,7 +151,6 @@ namespace LoadingScreenModTest
             try
             {
                 UITextField field = group.AddTextfield(" ", " ", action, null) as UITextField;
-                field.maxLength = 1024;
                 field.text = text;
                 field.width *= 2.8f;
                 UIComponent parent = field.parent;
@@ -148,6 +174,16 @@ namespace LoadingScreenModTest
             if (text != reportDir)
             {
                 reportDir = text;
+                Save();
+            }
+        }
+
+        void OnSkipFileChanged(string text)
+        {
+            if (text != skipFile)
+            {
+                skipFile = text;
+                skipFileTimestamp = DateTime.MinValue;
                 Save();
             }
         }

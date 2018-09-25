@@ -55,109 +55,100 @@ namespace LoadingScreenModTest
             Dictionary<string, int> subServicePrefixes = Util.GetEnumMap(typeof(ItemClass.SubService));
             Matcher skip = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
             Matcher except = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
+            string[] lines = File.ReadAllLines(filePath);
+            Regex syntax = new Regex(@"^(?:([Ee]xcept|[Ss]kip)\s*:)?(?:([a-zA-Z ]+):)?(.*)$");
 
-            try
+            foreach (string raw in lines)
             {
-                string[] lines = File.ReadAllLines(filePath);
-                Regex syntax = new Regex(@"^(?:([Ee]xcept|[Ss]kip)\s*:)?(?:([a-zA-Z ]+):)?(.*)$");
+                string line = raw.Trim();
 
-                foreach (string raw in lines)
+                if (string.IsNullOrEmpty(line) || line.StartsWith("#"))
+                    continue;
+
+                Matcher matcher;
+                string prefix, patternOrName;
+                int i = line.IndexOf(':');
+                int j = line.IndexOf('@');
+                bool isComplex = i > 0 && (i < j || j < 0);
+
+                if (isComplex)
                 {
-                    string line = raw.Trim();
+                    Match m = syntax.Match(line);
+                    GroupCollection groups;
 
-                    if (string.IsNullOrEmpty(line) || line.StartsWith("#"))
-                        continue;
-
-                    Matcher matcher;
-                    string prefix, patternOrName;
-                    int i = line.IndexOf(':');
-                    int j = line.IndexOf('@');
-                    bool isComplex = i > 0 && (i < j || j < 0);
-
-                    if (isComplex)
+                    if (!m.Success || (groups = m.Groups).Count != 4)
                     {
-                        Match m = syntax.Match(line);
-                        GroupCollection groups;
-
-                        if (!m.Success || (groups = m.Groups).Count != 4)
-                        {
-                            Msg(line, "syntax error");
-                            continue;
-                        }
-
-                        string s = groups[1].Value;
-                        matcher = string.IsNullOrEmpty(s) || s.ToUpperInvariant() == "SKIP" ? skip : except;
-
-                        s = groups[2].Value;
-                        prefix = string.IsNullOrEmpty(s) ? string.Empty : s.Replace(" ", string.Empty).ToUpperInvariant();
-
-                        s = groups[3].Value;
-                        patternOrName = string.IsNullOrEmpty(s) ? string.Empty : s.TrimStart(null);
-                    }
-                    else
-                    {
-                        matcher = skip;
-                        prefix = string.Empty;
-                        patternOrName = line;
-                    }
-
-                    ByPatterns[] array;
-                    int index;
-                    string pattern;
-
-                    if (prefix == string.Empty)
-                    {
-                        array = null;
-                        index = 0;
-                    }
-                    else if (servicePrefixes.TryGetValue(prefix, out index))
-                        array = matcher.services;
-                    else if (subServicePrefixes.TryGetValue(prefix, out index))
-                        array = matcher.subServices;
-                    else
-                    {
-                        Msg(line, "unknown prefix");
+                        Msg(line, "syntax error");
                         continue;
                     }
 
-                    if (patternOrName.StartsWith("@"))
-                        pattern = patternOrName.Substring(1);
-                    else if (patternOrName.IndexOf('*') >= 0 || patternOrName.IndexOf('?') >= 0)
-                    {
-                        if (patternOrName.IndexOf(':') >= 0)
-                        {
-                            Msg(line, "syntax error");
-                            continue;
-                        }
+                    string s = groups[1].Value;
+                    matcher = string.IsNullOrEmpty(s) || s.ToUpperInvariant() == "SKIP" ? skip : except;
 
-                        pattern = "^" + patternOrName.ToUpperInvariant().Replace('?', '.').Replace("*", ".*") + "$";
-                    }
-                    else
-                        pattern = null;
+                    s = groups[2].Value;
+                    prefix = string.IsNullOrEmpty(s) ? string.Empty : s.Replace(" ", string.Empty).ToUpperInvariant();
 
-                    if (pattern != null)
-                        if (array == null)
-                            matcher.byPatterns.AddPattern(pattern);
-                        else
-                        {
-                            if (array[index] == null)
-                                array[index] = new ByPatterns();
-
-                            array[index].AddPattern(pattern);
-                        }
-                    else
-                    {
-                        if (array != null)
-                            Msg(line, "service prefix ignored because it is not needed");
-
-                        matcher.byNames.AddName(patternOrName.ToUpperInvariant());
-                    }
+                    s = groups[3].Value;
+                    patternOrName = string.IsNullOrEmpty(s) ? string.Empty : s.TrimStart(null);
                 }
-            }
-            catch (Exception e)
-            {
-                Util.DebugPrint("Matcher.Load");
-                UnityEngine.Debug.LogException(e);
+                else
+                {
+                    matcher = skip;
+                    prefix = string.Empty;
+                    patternOrName = line;
+                }
+
+                ByPatterns[] array;
+                int index;
+                string pattern;
+
+                if (prefix == string.Empty)
+                {
+                    array = null;
+                    index = 0;
+                }
+                else if (servicePrefixes.TryGetValue(prefix, out index))
+                    array = matcher.services;
+                else if (subServicePrefixes.TryGetValue(prefix, out index))
+                    array = matcher.subServices;
+                else
+                {
+                    Msg(line, "unknown prefix");
+                    continue;
+                }
+
+                if (patternOrName.StartsWith("@"))
+                    pattern = patternOrName.Substring(1);
+                else if (patternOrName.IndexOf('*') >= 0 || patternOrName.IndexOf('?') >= 0)
+                {
+                    if (patternOrName.IndexOf(':') >= 0)
+                    {
+                        Msg(line, "syntax error");
+                        continue;
+                    }
+
+                    pattern = "^" + patternOrName.ToUpperInvariant().Replace('?', '.').Replace("*", ".*") + "$";
+                }
+                else
+                    pattern = null;
+
+                if (pattern != null)
+                    if (array == null)
+                        matcher.byPatterns.AddPattern(pattern);
+                    else
+                    {
+                        if (array[index] == null)
+                            array[index] = new ByPatterns();
+
+                        array[index].AddPattern(pattern);
+                    }
+                else
+                {
+                    if (array != null)
+                        Msg(line, "service prefix ignored because it is not needed");
+
+                    matcher.byNames.AddName(patternOrName.ToUpperInvariant());
+                }
             }
 
             return new Matcher[] { skip, except };
