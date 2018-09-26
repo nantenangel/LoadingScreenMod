@@ -29,7 +29,18 @@ namespace LoadingScreenModTest
             return false;
         }
 
-        public void AddPattern(string pattern) => patterns.Add(new Regex(pattern));
+        public void AddPattern(string pattern)
+        {
+            try
+            {
+                patterns.Add(new Regex(pattern));
+            }
+            catch (Exception e)
+            {
+                Util.DebugPrint("Error in user regex:");
+                UnityEngine.Debug.LogException(e);
+            }
+        }
     }
 
     sealed class Matcher
@@ -56,7 +67,7 @@ namespace LoadingScreenModTest
             Matcher skip = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
             Matcher except = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
             string[] lines = File.ReadAllLines(filePath);
-            Regex syntax = new Regex(@"^(?:([Ee]xcept|[Ss]kip)\s*:)?(?:([a-zA-Z ]+):)?(.*)$");
+            Regex syntax = new Regex(@"^(?:([Ee]xcept|[Ss]kip)\s*:)?(?:([a-zA-Z \t]+):)?\s*(@.+|[^@:\t]+)$");
 
             foreach (string raw in lines)
             {
@@ -84,12 +95,9 @@ namespace LoadingScreenModTest
 
                     string s = groups[1].Value;
                     matcher = string.IsNullOrEmpty(s) || s.ToUpperInvariant() == "SKIP" ? skip : except;
-
                     s = groups[2].Value;
-                    prefix = string.IsNullOrEmpty(s) ? string.Empty : s.Replace(" ", string.Empty).ToUpperInvariant();
-
-                    s = groups[3].Value;
-                    patternOrName = string.IsNullOrEmpty(s) ? string.Empty : s.TrimStart(null);
+                    prefix = string.IsNullOrEmpty(s) ? string.Empty : s.Replace(" ", string.Empty).Replace("\t", string.Empty).ToUpperInvariant();
+                    patternOrName = groups[3].Value;
                 }
                 else
                 {
@@ -120,15 +128,7 @@ namespace LoadingScreenModTest
                 if (patternOrName.StartsWith("@"))
                     pattern = patternOrName.Substring(1);
                 else if (patternOrName.IndexOf('*') >= 0 || patternOrName.IndexOf('?') >= 0)
-                {
-                    if (patternOrName.IndexOf(':') >= 0)
-                    {
-                        Msg(line, "syntax error");
-                        continue;
-                    }
-
                     pattern = "^" + patternOrName.ToUpperInvariant().Replace('?', '.').Replace("*", ".*") + "$";
-                }
                 else
                     pattern = null;
 
@@ -154,38 +154,7 @@ namespace LoadingScreenModTest
             return new Matcher[] { skip, except };
         }
 
-        static void Msg(string line, string msg) => Util.DebugPrint(line + " : " + msg);
-
-        static void TestRegex()
-        {
-            //Regex pattern = new Regex(@"^(?:([a-zA-Z]+)\s*:\s*){1,2}(.*)$");
-            Regex pattern = new Regex(@"^(?:([Ee]xcept|[Ss]kip)\s*:)?(?:([a-zA-Z ]+)\s*:)?(.*)$");
-
-            string[] ss = {
-                @"Oil 3x3 Processing",
-                @"IndustrialOil:*Processing*",
-                @"Except:H1 2x2 Sweatshop06",
-                @"except : IndustrialGeneric:*Sweat:shop*",
-                @"Except: Residential Low Eco: *Sweatshop*",
-                @"IndustrialOil:@.*Processing.*",
-                @"skip: IndustrialOil:",
-                @"Industrial  Oil : ???"};
-
-            foreach (string s in ss)
-            {
-                Console.WriteLine();
-                Console.WriteLine(s);
-                Match m = pattern.Match(s);
-
-                if (m.Success)
-                {
-                    GroupCollection groups = m.Groups;
-
-                    for (int i = 1; i < groups.Count; i++)
-                        Console.WriteLine(" " + i + ": " + groups[i].Value);
-                }
-            }
-        }
+        static void Msg(string line, string msg) => Util.DebugPrint(line + " -> " + msg);
 
         /*
          * Oil 3x3 Processing

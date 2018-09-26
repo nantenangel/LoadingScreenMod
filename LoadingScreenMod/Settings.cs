@@ -23,6 +23,10 @@ namespace LoadingScreenModTest
         public string skipFile = string.Empty;
         private DateTime skipFileTimestamp = DateTime.MinValue;
 
+        internal bool SkipPrefabs => skipPrefabs && SkipMatcher != null && ExceptMatcher != null;
+        internal Matcher SkipMatcher { get; private set; }
+        internal Matcher ExceptMatcher { get; private set; }
+
         static Settings singleton;
         internal static string DefaultSavePath => Path.Combine(Path.Combine(DataLocation.localApplicationData, "Report"), "LoadingScreenMod");
         internal static string DefaultSkipFile => Path.Combine(Path.Combine(DataLocation.localApplicationData, "SkippedPrefabs"), "skip.txt");
@@ -79,20 +83,26 @@ namespace LoadingScreenModTest
             }
         }
 
-        void LoadSkipFile()
+        internal void LoadSkipFile()
         {
             try
             {
-                if (skipPrefabs && File.Exists(skipFile) && skipFileTimestamp < File.GetLastWriteTimeUtc(skipFile))
+                DateTime stamp;
+
+                if (skipPrefabs && File.Exists(skipFile) && skipFileTimestamp < (stamp = File.GetLastWriteTimeUtc(skipFile)))
                 {
                     Matcher[] matchers = Matcher.Load(skipFile);
-                    skipFileTimestamp = File.GetLastWriteTimeUtc(skipFile);
+                    SkipMatcher = matchers[0];
+                    ExceptMatcher = matchers[1];
+                    skipFileTimestamp = stamp;
                 }
             }
             catch (Exception e)
             {
                 Util.DebugPrint("Settings.LoadSkipFile");
                 UnityEngine.Debug.LogException(e);
+                SkipMatcher = ExceptMatcher = null;
+                skipFileTimestamp = DateTime.MinValue;
             }
         }
 
@@ -183,6 +193,7 @@ namespace LoadingScreenModTest
             if (text != skipFile)
             {
                 skipFile = text;
+                SkipMatcher = ExceptMatcher = null;
                 skipFileTimestamp = DateTime.MinValue;
                 Save();
             }
