@@ -8,7 +8,7 @@ namespace LoadingScreenModTest
     public class DetourUtility<T> : Instance<T>
     {
         internal const BindingFlags FLAGS = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
-        readonly List<Detour> detours = new List<Detour>();
+        readonly List<Detour> detours = new List<Detour>(2);
 
         protected void init(Type fromType, string fromMethod, Type toType, string toMethod, int args = -1)
         {

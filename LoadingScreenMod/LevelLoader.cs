@@ -57,8 +57,8 @@ namespace LoadingScreenModTest
 
                 if (activated)
                 {
-                    Util.DebugPrint("Options: 715", Settings.settings.loadEnabled, Settings.settings.loadUsed, Settings.settings.shareTextures,
-                        Settings.settings.shareMaterials, Settings.settings.shareMeshes, Settings.settings.reportAssets);
+                    Settings s = Settings.settings;
+                    Util.DebugPrint("Options: 927", s.loadEnabled, s.loadUsed, s.shareTextures, s.shareMaterials, s.shareMeshes, s.reportAssets, s.skipPrefabs);
 
                     LoadingManager.instance.SetSceneProgress(0f);
                     instance.cityName = asset?.name ?? "NewGame";
@@ -121,6 +121,7 @@ namespace LoadingScreenModTest
 
             AsyncTask task = Singleton<SimulationManager>.instance.AddAction("Loading", (IEnumerator) Util.Invoke(LoadingManager.instance, "LoadSimulationData", asset, ngs));
             LoadSaveStatus.activeTask = task;
+            Settings.settings.LoadSkipFile();
 
             if (LoadingManager.instance.m_loadedEnvironment == null) // loading from main menu
             {
@@ -248,8 +249,8 @@ namespace LoadingScreenModTest
                     currentProgress = levels[i].Value;
                 }
 
-                Util.DebugPrint("Revert at", Profiling.Millis);
                 PrefabLoader.instance?.Revert();
+                Util.DebugPrint("PrefabLoader Revert at", Profiling.Millis);
                 Queue<IEnumerator> mainThreadQueue = (Queue<IEnumerator>) queueField.GetValue(LoadingManager.instance);
                 Util.DebugPrint("mainThreadQueue len", mainThreadQueue.Count, "at", Profiling.Millis);
 
@@ -375,7 +376,9 @@ namespace LoadingScreenModTest
         /// </summary>
         KeyValuePair<string, float>[] SetLevels()
         {
-            PrefabLoader.Create().Deploy();
+            if (Settings.settings.SkipPrefabs)
+                PrefabLoader.Create().Deploy();
+
             MethodInfo dlcMethod = typeof(LoadingManager).GetMethod("DLC", BindingFlags.Instance | BindingFlags.NonPublic);
             LoadingManager.instance.m_supportsExpansion[0] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 369150u });
             LoadingManager.instance.m_supportsExpansion[1] = (bool) dlcMethod.Invoke(LoadingManager.instance, new object[] { 420610u });

@@ -12,6 +12,7 @@ namespace LoadingScreenModTest
     {
         readonly FieldInfo hasQueuedActionsField = typeof(LoadingManager).GetField("m_hasQueuedActions", BindingFlags.NonPublic | BindingFlags.Instance);
         readonly FieldInfo nameField, prefabsField, replacesField;
+        Matcher skipMatcher = Settings.settings.SkipMatcher, exceptMatcher = Settings.settings.ExceptMatcher;
         internal HashSet<string> skippedPrefabs = new HashSet<string>();
         HashSet<string> simulationPrefabs;
         bool saveDeserialized;
@@ -37,6 +38,7 @@ namespace LoadingScreenModTest
             Util.DebugPrint("Skipped", skippedPrefabs.Count, "prefabs");
             base.Dispose();
             skippedPrefabs.Clear(); skippedPrefabs = null;
+            skipMatcher = exceptMatcher = null;
         }
 
         public static void QueueLoadingAction(LoadingManager lm, IEnumerator action)
@@ -178,14 +180,9 @@ namespace LoadingScreenModTest
                         {
                             string fullName = PrefabCollection<BuildingInfo>.PrefabName(buffer[i].m_infoIndex);
 
-                            if (!string.IsNullOrEmpty(fullName))
-                            {
-                                int j = fullName.IndexOf('.');
-
-                                // Recognize prefabs:
-                                if (j < 0)
-                                    simulationPrefabs.Add(fullName);
-                            }
+                            // Recognize prefabs.
+                            if (!string.IsNullOrEmpty(fullName) && fullName.IndexOf('.') < 0)
+                                simulationPrefabs.Add(fullName);
                         }
                 }
                 catch (Exception e)

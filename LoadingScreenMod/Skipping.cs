@@ -55,9 +55,16 @@ namespace LoadingScreenModTest
             this.subServices = new ByPatterns[subServiceCount];
         }
 
-        internal bool Matches(PrefabInfo prefab)
+        internal bool Matches(BuildingInfo info)
         {
-            return false;
+            string name = info.gameObject.name;
+
+            if (byNames.Matches(name) || byPatterns.Matches(name))
+                return true;
+
+            ByPatterns servicePatterns = services[(int) info.GetService()];
+            ByPatterns subServicePatterns = subServices[(int) info.GetSubService()];
+            return (servicePatterns?.Matches(name) ?? false) || (subServicePatterns?.Matches(name) ?? false);
         }
 
         internal static Matcher[] Load(string filePath)
@@ -67,7 +74,7 @@ namespace LoadingScreenModTest
             Matcher skip = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
             Matcher except = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
             string[] lines = File.ReadAllLines(filePath);
-            Regex syntax = new Regex(@"^(?:([Ee]xcept|[Ss]kip)\s*:)?(?:([a-zA-Z \t]+):)?\s*(@.+|[^@:\t]+)$");
+            Regex syntax = new Regex(@"^(?:([Ee]xcept|[Ss]kip)\s*:)?(?:([a-zA-Z \t]+):)?\s*([^@:\t]+|@.+)$");
 
             foreach (string raw in lines)
             {

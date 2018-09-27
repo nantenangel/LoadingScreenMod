@@ -89,7 +89,7 @@ namespace LoadingScreenModTest
             {
                 DateTime stamp;
 
-                if (skipPrefabs && File.Exists(skipFile) && skipFileTimestamp < (stamp = File.GetLastWriteTimeUtc(skipFile)))
+                if (skipPrefabs && File.Exists(skipFile) && skipFileTimestamp != (stamp = File.GetLastWriteTimeUtc(skipFile)))
                 {
                     Matcher[] matchers = Matcher.Load(skipFile);
                     SkipMatcher = matchers[0];
