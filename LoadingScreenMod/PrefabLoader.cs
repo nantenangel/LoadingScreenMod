@@ -64,7 +64,7 @@ namespace LoadingScreenModTest
                 if (isBuildingCollection)
                 {
                     instance.Desc(action);
-                    //action = instance.Skip(action);
+                    action = instance.Skip(action);
                 }
 
                 if (action != null)
@@ -79,7 +79,7 @@ namespace LoadingScreenModTest
             finally
             {
                 Monitor.Exit(LevelLoader.instance.loadingLock);
-                Util.DebugPrint(action.GetType().FullName, "at", Profiling.Millis);
+                Util.DebugPrint("xxx", action.GetType().FullName, "at", Profiling.Millis);
             }
         }
 
@@ -94,13 +94,15 @@ namespace LoadingScreenModTest
                 if (replaces == null)
                     replaces = new string[0];
 
-                List<BuildingInfo> keptPrefabs = null; List<string> keptReplaces = null;
+                Util.DebugPrint("-->", name, "at", Profiling.Millis, "prefabs:", prefabs.Length, "rep:", Util.OnJoin("; ", replaces));
+
                 LookupSimulationPrefabs();
+                List<BuildingInfo> keptPrefabs = null; List<string> keptReplaces = null;
 
                 for (int i = 0; i < prefabs.Length; i++)
                 {
                     BuildingInfo info = prefabs[i];
-                    string replace = i < replaces.Length ? replaces[i] : null;
+                    string replace = i < replaces.Length ? replaces[i] : string.Empty;
 
                     if (Skip(info, replace))
                     {
@@ -155,9 +157,33 @@ namespace LoadingScreenModTest
             return action;
         }
 
-        static bool Skip(BuildingInfo info, string replace)
+        bool Skip(BuildingInfo info, string replace)
         {
-            string name = info.gameObject.name;
+            if (!string.IsNullOrEmpty(replace))
+                Util.DebugPrint(info.gameObject.name, "  replaces", replace);
+            else
+                Util.DebugPrint(info.gameObject.name);
+
+            if (skipMatcher.Matches(info))
+            {
+                string name = info.gameObject.name;
+
+                if (IsSimulationPrefab(name, replace))
+                {
+                    Util.DebugPrint(name + " -> not skipped (used in city)");
+                    return false;
+                }
+
+                if (exceptMatcher.Matches(info))
+                {
+                    Util.DebugPrint(name + " -> not skipped (excepted)");
+                    return false;
+                }
+
+                Util.DebugPrint(name + " -> skipped");
+                return false;
+            }
+
             return false;
         }
 
@@ -189,12 +215,17 @@ namespace LoadingScreenModTest
                 {
                     UnityEngine.Debug.LogException(e);
                 }
+
+                Console.WriteLine("LookupSimulationPrefabs:");
+
+                foreach (var name in simulationPrefabs)
+                    Console.WriteLine(name);
             }
         }
 
-        bool GotPrefab(string fullName, string replace)
+        bool IsSimulationPrefab(string name, string replace)
         {
-            if (simulationPrefabs.Contains(fullName))
+            if (simulationPrefabs.Contains(name))
                 return true;
 
             replace = replace?.Trim();
@@ -262,7 +293,6 @@ namespace LoadingScreenModTest
                 s = string.Concat(s, name);
 
             w.WriteLine(s);
-            Util.DebugPrint(name, "at", Profiling.Millis);
 
             if (Util.Get(action, "prefabs") is Array prefabs && prefabs.Rank == 1)
                 foreach (object o in prefabs)

@@ -57,7 +57,7 @@ namespace LoadingScreenModTest
 
         internal bool Matches(BuildingInfo info)
         {
-            string name = info.gameObject.name;
+            string name = info.gameObject.name.ToUpperInvariant();
 
             if (byNames.Matches(name) || byPatterns.Matches(name))
                 return true;

@@ -91,10 +91,12 @@ namespace LoadingScreenModTest
 
                 if (skipPrefabs && File.Exists(skipFile) && skipFileTimestamp != (stamp = File.GetLastWriteTimeUtc(skipFile)))
                 {
+                    int millis = Profiling.Millis;
                     Matcher[] matchers = Matcher.Load(skipFile);
                     SkipMatcher = matchers[0];
                     ExceptMatcher = matchers[1];
                     skipFileTimestamp = stamp;
+                    Util.DebugPrint("LoadSkipFile", skipFile, "in", Profiling.Millis - millis);
                 }
             }
             catch (Exception e)

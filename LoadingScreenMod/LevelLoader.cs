@@ -58,7 +58,7 @@ namespace LoadingScreenModTest
                 if (activated)
                 {
                     Settings s = Settings.settings;
-                    Util.DebugPrint("Options: 927", s.loadEnabled, s.loadUsed, s.shareTextures, s.shareMaterials, s.shareMeshes, s.reportAssets, s.skipPrefabs);
+                    Util.DebugPrint("Options: 929", s.loadEnabled, s.loadUsed, s.shareTextures, s.shareMaterials, s.shareMeshes, s.reportAssets, s.skipPrefabs);
 
                     LoadingManager.instance.SetSceneProgress(0f);
                     instance.cityName = asset?.name ?? "NewGame";
