@@ -22,7 +22,7 @@ namespace LoadingScreenModTest
         readonly HashSet<string> knownFastLoads = new HashSet<string>(); // savegames that can be fastloaded
         internal readonly FieldInfo queueField = typeof(LoadingManager).GetField("m_mainThreadQueue", BindingFlags.NonPublic | BindingFlags.Instance);
         internal object loadingLock;
-        DateTime fullLoadTime;
+        DateTime fullLoadTime, savedSkipStamp;
         bool simulationFailed, fastLoad;
 
         private LevelLoader()
@@ -121,7 +121,7 @@ namespace LoadingScreenModTest
 
             AsyncTask task = Singleton<SimulationManager>.instance.AddAction("Loading", (IEnumerator) Util.Invoke(LoadingManager.instance, "LoadSimulationData", asset, ngs));
             LoadSaveStatus.activeTask = task;
-            Settings.settings.LoadSkipFile();
+            DateTime skipStamp = Settings.settings.LoadSkipFile();
 
             if (LoadingManager.instance.m_loadedEnvironment == null) // loading from main menu
             {
@@ -154,14 +154,31 @@ namespace LoadingScreenModTest
 
                 if (fastLoad)
                 {
-                    if (Settings.settings.loadUsed && !IsKnownFastLoad(asset))
-                    {
-                        i = Profiling.Millis;
+                    i = Profiling.Millis;
+                    int known = -1;
 
+                    // Check custom asset availability.
+                    if (Settings.settings.loadUsed && (known = IsKnownFastLoad(asset)) == 0)
+                    {
                         while (Profiling.Millis - i < 5000 && !IsSaveDeserialized())
                             yield return null;
 
                         fastLoad = AllAssetsAvailable();
+                    }
+
+                    // Check building prefab availability.
+                    if (fastLoad)
+                    {
+                        if (skipStamp != savedSkipStamp)
+                            fastLoad = false;
+                        else if (Settings.settings.SkipPrefabs && (known == 0 || known == -1 && IsKnownFastLoad(asset) == 0))
+                        {
+                            if (known != 0)
+                                while (Profiling.Millis - i < 5000 && !IsSaveDeserialized())
+                                    yield return null;
+
+                            fastLoad = AllPrefabsAvailable();
+                        }
                     }
 
                     if (fastLoad) // optimized load
@@ -189,11 +206,13 @@ namespace LoadingScreenModTest
                 }
             }
 
+            // Full load.
             if (LoadingManager.instance.m_loadedEnvironment == null) // IL_27C
             {
                 AsyncOperation op;
                 knownFastLoads.Clear();
                 fullLoadTime = DateTime.Now;
+                savedSkipStamp = skipStamp;
                 loadingLock = Util.Get(LoadingManager.instance, "m_loadingLock");
 
                 if (!string.IsNullOrEmpty(playerScene))
@@ -473,21 +492,22 @@ namespace LoadingScreenModTest
         /// <summary>
         /// The savegame is a fast load if it is pre-known or its time stamp is newer than the full load time stamp.
         /// </summary>
-        bool IsKnownFastLoad(Package.Asset asset)
+        int IsKnownFastLoad(Package.Asset asset)
         {
             if (knownFastLoads.Contains(asset.fullName))
-                return true;
+                return 1;
 
             try
             {
-                return fullLoadTime < asset.package.Find(asset.package.packageMainAsset).Instantiate<SaveGameMetaData>().timeStamp;
+                if (fullLoadTime < asset.package.Find(asset.package.packageMainAsset).Instantiate<SaveGameMetaData>().timeStamp)
+                    return 1;
             }
             catch (Exception e)
             {
                 UnityEngine.Debug.LogException(e);
             }
 
-            return false;
+            return 0;
         }
 
         /// <summary>
@@ -540,13 +560,31 @@ namespace LoadingScreenModTest
         }
 
         /// <summary>
-        /// Checks if the game has all required assets currently in memory.
+        /// Checks if the game has all required custom assets currently in memory.
         /// </summary>
         bool AllAssetsAvailable()
         {
             try
             {
                 return UsedAssets.Create().AllAssetsAvailable(knownFailedAssets);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Checks if the game has all required building prefabs currently in memory.
+        /// </summary>
+        bool AllPrefabsAvailable()
+        {
+            try
+            {
+                PrefabLoader.Create().LookupSimulationPrefabs();
+                return PrefabLoader.instance.AllPrefabsAvailable();
             }
             catch (Exception e)
             {

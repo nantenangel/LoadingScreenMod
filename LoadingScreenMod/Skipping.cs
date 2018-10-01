@@ -29,11 +29,11 @@ namespace LoadingScreenModTest
             return false;
         }
 
-        public void AddPattern(string pattern)
+        public void AddPattern(string pattern, bool ic)
         {
             try
             {
-                patterns.Add(new Regex(pattern));
+                patterns.Add(ic ? new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant) : new Regex(pattern));
             }
             catch (Exception e)
             {
@@ -87,7 +87,7 @@ namespace LoadingScreenModTest
                 string prefix, patternOrName;
                 int i = line.IndexOf(':');
                 int j = line.IndexOf('@');
-                bool isComplex = i > 0 && (i < j || j < 0);
+                bool isComplex = i >= 0 && (i < j || j < 0);
 
                 if (isComplex)
                 {
@@ -116,6 +116,7 @@ namespace LoadingScreenModTest
                 ByPatterns[] array;
                 int index;
                 string pattern;
+                bool ic = false;
 
                 if (prefix == string.Empty)
                 {
@@ -133,7 +134,10 @@ namespace LoadingScreenModTest
                 }
 
                 if (patternOrName.StartsWith("@"))
+                {
                     pattern = patternOrName.Substring(1);
+                    ic = true;
+                }
                 else if (patternOrName.IndexOf('*') >= 0 || patternOrName.IndexOf('?') >= 0)
                     pattern = "^" + patternOrName.ToUpperInvariant().Replace('?', '.').Replace("*", ".*") + "$";
                 else
@@ -141,13 +145,13 @@ namespace LoadingScreenModTest
 
                 if (pattern != null)
                     if (array == null)
-                        matcher.byPatterns.AddPattern(pattern);
+                        matcher.byPatterns.AddPattern(pattern, ic);
                     else
                     {
                         if (array[index] == null)
                             array[index] = new ByPatterns();
 
-                        array[index].AddPattern(pattern);
+                        array[index].AddPattern(pattern, ic);
                     }
                 else
                 {

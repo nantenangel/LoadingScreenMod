@@ -83,7 +83,7 @@ namespace LoadingScreenModTest
             }
         }
 
-        internal void LoadSkipFile()
+        internal DateTime LoadSkipFile()
         {
             try
             {
@@ -96,7 +96,7 @@ namespace LoadingScreenModTest
                     SkipMatcher = matchers[0];
                     ExceptMatcher = matchers[1];
                     skipFileTimestamp = stamp;
-                    Util.DebugPrint("LoadSkipFile", skipFile, "in", Profiling.Millis - millis);
+                    Util.DebugPrint("LoadSkipFile", skipFile, "in", Profiling.Millis - millis, "stamp", stamp);
                 }
             }
             catch (Exception e)
@@ -106,6 +106,8 @@ namespace LoadingScreenModTest
                 SkipMatcher = ExceptMatcher = null;
                 skipFileTimestamp = DateTime.MinValue;
             }
+
+            return SkipPrefabs ? skipFileTimestamp : DateTime.MinValue;
         }
 
         internal void OnSettingsUI(UIHelperBase helper)

@@ -188,9 +188,9 @@ namespace LoadingScreenModTest
         }
 
         /// <summary>
-        /// Look up the building prefabs used in the simulation.
+        /// Looks up the building prefabs used in the simulation.
         /// </summary>
-        void LookupSimulationPrefabs()
+        internal void LookupSimulationPrefabs()
         {
             if (simulationPrefabs == null)
             {
@@ -222,6 +222,8 @@ namespace LoadingScreenModTest
                     Console.WriteLine(name);
             }
         }
+
+        internal bool AllPrefabsAvailable() => UsedAssets.AllAvailable<BuildingInfo>(simulationPrefabs, new HashSet<string>());
 
         bool IsSimulationPrefab(string name, string replace)
         {
