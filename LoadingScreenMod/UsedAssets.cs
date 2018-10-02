@@ -99,22 +99,12 @@ namespace LoadingScreenModTest
 
         internal bool AllAssetsAvailable(HashSet<string> ignore)
         {
-            return AllAvailable<BuildingInfo>(buildingAssets, ignore) &&
-                   AllAvailable<PropInfo>(propAssets, ignore) && AllAvailable<TreeInfo>(treeAssets, ignore) &&
-                   AllAvailable<VehicleInfo>(vehicleAssets, ignore) && AllAvailable<CitizenInfo>(citizenAssets, ignore) &&
-                   AllAvailable<NetInfo>(netAssets, ignore);
-        }
-
-        internal static bool AllAvailable<P>(HashSet<string> fullNames, HashSet<string> ignore) where P : PrefabInfo
-        {
-            foreach (string name in fullNames)
-                if (!ignore.Contains(name) && CustomDeserializer.FindLoaded<P>(name) == null)
-                {
-                    Util.DebugPrint("Not available:", name);
-                    return false;
-                }
-
-            return true;
+            return CustomDeserializer.AllAvailable<BuildingInfo>(buildingAssets, ignore) &&
+                   CustomDeserializer.AllAvailable<PropInfo>(propAssets, ignore) &&
+                   CustomDeserializer.AllAvailable<TreeInfo>(treeAssets, ignore) &&
+                   CustomDeserializer.AllAvailable<VehicleInfo>(vehicleAssets, ignore) &&
+                   CustomDeserializer.AllAvailable<CitizenInfo>(citizenAssets, ignore) &&
+                   CustomDeserializer.AllAvailable<NetInfo>(netAssets, ignore);
         }
 
         /// <summary>

@@ -19,7 +19,7 @@ namespace LoadingScreenModTest
     {
         public string cityName;
         readonly HashSet<string> knownFailedAssets = new HashSet<string>(); // assets that failed or are missing
-        readonly HashSet<string> knownFastLoads = new HashSet<string>(); // savegames that can be fastloaded
+        readonly Dictionary<string, bool> knownFastLoads = new Dictionary<string, bool>(2); // savegames that can be fastloaded
         internal readonly FieldInfo queueField = typeof(LoadingManager).GetField("m_mainThreadQueue", BindingFlags.NonPublic | BindingFlags.Instance);
         internal object loadingLock;
         DateTime fullLoadTime, savedSkipStamp;
@@ -155,10 +155,9 @@ namespace LoadingScreenModTest
                 if (fastLoad)
                 {
                     i = Profiling.Millis;
-                    int known = -1;
 
                     // Check custom asset availability.
-                    if (Settings.settings.loadUsed && (known = IsKnownFastLoad(asset)) == 0)
+                    if (Settings.settings.loadUsed && !IsKnownFastLoad(asset))
                     {
                         while (Profiling.Millis - i < 5000 && !IsSaveDeserialized())
                             yield return null;
@@ -171,11 +170,10 @@ namespace LoadingScreenModTest
                     {
                         if (skipStamp != savedSkipStamp)
                             fastLoad = false;
-                        else if (Settings.settings.SkipPrefabs && (known == 0 || known == -1 && IsKnownFastLoad(asset) == 0))
+                        else if (Settings.settings.SkipPrefabs && !IsKnownFastLoad(asset))
                         {
-                            if (known != 0)
-                                while (Profiling.Millis - i < 5000 && !IsSaveDeserialized())
-                                    yield return null;
+                            while (Profiling.Millis - i < 5000 && !IsSaveDeserialized())
+                                yield return null;
 
                             fastLoad = AllPrefabsAvailable();
                         }
@@ -372,7 +370,7 @@ namespace LoadingScreenModTest
 
             PrefabLoader.instance?.Dispose();
             LoadingManager.instance.QueueLoadingAction(LoadingComplete());
-            knownFastLoads.Add(asset.fullName);
+            knownFastLoads[asset.checksum] = true;
             Util.DebugPrint("Waiting at", Profiling.Millis);
             AssetLoader.instance.PrintMem();
         }
@@ -492,22 +490,23 @@ namespace LoadingScreenModTest
         /// <summary>
         /// The savegame is a fast load if it is pre-known or its time stamp is newer than the full load time stamp.
         /// </summary>
-        int IsKnownFastLoad(Package.Asset asset)
+        bool IsKnownFastLoad(Package.Asset asset)
         {
-            if (knownFastLoads.Contains(asset.fullName))
-                return 1;
+            if (knownFastLoads.TryGetValue(asset.checksum, out bool v))
+                return v;
 
             try
             {
-                if (fullLoadTime < asset.package.Find(asset.package.packageMainAsset).Instantiate<SaveGameMetaData>().timeStamp)
-                    return 1;
+                v = fullLoadTime < asset.package.Find(asset.package.packageMainAsset).Instantiate<SaveGameMetaData>().timeStamp;
+                knownFastLoads[asset.checksum] = v;
+                return v;
             }
             catch (Exception e)
             {
                 UnityEngine.Debug.LogException(e);
             }
 
-            return 0;
+            return false;
         }
 
         /// <summary>
@@ -594,7 +593,7 @@ namespace LoadingScreenModTest
             return true;
         }
 
-        public static void DestroyLoadedPrefabs()
+        static void DestroyLoadedPrefabs()
         {
             DestroyLoaded<NetInfo>();
             DestroyLoaded<BuildingInfo>();
@@ -612,7 +611,7 @@ namespace LoadingScreenModTest
         /// <summary>
         /// Destroys scene prefabs. Unlike DestroyAll(), simulation prefabs are not affected.
         /// </summary>
-        public static void DestroyLoaded<P>() where P : PrefabInfo
+        static void DestroyLoaded<P>() where P : PrefabInfo
         {
             try
             {

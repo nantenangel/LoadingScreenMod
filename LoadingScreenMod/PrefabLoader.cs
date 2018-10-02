@@ -181,7 +181,7 @@ namespace LoadingScreenModTest
                 }
 
                 Util.DebugPrint(name + " -> skipped");
-                return false;
+                return true;
             }
 
             return false;
@@ -223,7 +223,7 @@ namespace LoadingScreenModTest
             }
         }
 
-        internal bool AllPrefabsAvailable() => UsedAssets.AllAvailable<BuildingInfo>(simulationPrefabs, new HashSet<string>());
+        internal bool AllPrefabsAvailable() => CustomDeserializer.AllAvailable<BuildingInfo>(simulationPrefabs, new HashSet<string>());
 
         bool IsSimulationPrefab(string name, string replace)
         {

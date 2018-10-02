@@ -519,6 +519,18 @@ namespace LoadingScreenModTest
             enabled.Clear(); notEnabled.Clear();
             return ret;
         }
+
+        internal static bool AllAvailable<P>(HashSet<string> fullNames, HashSet<string> ignore) where P : PrefabInfo
+        {
+            foreach (string name in fullNames)
+                if (!ignore.Contains(name) && FindLoaded<P>(name) == null)
+                {
+                    Util.DebugPrint("Not available:", name);
+                    return false;
+                }
+
+            return true;
+        }
     }
 
     static class Fetch<T> where T : PrefabInfo
