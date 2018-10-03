@@ -69,10 +69,9 @@ namespace LoadingScreenModTest
 
                 if (action != null)
                 {
-                    Queue<IEnumerator> mainThreadQueue = (Queue<IEnumerator>) LevelLoader.instance.queueField.GetValue(lm);
-                    mainThreadQueue.Enqueue(action);
+                    LevelLoader.instance.mainThreadQueue.Enqueue(action);
 
-                    if (mainThreadQueue.Count < 2)
+                    if (LevelLoader.instance.mainThreadQueue.Count < 2)
                         instance.hasQueuedActionsField.SetValue(lm, true);
                 }
             }
@@ -251,11 +250,12 @@ namespace LoadingScreenModTest
 
         internal static IEnumerator DestroySkipped()
         {
-            if (instance?.skippedPrefabs == null || instance.skippedPrefabs.Count == 0)
+            HashSet<string> skippedPrefabs = instance?.skippedPrefabs;
+
+            if (skippedPrefabs == null || skippedPrefabs.Count == 0)
                 yield break;
 
             BuildingInfo[] all = Resources.FindObjectsOfTypeAll<BuildingInfo>();
-            HashSet<string> skippedPrefabs = instance.skippedPrefabs;
 
             for (int i = 0; i < all.Length; i++)
             {
@@ -264,6 +264,7 @@ namespace LoadingScreenModTest
 
                 if (skipped)
                 {
+                    Util.DebugPrint(info.gameObject.name + " -> destroyed at", Profiling.Millis);
                     DestroyBuilding(info);
                     yield return null;
                 }
@@ -272,7 +273,7 @@ namespace LoadingScreenModTest
             try
             {
                 Resources.UnloadUnusedAssets();
-                Util.DebugPrint("Skipped some at", Profiling.Millis);
+                Util.DebugPrint("UnloadUnusedAssets at", Profiling.Millis);
             }
             catch (Exception e)
             {
@@ -284,6 +285,34 @@ namespace LoadingScreenModTest
         {
             info.DestroyPrefabInstance();
             info.DestroyPrefab();
+        }
+
+        internal static void RemoveSkipped(DistrictStyle style)
+        {
+            HashSet<string> skippedPrefabs = instance?.skippedPrefabs;
+
+            if (skippedPrefabs == null || skippedPrefabs.Count == 0)
+                return;
+
+            try
+            {
+                BuildingInfo[] inStyle = style.GetBuildingInfos();
+                ((HashSet<BuildingInfo>) Util.Get(style, "m_Infos")).Clear();
+                ((HashSet<int>) Util.Get(style, "m_AffectedServices")).Clear();
+
+                foreach (BuildingInfo info in inStyle)
+                    if (info != null)
+                    {
+                        GameObject go = info.gameObject;
+
+                        if (go != null && !skippedPrefabs.Contains(go.name))
+                            style.Add(info);
+                    }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
         }
 
         void Desc(IEnumerator action)

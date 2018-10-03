@@ -30,10 +30,11 @@ namespace LoadingScreenModTest
         Dictionary<string, CustomAssetMetaData> citizenMetaDatas = new Dictionary<string, CustomAssetMetaData>();
         Dictionary<string, PluginInfo> plugins;
 
-        internal Stack<Package.Asset> stack = new Stack<Package.Asset>(4); // the asset loading stack
+        internal readonly Stack<Package.Asset> stack = new Stack<Package.Asset>(4); // the asset loading stack
         int beginMillis, lastMillis, assetCount;
-        readonly bool reportAssets = Settings.settings.reportAssets;
-        public bool hasStarted, hasFinished, isWin = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
+        public bool hasStarted, hasFinished;
+        readonly bool reportAssets = Settings.settings.reportAssets,
+            isWin = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
 
         internal const int yieldInterval = 350;
         float progress;
@@ -41,7 +42,6 @@ namespace LoadingScreenModTest
         internal HashSet<string> Trees => loadedTrees;
         internal HashSet<string> Buildings => loadedBuildings;
         internal HashSet<string> Vehicles => loadedVehicles;
-        internal HashSet<string> Citizens => loadedCitizens;
         internal HashSet<string> Nets => loadedNets;
         internal bool IsIntersection(string fullName) => loadedIntersections.Contains(fullName);
         internal bool HasFailed(string fullName) => failedAssets.Contains(fullName);
@@ -114,6 +114,10 @@ namespace LoadingScreenModTest
                 districtStyle = new DistrictStyle(DistrictStyle.kEuropeanStyleName, true);
                 Util.InvokeVoid(LoadingManager.instance, "AddChildrenToBuiltinStyle", GameObject.Find("European Style new"), districtStyle, false);
                 Util.InvokeVoid(LoadingManager.instance, "AddChildrenToBuiltinStyle", GameObject.Find("European Style others"), districtStyle, true);
+
+                if (Settings.settings.SkipPrefabs)
+                    PrefabLoader.RemoveSkipped(districtStyle);
+
                 districtStyles.Add(districtStyle);
             }
 
@@ -125,6 +129,10 @@ namespace LoadingScreenModTest
                 {
                     districtStyle = new DistrictStyle(DistrictStyle.kEuropeanSuburbiaStyleName, true);
                     Util.InvokeVoid(LoadingManager.instance, "AddChildrenToBuiltinStyle", GameObject.Find("Modder Pack 3"), districtStyle, false);
+
+                    if (Settings.settings.SkipPrefabs)
+                        PrefabLoader.RemoveSkipped(districtStyle);
+
                     districtStyles.Add(districtStyle);
                 }
             }

@@ -20,8 +20,8 @@ namespace LoadingScreenModTest
         public string cityName;
         readonly HashSet<string> knownFailedAssets = new HashSet<string>(); // assets that failed or are missing
         readonly Dictionary<string, bool> knownFastLoads = new Dictionary<string, bool>(2); // savegames that can be fastloaded
-        internal readonly FieldInfo queueField = typeof(LoadingManager).GetField("m_mainThreadQueue", BindingFlags.NonPublic | BindingFlags.Instance);
         internal object loadingLock;
+        internal Queue<IEnumerator> mainThreadQueue;
         DateTime fullLoadTime, savedSkipStamp;
         bool simulationFailed, fastLoad;
 
@@ -212,6 +212,8 @@ namespace LoadingScreenModTest
                 fullLoadTime = DateTime.Now;
                 savedSkipStamp = skipStamp;
                 loadingLock = Util.Get(LoadingManager.instance, "m_loadingLock");
+                mainThreadQueue = (Queue<IEnumerator>) Util.Get(LoadingManager.instance, "m_mainThreadQueue");
+
 
                 if (!string.IsNullOrEmpty(playerScene))
                 {
@@ -268,7 +270,10 @@ namespace LoadingScreenModTest
 
                 PrefabLoader.instance?.Revert();
                 Util.DebugPrint("PrefabLoader Revert at", Profiling.Millis);
-                Queue<IEnumerator> mainThreadQueue = (Queue<IEnumerator>) queueField.GetValue(LoadingManager.instance);
+
+                if (Settings.settings.SkipPrefabs)
+                    LoadingManager.instance.QueueLoadingAction(PrefabLoader.DestroySkipped());
+
                 Util.DebugPrint("mainThreadQueue len", mainThreadQueue.Count, "at", Profiling.Millis);
 
                 // Some major mods (Network Extensions 1 & 2, Single Train Track, Metro Overhaul) have a race condition issue
@@ -283,7 +288,6 @@ namespace LoadingScreenModTest
 
                     lock(loadingLock)
                     {
-                        mainThreadQueue = (Queue<IEnumerator>) queueField.GetValue(LoadingManager.instance);
                         i = mainThreadQueue.Count;
                     }
                 }
@@ -493,7 +497,10 @@ namespace LoadingScreenModTest
         bool IsKnownFastLoad(Package.Asset asset)
         {
             if (knownFastLoads.TryGetValue(asset.checksum, out bool v))
+            {
+                Util.DebugPrint(asset.fullName + " -> knownFastLoads", v);
                 return v;
+            }
 
             try
             {
