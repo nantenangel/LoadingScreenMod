@@ -74,7 +74,7 @@ namespace LoadingScreenModTest
             Matcher skip = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
             Matcher except = new Matcher(servicePrefixes.Count, subServicePrefixes.Count);
             string[] lines = File.ReadAllLines(filePath);
-            Regex syntax = new Regex(@"^(?:([Ee]xcept|[Ss]kip)\s*:)?(?:([a-zA-Z \t]+):)?\s*([^@:\t]+|@.+)$");
+            Regex syntax = new Regex(@"^(?:([Ee]xcept|[Ss]kip)\s*:)?(?:([a-zA-Z \t]+):)?\s*([^@:#\t]+|@.+)$");
 
             foreach (string raw in lines)
             {
@@ -145,7 +145,18 @@ namespace LoadingScreenModTest
 
                 if (pattern != null)
                     if (array == null)
+                    {
                         matcher.byPatterns.AddPattern(pattern, ic);
+                        string r1 = patternOrName.Replace("*", "");
+                        string r2 = r1.Replace("?", "");
+
+                        // Zero monuments breaks the game.
+                        if (patternOrName.Length != r1.Length && r2.Length == 0)
+                        {
+                            except.byNames.AddName("STATUE OF SHOPPING");
+                            Util.DebugPrint("Excepted SoS");
+                        }
+                    }
                     else
                     {
                         if (array[index] == null)

@@ -17,15 +17,15 @@ namespace LoadingScreenModTest
         HashSet<string> simulationPrefabs;
         bool saveDeserialized;
         const string ROUTINE = "<InitializePrefabs>c__Iterator0";
-        StreamWriter w;
+        //StreamWriter w;
 
         private PrefabLoader()
         {
-            w = new StreamWriter(Util.GetFileName("LoadingQueue", "txt"));
             Type coroutine = typeof(BuildingCollection).GetNestedType(ROUTINE, BindingFlags.NonPublic);
             nameField = coroutine?.GetField("name", BindingFlags.NonPublic | BindingFlags.Instance);
             prefabsField = coroutine?.GetField("prefabs", BindingFlags.NonPublic | BindingFlags.Instance);
             replacesField = coroutine?.GetField("replaces", BindingFlags.NonPublic | BindingFlags.Instance);
+            //w = new StreamWriter(Util.GetFileName("LoadingQueue", "txt"));
 
             if (nameField != null && prefabsField != null && replacesField != null)
                 init(typeof(LoadingManager), "QueueLoadingAction");
@@ -33,12 +33,10 @@ namespace LoadingScreenModTest
 
         internal override void Dispose()
         {
-            w.Dispose();
-            w = null;
-            Util.DebugPrint("Skipped", skippedPrefabs.Count, "prefabs");
             base.Dispose();
             skippedPrefabs.Clear(); skippedPrefabs = null;
             skipMatcher = exceptMatcher = null;
+            //w.Dispose(); w = null;
         }
 
         public static void QueueLoadingAction(LoadingManager lm, IEnumerator action)
@@ -62,10 +60,8 @@ namespace LoadingScreenModTest
             try
             {
                 if (isBuildingCollection)
-                {
-                    instance.Desc(action);
+                    //instance.Desc(action);
                     action = instance.Skip(action);
-                }
 
                 if (action != null)
                 {
@@ -78,7 +74,9 @@ namespace LoadingScreenModTest
             finally
             {
                 Monitor.Exit(LevelLoader.instance.loadingLock);
-                Util.DebugPrint("xxx", action.GetType().FullName, "at", Profiling.Millis);
+
+                if (action != null)
+                    Util.DebugPrint("xxx", action.GetType().FullName, "at", Profiling.Millis);
             }
         }
 
@@ -158,24 +156,19 @@ namespace LoadingScreenModTest
 
         bool Skip(BuildingInfo info, string replace)
         {
-            if (!string.IsNullOrEmpty(replace))
-                Util.DebugPrint(info.gameObject.name, "  replaces", replace);
-            else
-                Util.DebugPrint(info.gameObject.name);
-
             if (skipMatcher.Matches(info))
             {
                 string name = info.gameObject.name;
 
                 if (IsSimulationPrefab(name, replace))
                 {
-                    Util.DebugPrint(name + " -> not skipped (used in city)");
+                    Util.DebugPrint(name + " -> not skipped because used in city");
                     return false;
                 }
 
                 if (exceptMatcher.Matches(info))
                 {
-                    Util.DebugPrint(name + " -> not skipped (excepted)");
+                    Util.DebugPrint(name + " -> not skipped because excepted");
                     return false;
                 }
 
@@ -272,6 +265,7 @@ namespace LoadingScreenModTest
 
             try
             {
+                Util.DebugPrint("Skipped", skippedPrefabs.Count, "prefabs");
                 Resources.UnloadUnusedAssets();
                 Util.DebugPrint("UnloadUnusedAssets at", Profiling.Millis);
             }
@@ -283,8 +277,15 @@ namespace LoadingScreenModTest
 
         static void DestroyBuilding(BuildingInfo info)
         {
-            info.DestroyPrefabInstance();
-            info.DestroyPrefab();
+            try
+            {
+                info.DestroyPrefabInstance();
+                info.DestroyPrefab();
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
         }
 
         internal static void RemoveSkipped(DistrictStyle style)
@@ -315,6 +316,7 @@ namespace LoadingScreenModTest
             }
         }
 
+    /*
         void Desc(IEnumerator action)
         {
             string s = "\n";
@@ -342,6 +344,6 @@ namespace LoadingScreenModTest
 
                         w.WriteLine(s);
                     }
-        }
+        } */
     }
 }

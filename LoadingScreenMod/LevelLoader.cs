@@ -58,7 +58,7 @@ namespace LoadingScreenModTest
                 if (activated)
                 {
                     Settings s = Settings.settings;
-                    Util.DebugPrint("Options: 929", s.loadEnabled, s.loadUsed, s.shareTextures, s.shareMaterials, s.shareMeshes, s.reportAssets, s.skipPrefabs);
+                    Util.DebugPrint("Options: 410", s.loadEnabled, s.loadUsed, s.shareTextures, s.shareMaterials, s.shareMeshes, s.reportAssets, s.skipPrefabs);
 
                     LoadingManager.instance.SetSceneProgress(0f);
                     instance.cityName = asset?.name ?? "NewGame";
@@ -371,7 +371,6 @@ namespace LoadingScreenModTest
                 mode = ngs.m_updateMode;
 
             LoadingManager.instance.QueueLoadingAction((IEnumerator) Util.Invoke(LoadingManager.instance, "LoadLevelComplete", mode)); // OnLevelLoaded
-
             PrefabLoader.instance?.Dispose();
             LoadingManager.instance.QueueLoadingAction(LoadingComplete());
             knownFastLoads[asset.checksum] = true;
