@@ -58,7 +58,7 @@ namespace LoadingScreenModTest
                 if (activated)
                 {
                     Settings s = Settings.settings;
-                    Util.DebugPrint("Options: 410", s.loadEnabled, s.loadUsed, s.shareTextures, s.shareMaterials, s.shareMeshes, s.reportAssets, s.skipPrefabs);
+                    Util.DebugPrint("Options: 710", s.loadEnabled, s.loadUsed, s.shareTextures, s.shareMaterials, s.shareMeshes, s.reportAssets, s.skipPrefabs);
 
                     LoadingManager.instance.SetSceneProgress(0f);
                     instance.cityName = asset?.name ?? "NewGame";
@@ -190,7 +190,7 @@ namespace LoadingScreenModTest
                         DestroyLoadedPrefabs();
                         LoadingManager.instance.m_loadedEnvironment = null;
                         LoadingManager.instance.m_loadedMapTheme = null;
-                        Util.DebugPrint("not fast load at", Profiling.Millis);
+                        Util.DebugPrint("fallback to full load at", Profiling.Millis);
                     }
                 }
                 else // full load

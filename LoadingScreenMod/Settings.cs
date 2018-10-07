@@ -87,16 +87,22 @@ namespace LoadingScreenModTest
         {
             try
             {
-                DateTime stamp;
-
-                if (skipPrefabs && File.Exists(skipFile) && skipFileTimestamp != (stamp = File.GetLastWriteTimeUtc(skipFile)))
+                if (skipPrefabs)
                 {
-                    int millis = Profiling.Millis;
-                    Matcher[] matchers = Matcher.Load(skipFile);
-                    SkipMatcher = matchers[0];
-                    ExceptMatcher = matchers[1];
-                    skipFileTimestamp = stamp;
-                    Util.DebugPrint("LoadSkipFile", skipFile, "in", Profiling.Millis - millis, "stamp", stamp);
+                    DateTime stamp;
+                    bool fileExists = File.Exists(skipFile);
+
+                    if (fileExists && skipFileTimestamp != (stamp = File.GetLastWriteTimeUtc(skipFile)))
+                    {
+                        int millis = Profiling.Millis;
+                        Matcher[] matchers = Matcher.Load(skipFile);
+                        SkipMatcher = matchers[0];
+                        ExceptMatcher = matchers[1];
+                        skipFileTimestamp = stamp;
+                        Util.DebugPrint("LoadSkipFile", skipFile, "in", Profiling.Millis - millis, "stamp", stamp);
+                    }
+                    else if (!fileExists)
+                        Util.DebugPrint("File", skipFile, "does not exist");
                 }
             }
             catch (Exception e)

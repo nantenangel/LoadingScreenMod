@@ -72,18 +72,20 @@ namespace LoadingScreenModTest
         {
             string modDir = Settings.settings.reportDir?.Trim();
 
-            if (!string.IsNullOrEmpty(modDir))
-                try
-                {
-                    if (!Directory.Exists(modDir))
-                        Directory.CreateDirectory(modDir);
+            if (string.IsNullOrEmpty(modDir))
+                modDir = Settings.DefaultSavePath;
 
-                    return modDir;
-                }
-                catch (Exception)
-                {
-                    DebugPrint("Cannot create directory:", modDir);
-                }
+            try
+            {
+                if (!Directory.Exists(modDir))
+                    Directory.CreateDirectory(modDir);
+
+                return modDir;
+            }
+            catch (Exception)
+            {
+                DebugPrint("Cannot create directory:", modDir);
+            }
 
             return Settings.DefaultSavePath;
         }

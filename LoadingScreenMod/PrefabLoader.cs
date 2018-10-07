@@ -128,8 +128,6 @@ namespace LoadingScreenModTest
                     prefabsField.SetValue(action, p);
                     BuildingCollection bc = GameObject.Find(name)?.GetComponent<BuildingCollection>();
 
-                    // In the presence of the European Buildings Unlocker mod, bc is usually null.
-                    // Obviously caused by the Destroy() invokes in that mod.
                     if (bc != null)
                         bc.m_prefabs = p;
 
@@ -255,13 +253,11 @@ namespace LoadingScreenModTest
                 BuildingInfo info = all[i];
                 bool skipped = skippedPrefabs.Contains(info.gameObject.name);
 
-                if (skipped)
-                {
-                    Util.DebugPrint(info.gameObject.name + " -> destroyed at", Profiling.Millis);
-                    DestroyBuilding(info);
+                if (skipped && DestroyBuilding(info))
                     yield return null;
-                }
             }
+
+            yield return null;
 
             try
             {
@@ -275,17 +271,24 @@ namespace LoadingScreenModTest
             }
         }
 
-        static void DestroyBuilding(BuildingInfo info)
+        static bool DestroyBuilding(BuildingInfo info)
         {
             try
             {
-                info.DestroyPrefabInstance();
-                info.DestroyPrefab();
+                if (info.m_prefabInitialized)
+                {
+                    Util.DebugPrint(info.gameObject.name + " -> destroyed at", Profiling.Millis);
+                    info.m_prefabInitialized = false;
+                    info.DestroyPrefab();
+                    return true;
+                }
             }
             catch (Exception e)
             {
                 UnityEngine.Debug.LogException(e);
             }
+
+            return false;
         }
 
         internal static void RemoveSkipped(DistrictStyle style)

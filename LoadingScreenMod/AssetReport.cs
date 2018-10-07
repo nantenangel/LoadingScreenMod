@@ -59,7 +59,9 @@ namespace LoadingScreenModTest
                 foreach (char c in forbidden)
                     name = name.Replace(c, 'x');
 
-                w = new StreamWriter(Util.GetFileName(name + "-AssetsReport", "htm"));
+                string filepath = Util.GetFileName(name + "-AssetsReport", "htm");
+                Util.DebugPrint("Saving report to", filepath);
+                w = new StreamWriter(filepath);
                 w.WriteLine(@"<!DOCTYPE html><html lang=""en""><head><meta charset=""UTF-8""><title>Assets Report</title><style>");
                 w.WriteLine(@"* {font-family: sans-serif;}");
                 w.WriteLine(@".my {display: -webkit-flex; display: flex;}");
