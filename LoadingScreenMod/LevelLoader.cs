@@ -145,12 +145,13 @@ namespace LoadingScreenModTest
                 fastLoad = SimulationManager.instance.m_metaData.m_environment == LoadingManager.instance.m_loadedEnvironment &&
                     mapThemeName == LoadingManager.instance.m_loadedMapTheme && !forceEnvironmentReload;
 
-                // The game is nicely optimized when loading from the pause menu. We must specifically address the following situation:
+                // The game is nicely optimized when loading from the pause menu. We must specifically address the following situations:
                 // - environment (biome) stays the same
                 // - map theme stays the same
                 // - forceEnvironmentReload is false
                 // - 'load used assets' is enabled
-                // - not all assets used in the save being loaded are currently in memory.
+                // - not all assets and prefabs used in the save being loaded are currently in memory
+                // - prefab skipping has changed.
 
                 if (fastLoad)
                 {

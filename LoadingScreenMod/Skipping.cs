@@ -150,11 +150,14 @@ namespace LoadingScreenModTest
                         string r1 = patternOrName.Replace("*", "");
                         string r2 = r1.Replace("?", "");
 
-                        // Zero monuments breaks the game.
+                        // Zero monuments breaks the game. Electricity is very special.
                         if (patternOrName.Length != r1.Length && r2.Length == 0)
                         {
                             except.byNames.AddName("STATUE OF SHOPPING");
-                            Util.DebugPrint("Excepted SoS");
+                            except.byNames.AddName("ELECTRICITY POLE");
+                            except.byNames.AddName("WIND TURBINE");
+                            except.byNames.AddName("DAM POWER HOUSE");
+                            except.byNames.AddName("DAM NODE BUILDING");
                         }
                     }
                     else
@@ -189,7 +192,7 @@ namespace LoadingScreenModTest
          * IndustrialGeneric:*
          * Except:H1 2x2 Sweatshop06
          * 
-         * IndustrialGeneric:*
+         * Skip:IndustrialGeneric:*
          * Except:IndustrialGeneric:*Sweatshop*
          * 
          * @.*Processing.*
