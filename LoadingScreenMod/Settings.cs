@@ -94,12 +94,10 @@ namespace LoadingScreenModTest
 
                     if (fileExists && skipFileTimestamp != (stamp = File.GetLastWriteTimeUtc(skipFile)))
                     {
-                        int millis = Profiling.Millis;
                         Matcher[] matchers = Matcher.Load(skipFile);
                         SkipMatcher = matchers[0];
                         ExceptMatcher = matchers[1];
                         skipFileTimestamp = stamp;
-                        Util.DebugPrint("LoadSkipFile", skipFile, "in", Profiling.Millis - millis, "stamp", stamp);
                     }
                     else if (!fileExists)
                         Util.DebugPrint("File", skipFile, "does not exist");

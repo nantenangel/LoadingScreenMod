@@ -58,7 +58,7 @@ namespace LoadingScreenModTest
                 if (activated)
                 {
                     Settings s = Settings.settings;
-                    Util.DebugPrint("Options: 710", s.loadEnabled, s.loadUsed, s.shareTextures, s.shareMaterials, s.shareMeshes, s.reportAssets, s.skipPrefabs);
+                    Util.DebugPrint("Options: 1010", s.loadEnabled, s.loadUsed, s.shareTextures, s.shareMaterials, s.shareMeshes, s.reportAssets, s.skipPrefabs);
 
                     LoadingManager.instance.SetSceneProgress(0f);
                     instance.cityName = asset?.name ?? "NewGame";
@@ -246,7 +246,7 @@ namespace LoadingScreenModTest
                 }
                 catch (Exception e)
                 {
-                    Util.DebugPrint("MetaDataLoaded: exception from some mod.");
+                    Util.DebugPrint("OnCreated: exception from some mod.");
                     UnityEngine.Debug.LogException(e);
                 }
 
@@ -270,7 +270,6 @@ namespace LoadingScreenModTest
                 }
 
                 PrefabLoader.instance?.Revert();
-                Util.DebugPrint("PrefabLoader Revert at", Profiling.Millis);
 
                 if (Settings.settings.SkipPrefabs)
                     LoadingManager.instance.QueueLoadingAction(PrefabLoader.DestroySkipped());
@@ -497,10 +496,7 @@ namespace LoadingScreenModTest
         bool IsKnownFastLoad(Package.Asset asset)
         {
             if (knownFastLoads.TryGetValue(asset.checksum, out bool v))
-            {
-                Util.DebugPrint(asset.fullName + " -> knownFastLoads", v);
                 return v;
-            }
 
             try
             {

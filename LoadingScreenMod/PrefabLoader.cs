@@ -74,9 +74,6 @@ namespace LoadingScreenModTest
             finally
             {
                 Monitor.Exit(LevelLoader.instance.loadingLock);
-
-                if (action != null)
-                    Util.DebugPrint("xxx", action.GetType().FullName, "at", Profiling.Millis);
             }
         }
 
@@ -90,8 +87,6 @@ namespace LoadingScreenModTest
 
                 if (replaces == null)
                     replaces = new string[0];
-
-                Util.DebugPrint("-->", name, "at", Profiling.Millis, "prefabs:", prefabs.Length, "rep:", Util.OnJoin("; ", replaces));
 
                 LookupSimulationPrefabs();
                 List<BuildingInfo> keptPrefabs = null; List<string> keptReplaces = null;
@@ -205,11 +200,6 @@ namespace LoadingScreenModTest
                 {
                     UnityEngine.Debug.LogException(e);
                 }
-
-                Console.WriteLine("LookupSimulationPrefabs:");
-
-                foreach (var name in simulationPrefabs)
-                    Console.WriteLine(name);
             }
         }
 
@@ -263,7 +253,6 @@ namespace LoadingScreenModTest
             {
                 Util.DebugPrint("Skipped", skippedPrefabs.Count, "prefabs");
                 Resources.UnloadUnusedAssets();
-                Util.DebugPrint("UnloadUnusedAssets at", Profiling.Millis);
             }
             catch (Exception e)
             {
